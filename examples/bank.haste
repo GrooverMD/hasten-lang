@@ -1,0 +1,69 @@
+alias Pow = Math.Pow
+alias Pad = Text.PadRight
+alias Banner = Text.Banner
+alias Line = Text.Line
+
+class Account
+  Owner = "Unknown" where it <> ""
+  Balance = 0.0 where it >= 0
+  Tier => if Balance >= 1000 then "Gold" else "Standard"
+  Summary => "{Pad(Owner, 9)} {Balance:2}  {Tier}"
+
+  fn Deposit(amount: float)
+    Balance = Balance + amount
+  end
+
+  fn Withdraw(amount: float)
+    Balance = Balance - amount          // the where clause blocks overdrafts
+  end
+end
+
+class Bank
+  Name = "Haste Bank"
+  Rate = 0.05 where it >= 0 and it <= 0.2
+  Accounts: [Account] = []
+
+  fn Open(owner: string, amount: float): Account
+    let a = Account(Owner: owner, Balance: amount)
+    Accounts.Add(a)
+    return a
+  end
+
+  fn Total(): float
+    var sum = 0.0
+    for a in Accounts
+      sum = sum + a.Balance
+    end
+    return sum
+  end
+end
+
+let bank = Bank()
+let mark = bank.Open("Mark", 1500)
+bank.Open("Ada", 250)
+bank.Open("Niklaus", 80)
+
+mark.Withdraw(300)
+
+try
+  bank.Accounts[2].Withdraw(500)
+catch e
+  print("Rejected: {e}")
+end
+
+try
+  bank.Open("", 10)
+catch e
+  print("Rejected: {e}")
+end
+
+print(Banner(bank.Name))
+for a in bank.Accounts
+  print(a.Summary)
+end
+print(Line(32))
+print("Total: {bank.Total():2}")
+
+for year in 1..3
+  print("Year {year} at {bank.Rate * 100}%: {bank.Total() * Pow(1 + bank.Rate, year):2}")
+end

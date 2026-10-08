@@ -1,0 +1,43 @@
+alias Bitmap = System.Bitmap
+alias Rgb = System.Rgb
+
+switch Width = 1200 where it >= 16 and it <= 20000      // image width in pixels
+switch Height = 800 where it >= 16 and it <= 20000      // image height in pixels
+switch Limit = 256 where it >= 16                       // iterations per pixel: more is slower and finer
+switch Out = "fractal.bmp"                              // file to save
+
+fn Iterations(cx, cy, limit)
+  x = 0.0
+  y = 0.0
+  n = 0
+  while n < limit and x * x + y * y < 4
+    t = x * x - y * y + cx
+    y = 2 * x * y + cy
+    x = t
+    n = n + 1
+  end
+  return n
+end
+
+fn Shade(n, limit)
+  if n = limit
+    return Rgb(0, 0, 0)
+  end
+  t = n / limit
+  return Rgb(9 * (1 - t) * t * t * t * 255, 15 * (1 - t) * (1 - t) * t * t * 255, 8.5 * (1 - t) * (1 - t) * (1 - t) * t * 255)
+end
+
+img = Bitmap(Width: Width, Height: Height)
+limit = Limit
+start = Time.Elapsed()
+
+for py in 0..img.Height - 1
+  for px in 0..img.Width - 1
+    cx = -2.4 + px * 3.6 / img.Width
+    cy = -1.2 + py * 2.4 / img.Height
+    img.SetPixel(px, py, Shade(Iterations(cx, cy, limit), limit))
+  end
+end
+
+img.Save(Out)
+print("Rendered {img.Width} x {img.Height} to {Out} in {Time.Elapsed() - start:2} seconds")

@@ -1,0 +1,209 @@
+// Five five-letter words that use 25 different letters between them.
+alias Code = Text.Code
+alias Sub = Text.Sub
+alias Find = Text.Find
+alias Clock = Time.Elapsed
+
+switch File = "words_alpha.txt"                        // word list, one word per line
+
+// One branch of the search. Each runs on its own thread and only changes itself.
+class Task
+  Used = 0                      // letters taken so far, as bits
+  Skipped = false               // has the one spare letter been left out yet?
+  Chosen = [0, 0, 0, 0, 0]      // letter sets of the words picked so far
+  First = [0, 0, 0, 0, 0]       // this branch's first solution
+  Found = 0
+end
+
+class Finder
+  Words: [string] = []          // every five-letter word with five different letters
+  Masks: [int] = []             // each word's letters as bits: a = 1, b = 2, c = 4 ...
+  Bits: [int] = []              // the bit of each letter, rarest letter first
+  Buckets: [[int]] = []         // letter sets grouped by their rarest letter
+  Tasks: [Task] = []
+  Table: [int] = []             // hash table of letter sets...
+  Hits: [int] = []              // ...and how many words share each one
+  Unique = 0                    // letter sets used by exactly one word: no anagrams
+
+  fn Load(path)
+    text = System.ReadText(path)
+    start = 0
+    while start < text.Length
+      stop = Find(text, 10, start)              // jump straight to the next line break
+      size = stop - start
+      if size > 0 and Code(text, stop - 1) = 13
+        size = size - 1
+      end
+      if size = 5
+        Keep(text, start)
+      end
+      start = stop + 1
+    end
+  end
+
+  fn Keep(text, start)
+    mask = 0
+    for i in start..start + 4
+      c = Code(text, i)
+      if c < 97 or c > 122 or (mask and (1 shl (c - 97))) <> 0
+        return                                  // not a letter, or a letter used twice
+      end
+      mask = mask or (1 shl (c - 97))
+    end
+    Words.Add(Sub(text, start, 5))
+    Masks.Add(mask)
+  end
+
+  fn Tally()
+    for i in 0..16383
+      Table.Add(0)
+      Hits.Add(0)
+    end
+    for m in Masks
+      i = Locate(m)
+      Table[i] = m
+      Hits[i] = Hits[i] + 1
+    end
+  end
+
+  fn Slot(m) = (m * 2654435761) shr 12 and 16383
+
+  fn Locate(m)                                  // m's slot, or the empty slot where it goes
+    i = Slot(m)
+    while Table[i] <> 0 and Table[i] <> m
+      i = (i + 1) and 16383
+    end
+    return i
+  end
+
+  fn Single(m) = Hits[Locate(m)] = 1            // a word with no anagram in the list
+
+  fn Group()
+    Tally()
+    freq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for m in Masks
+      if Single(m)
+        for b in 0..25
+          if (m and (1 shl b)) <> 0
+            freq[b] = freq[b] + 1
+          end
+        end
+      end
+    end
+    taken = 0
+    for r in 0..25
+      best = -1
+      for b in 0..25
+        if (taken and (1 shl b)) = 0 and (best < 0 or freq[b] < freq[best])
+          best = b
+        end
+      end
+      taken = taken or (1 shl best)
+      Bits.Add(1 shl best)
+      Buckets.Add([])
+    end
+    for m in Masks
+      if Single(m)
+        r = 0
+        while (m and Bits[r]) = 0
+          r = r + 1
+        end
+        Buckets[r].Add(m)
+        Unique = Unique + 1
+      end
+    end
+  end
+
+  fn Plan()                                     // first word of each branch
+    for m in Buckets[0]
+      Tasks.Add(Task(Used: m, Chosen: [m, 0, 0, 0, 0]))
+    end
+    for m in Buckets[1]                         // or the rarest letter is the one left out
+      Tasks.Add(Task(Used: m or Bits[0], Skipped: true, Chosen: [m, 0, 0, 0, 0]))
+    end
+  end
+
+  fn Search(t, used, depth, skipped, from)
+    if depth = 4                                // last word: only a few letter sets can fit
+      free = 67108863 xor used                  // the 5 or 6 letters still free
+      if skipped
+        Last(t, free)
+      else
+        rest = free
+        while rest <> 0                         // leave out each free letter in turn
+          bit = rest and -rest
+          Last(t, free xor bit)
+          rest = rest xor bit
+        end
+      end
+      return
+    end
+    r = from
+    while (used and Bits[r]) <> 0               // rarest letter still free
+      r = r + 1
+    end
+    for m in Buckets[r]
+      if (m and used) = 0
+        t.Chosen[depth] = m
+        Search(t, used or m, depth + 1, skipped, r + 1)
+      end
+    end
+    if not skipped                              // 26 letters, 25 used: one may be left out
+      Search(t, used or Bits[r], depth, true, r + 1)
+    end
+  end
+
+  fn Last(t, m)
+    if Single(m)
+      t.Chosen[4] = m
+      if t.Found = 0
+        for k in 0..4
+          t.First[k] = t.Chosen[k]
+        end
+      end
+      t.Found = t.Found + 1
+    end
+  end
+
+  fn WordFor(mask)
+    for i in 0..Masks.Count - 1
+      if Masks[i] = mask
+        return Words[i]
+      end
+    end
+    return "?"
+  end
+
+  fn Solutions()
+    sum = 0
+    for t in Tasks
+      sum = sum + t.Found
+    end
+    return sum
+  end
+
+  fn Answer()
+    for t in Tasks
+      if t.Found > 0
+        return "{WordFor(t.First[0])} {WordFor(t.First[1])} {WordFor(t.First[2])} {WordFor(t.First[3])} {WordFor(t.First[4])}"
+      end
+    end
+    return "none"
+  end
+end
+
+f = Finder()
+t0 = Clock()
+f.Load(File)
+f.Group()
+f.Plan()
+t1 = Clock()
+parallel for t in f.Tasks
+  f.Search(t, t.Used, 1, t.Skipped, 0)
+end
+t2 = Clock()
+
+print("Read {f.Words.Count} usable words, {f.Unique} without anagrams, in {t1 - t0:4} seconds")
+print("First five words: {f.Answer()}")
+print("All {f.Solutions()} solutions found in {t2 - t1:4} seconds on every core")
+print("Total: {t2 - t0:4} seconds")

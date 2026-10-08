@@ -14,6 +14,27 @@ default for everything in a class, works out types for you, and still runs at th
 > **Status: experimental prototype.** The language changes from day to day and the compiler is a proof of concept
 > written in Python. Expect breaking changes. Not for production use.
 
+## Hello World
+
+`examples/hello.haste`:
+
+```haste
+alias Write = System.Write
+
+Write("Hello World")
+```
+
+```
+> python ../haste.py run hello.haste
+Hello World
+```
+
+No `main`, no `program` header and no `uses` list: top-level code is the program, and `System` is found
+automatically. `alias` gives `System.Write` a short name. The smallest version is a single line,
+`print("Hello World")`.
+
+## A little more
+
 ```haste
 class Account
   Owner = "Unknown" where it <> ""

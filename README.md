@@ -27,6 +27,7 @@ or even smaller, a one line "Hello World".
 ```haste
 System.Write("Hello World")
 ```
+Build and run.
 ```python
 python ../haste.py run hello.haste
 Hello World

@@ -1,0 +1,6 @@
+// Net: URL helpers. Uses Text without importing it.
+
+extern fn StartsWith(s: string, prefix: string): bool = "hs_starts_with"
+
+fn Url(host: string, path: string): string = "https://{Text.Lower(host)}/{path}"
+fn IsSecure(url: string): bool = StartsWith(url, "https://")

@@ -27,6 +27,7 @@ or even smaller
 ```haste
 System.Write("Hello World")
 ```
+```python
 > python ../haste.py run hello.haste
 Hello World
 ```

@@ -23,7 +23,7 @@ alias Write = System.Write
 
 Write("Hello World")
 ```
-or even smaller
+or even smaller, a one line "Hello World".
 ```haste
 System.Write("Hello World")
 ```

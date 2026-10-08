@@ -23,7 +23,9 @@ alias Write = System.Write
 
 Write("Hello World")
 ```
-
+or even smaller
+```haste
+System.Write("Hello World")
 ```
 > python ../haste.py run hello.haste
 Hello World

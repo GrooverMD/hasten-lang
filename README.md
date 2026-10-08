@@ -28,7 +28,7 @@ or even smaller, a one line "Hello World".
 System.Write("Hello World")
 ```
 ```python
-> python ../haste.py run hello.haste
+python ../haste.py run hello.haste
 Hello World
 ```
 

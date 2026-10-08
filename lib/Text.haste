@@ -1,0 +1,11 @@
+// Text: string helpers.
+extern fn Upper(s: string): string = "hs_upper"
+extern fn Lower(s: string): string = "hs_lower"
+extern fn PadRight(s: string, width: int): string = "hs_pad_right"
+extern fn Repeat(s: string, count: int): string = "hs_repeat"
+extern fn Code(s: string, index: int): int = "hs_code"
+extern fn Sub(s: string, start: int, count: int): string = "hs_sub"
+extern fn Find(s: string, code: int, from: int): int = "hs_find"
+
+fn Banner(title: string): string = "== {Upper(title)} =="
+fn Line(width: int): string = Repeat("-", width)

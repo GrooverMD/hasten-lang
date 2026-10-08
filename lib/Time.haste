@@ -1,0 +1,2 @@
+// Time: wall-clock seconds from a fixed point. Subtract two readings to time something.
+extern fn Elapsed(): float = "hs_elapsed"

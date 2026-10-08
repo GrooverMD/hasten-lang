@@ -1,0 +1,13 @@
+// Math: extern functions map straight onto the C library.
+extern fn Sqrt(x: float): float = "sqrt"
+extern fn Pow(x: float, y: float): float = "pow"
+extern fn Floor(x: float): float = "floor"
+
+fn Max(a: float, b: float): float = if a > b then a else b
+fn Min(a: float, b: float): float = if a < b then a else b
+fn Clamp(v: float, lo: float, hi: float): float = Max(lo, Min(v, hi))
+
+fn Round(x: float, places: int): float
+  let f = Pow(10, places)
+  return Floor(x * f + 0.5) / f
+end

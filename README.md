@@ -23,13 +23,9 @@ alias Write = System.Write
 
 Write("Hello World")
 ```
-or even smaller, a one line "Hello World". Take out alias Write = System.Write and just write System.Write("Hello World").
-```haste
-System.Write("Hello World")
+
 ```
-Build and run.
-```python
-python ../haste.py run hello.haste
+> python ../haste.py run hello.haste
 Hello World
 ```
 
@@ -76,6 +72,45 @@ Rejected: Account.Balance cannot be -20 (requires it >= 0)
 - **Command-line switches in one line.** `switch Width = 1200 where it >= 16   // image width` gives you
   `--width`, validation and `--help` with no parsing code.
 
+## How Haste compares
+
+**One line of code, a tiny native executable, built for Windows, macOS and Linux from any one of them with one
+command.**
+
+This is the complete Hello World program. There are no includes, no `uses` list and no `main`:
+
+```haste
+print("Hello World")
+```
+
+```
+python haste.py build hello.haste --target windows,macos,linux
+```
+
+| Executable | Size |
+|---|---|
+| Linux (static, x86-64) | 5 KB |
+| macOS (Apple Silicon) | 48 KB |
+| Windows (x86-64) | 72 KB |
+
+The sizes are measured. The Linux executable has been run; the Windows and macOS executables have been built but
+not yet run on those systems.
+
+The comparison below is **untested**. It comes from the other languages' documentation and general knowledge, not
+from building anything with them:
+
+| Language | Whole program is one line | Native executable | Cross-compiles to all three, out of the box |
+|---|---|---|---|
+| **Haste** | ✅ | ✅ 5–72 KB | ✅ one command, nothing extra to install |
+| Python, Ruby, Lua | ✅ | ❌ needs the interpreter, or a bundle of several MB | ❌ |
+| Nim | ✅ | ✅ | ⚠️ needs a separate cross-compiler per target, and extra flags |
+| Crystal | ✅ | ✅ larger, includes a garbage collector | ❌ links on the target machine |
+| C, Go, Rust, Delphi | ❌ needs `main` or `program` | ✅ | varies: Go yes, others need extra tools |
+
+Credit where it's due: the cross-compiling comes from [Zig](https://ziglang.org/), which ships every system's C
+libraries in one package. Haste's part is building on it, and adding nothing to the executable that the program
+doesn't use.
+
 ## Getting started
 
 You need **Python 3.8 or newer**. Everything else is one package, which brings the cross-compiling C toolchain:
@@ -119,9 +154,9 @@ for i in 1..10
   total = total + i                       // ...and keep the type they started with
 end
 
-let squares: [int] = []                   // let = can't be reassigned; lists grow with Add
+squares = []                              // no type needed: the first Add decides
 for i in 1..5
-  squares.Add(i * i)
+  squares.Add(i * i)                      // so squares holds whole numbers
 end
 
 flags = 5 or (1 shl 3)                    // and, or, xor, not, shl, shr work on bits, as in Pascal
@@ -133,6 +168,7 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Feature | Syntax |
 |---|---|
 | Property with a default | `Name = "World"` |
+| Empty list, type from the first `Add` | `names = []` then `names.Add("Ada")` |
 | Property with a type | `Items: [Account] = []` |
 | Validated property | `Rate = 0.05 where it >= 0 and it <= 0.2` |
 | Computed, read-only property | `Summary => "{Name}: {Balance:2}"` |

@@ -170,6 +170,7 @@ begin
       OpenFile(ParamStr(I));
   if FPages.PageCount = 0 then
     DoNew(nil);
+  ActiveControl := ActiveTab.Editor;            // focused when the form appears; SetFocus can't be used yet
 end;
 
 destructor TMainForm.Destroy;
@@ -440,8 +441,8 @@ begin
   FPages.ActivePage := Tab;
   if Line > 0 then
     Tab.Editor.GotoLineAndCenter(Line);
-  if Tab.Editor.CanFocus then
-    Tab.Editor.SetFocus;
+  if Showing and Tab.Editor.CanFocus then      // not while the constructor reopens last session's files:
+    Tab.Editor.SetFocus;                        // the form isn't on screen yet and SetFocus would raise
   UpdateStatus;
 end;
 

@@ -3,6 +3,10 @@ extern fn FileOpen(path: string): int = "hs_file_open"
 extern fn FileByte(file: int, value: int) = "hs_file_byte"
 extern fn FileClose(file: int) = "hs_file_close"
 extern fn ReadText(path: string): string = "hs_read_file"
+extern fn ReadLines(path: string): [string] = "hs_read_lines"
+extern fn WriteText(path: string, text: string) = "hs_write_text"
+extern fn AppendText(path: string, text: string) = "hs_append_text"
+extern fn FileExists(path: string): bool = "hs_file_exists"
 
 fn Write(value) = print(Str(value))
 

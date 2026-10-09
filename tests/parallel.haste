@@ -1,0 +1,26 @@
+// Blocks made by worker threads in a parallel for must survive later collections.
+class Item
+  Value = 0
+  Label = ""
+end
+
+items = []
+for i in 1..20000
+  items.Add(Item(Value: i))
+end
+
+parallel for it in items
+  it.Label = "item {it.Value} " + Text.Repeat("y", it.Value mod 50)
+end
+
+for round in 1..50                         // plenty of garbage, so collections happen
+  junk = Text.Repeat("z", 200000)
+end
+
+bad = 0
+for it in items
+  if it.Label <> "item {it.Value} " + Text.Repeat("y", it.Value mod 50)
+    bad = bad + 1
+  end
+end
+print("{items.Count} items, {bad} damaged")

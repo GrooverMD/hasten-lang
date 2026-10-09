@@ -1,0 +1,49 @@
+// Write blocks, dictionaries, and reading and writing text files.
+alias Split = Text.Split
+alias Join = Text.Join
+alias Trim = Text.Trim
+
+switch Input = "scores.txt"                 // file of "name, score" lines
+switch Output = "report.txt"                // file to write the report to
+
+class Player
+  Name = "?" where Trim(it) <> ""
+    write
+      field = Trim(it)                      // stored without surrounding spaces
+    end
+  Best = 0
+  Games = 0
+  Last = 0 where it >= 0
+    write                                   // every new score updates Games and Best
+      field = it
+      Games = Games + 1
+      if it > Best
+        Best = it
+      end
+    end
+  Summary => "{Name}: {Games} games, best {Best}, last {Last}"
+end
+
+if not System.FileExists(Input)
+  System.WriteText(Input, "ada, 30\nmark, 45\nada, 52\n  mark , 38\nlin, 41\n")
+end
+
+let players: {string: Player} = {}
+for line in System.ReadLines(Input)
+  parts = Split(line, ",")
+  if parts.Count = 2
+    name = Trim(parts[0])
+    if not players.Has(name)
+      players[name] = Player(Name: name)
+    end
+    players[name].Last = Text.ToInt(Trim(parts[1]))
+  end
+end
+
+lines = []
+for name in players
+  lines.Add(players[name].Summary)
+end
+System.WriteText(Output, Join(lines, "\n") + "\n")
+print(Join(lines, "\n"))
+print("Wrote {lines.Count} players to {Output}")

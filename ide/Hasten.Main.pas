@@ -42,6 +42,7 @@ type
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
     FRunner: TRunner;
+    FFinished: TRunner;                         // the last run, freed once its thread is long gone
     FRunFolder: string;
     FJumped: Boolean;
     FUntitled: Integer;
@@ -136,7 +137,7 @@ end;
 
 function TEditorTab.GetTitle: string;
 begin
-  if FFileName <> '' then Result := ExtractFileName(FFileName) else Result := Caption.TrimRight(['*']);
+  if FFileName <> '' then Result := ExtractFileName(FFileName) else Result := string(Caption).TrimRight(['*']);   // TCaption has no string helper
 end;
 
 procedure TEditorTab.SetFileName(const Value: string);
@@ -180,6 +181,7 @@ begin
     TThread.RemoveQueuedEvents(FRunner);        // its last lines must not reach a destroyed form
     FreeAndNil(FRunner);
   end;
+  FFinished.Free;
   inherited;
 end;
 
@@ -545,17 +547,15 @@ begin
 end;
 
 procedure TMainForm.RunnerDone(ExitCode: Cardinal; Stopped: Boolean);
-var
-  Finished: TRunner;
 begin
   if Stopped then
     FOutput.Lines.Add('[stopped]')
   else
     FOutput.Lines.Add(Format('[finished, exit code %d]', [ExitCode]));
   FStatus.Panels[2].Text := '';
-  Finished := FRunner;
+  FFinished.Free;                               // the run before this one: its thread ended long ago
+  FFinished := FRunner;                         // this one is still inside its own callback, so not yet
   FRunner := nil;
-  TThread.ForceQueue(nil, procedure begin Finished.Free end);   // not from inside its own callback
 end;
 
 { Compiler errors look like  error: fractal.haste:12: message  and a second line may add

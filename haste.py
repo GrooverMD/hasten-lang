@@ -406,7 +406,7 @@ class Parser:
 def load(path, registry, search, name, is_main=False):
     """Parse a source file into a module. Its explicit imports load too."""
     try:
-        src = open(path, encoding='utf-8').read()
+        src = open(path, encoding='utf-8-sig').read()
     except OSError:
         raise HasteError(f'cannot read {path}')
     prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()

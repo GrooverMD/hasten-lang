@@ -245,6 +245,7 @@ runtime.h         the runtime included in every program
 lib/              standard library modules (System, Text, Math, Time, Net)
 examples/         example programs
 tests/            stress tests (memory, parallel for)
+ide/              Hasten, the Haste IDE (Delphi, SynEdit)
 assets/           logo and icons
 ```
 
@@ -261,7 +262,7 @@ assets/           logo and icons
 
 ## Roadmap
 
-- **Hasten**, the Haste IDE
+- **Hasten**, the Haste IDE: a first version is in [`ide/`](ide/) (editor, highlighting, Run, Build, jump to errors)
 - A GUI library
 - A faster compiler, written in Haste or Delphi
 

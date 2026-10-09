@@ -1,1 +1,1 @@
-A Msg file for SynEdit
+A Msg file for SynEdit generated using https://groovermd.github.io/SynEditMsgDesigner/

@@ -1,0 +1,52 @@
+// Memory stress test: builds a structure that must survive, then makes lots of garbage around it.
+switch Rounds = 200 where it > 0
+
+class Node
+  Name = "?"
+  Value = 0
+  Kids: [Node] = []
+end
+
+fn Build(n)
+  root = Node(Name: "root")
+  for i in 1..n
+    kid = Node(Name: "kid {i}", Value: i)
+    root.Kids.Add(kid)
+    kid.Kids.Add(root)                     // a cycle: kid -> root -> kid
+  end
+  return root
+end
+
+fn Sum(root)
+  total = 0
+  for k in root.Kids
+    total = total + k.Value + Text.Code(k.Name, 0)
+  end
+  return total
+end
+
+keep = Build(1000)
+names = {}
+expected = Sum(keep)
+
+for r in 1..Rounds
+  junk = Build(1000)                       // garbage, cycles included
+  words = Text.Split("the quick brown fox jumps over the lazy dog", " ")
+  counts = {}
+  for w in words
+    counts[w] = counts.Get(w, 0) + 1
+  end
+  names["round {r mod 10}"] = Text.Join(words, "-")
+  try
+    Text.ToInt("not {r}")
+  catch e
+    msg = "caught {e}"
+  end
+  big = Text.Repeat("x", 100000)           // 100 KB of text each round
+  if Sum(keep) <> expected
+    print("structure damaged in round {r}")
+  end
+end
+
+print("kept {keep.Kids.Count} kids, checksum {Sum(keep)} = {expected}")
+print("{names.Count} names, last {names["round 0"]}")

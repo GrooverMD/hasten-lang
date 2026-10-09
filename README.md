@@ -61,7 +61,7 @@ Rejected: Account.Balance cannot be -20 (requires it >= 0)
 
 - **Properties by default.** Every member of a class is a property. `where` adds validation that runs on every
   assignment, including in the constructor, and `=>` makes a computed, read-only property. One line replaces a
-  field, a getter, a setter and its checks.
+  field, a getter, a setter and its checks, and a `write` block adds custom logic when you need it.
 - **No type declarations, still native speed.** `fn Area(w, h) = w * h` has no types. The compiler generates one
   native version for each combination of argument types you actually use.
 - **No imports.** Write `Text.Upper(name)` or `System.Bitmap(...)` and the compiler finds the module. `alias` gives
@@ -69,6 +69,9 @@ Rejected: Account.Balance cannot be -20 (requires it >= 0)
 - **Cross-compile everything.** One command builds Windows, macOS and Linux executables from the same machine.
 - **Every core, safely.** `parallel for` spreads a loop across all cores, and the compiler rejects loops that would
   change shared variables.
+- **No memory to manage.** No `Free`, no `try ... finally` to release objects, no weak references. A garbage
+  collector frees what the program can no longer reach, cycles included, and a program that does no allocating
+  doesn't include it.
 - **Command-line switches in one line.** `switch Width = 1200 where it >= 16   // image width` gives you
   `--width`, validation and `--help` with no parsing code.
 
@@ -93,8 +96,8 @@ python haste.py build hello.haste --target windows,macos,linux
 | macOS (Apple Silicon) | 48 KB |
 | Windows (x86-64) | 72 KB |
 
-The sizes are measured. The Linux executable has been run; the Windows and macOS executables have been built but
-not yet run on those systems.
+The sizes are measured. The Linux and Windows executables have been run; the macOS executable has been built but
+not yet run on a Mac.
 
 The comparison below is **untested**. It comes from the other languages' documentation and general knowledge, not
 from building anything with them:
@@ -104,7 +107,7 @@ from building anything with them:
 | **Haste** | ✅ | ✅ 5–72 KB | ✅ one command, nothing extra to install |
 | Python, Ruby, Lua | ✅ | ❌ needs the interpreter, or a bundle of several MB | ❌ |
 | Nim | ✅ | ✅ | ⚠️ needs a separate cross-compiler per target, and extra flags |
-| Crystal | ✅ | ✅ larger, includes a garbage collector | ❌ links on the target machine |
+| Crystal | ✅ | ✅ larger | ❌ links on the target machine |
 | C, Go, Rust, Delphi | ❌ needs `main` or `program` | ✅ | varies: Go yes, others need extra tools |
 
 Credit where it's due: the cross-compiling comes from [Zig](https://ziglang.org/), which ships every system's C
@@ -117,8 +120,8 @@ You need **Python 3.8 or newer**. Everything else is one package, which brings t
 
 ```
 pip install ziglang
-git clone https://github.com/hasten-lang/haste.git
-cd haste/examples
+git clone https://github.com/GrooverMD/hasten-lang.git
+cd hasten-lang/examples
 python ../haste.py run hello.haste
 ```
 
@@ -138,7 +141,8 @@ Executables go into `build/` next to the source file.
 | [`hello.haste`](examples/hello.haste) | The smallest program, and `alias` |
 | [`bank.haste`](examples/bank.haste) | Classes, validated and computed properties, lists, `try`/`catch` |
 | [`fractal.haste`](examples/fractal.haste) | Type-free functions, `System.Bitmap`, command-line switches. Try `--width 1920 --height 1080`. |
-| [`fivewords.haste`](examples/fivewords.haste) | Five words with 25 different letters, found in about 0.02 seconds with bit masks and `parallel for`. Needs `words_alpha.txt` from [dwyl/english-words](https://github.com/dwyl/english-words). |
+| [`scores.haste`](examples/scores.haste) | `write` blocks, dictionaries, and reading and writing text files |
+| [`fivewords.haste`](examples/fivewords.haste) | Five words with 25 different letters, found in about 0.02 seconds with bit masks and `parallel for`. Needs the word list [`words_alpha.txt`](https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt) from [dwyl/english-words](https://github.com/dwyl/english-words), saved in `examples/`. |
 
 ## The language in brief
 
@@ -172,6 +176,12 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Property with a type | `Items: [Account] = []` |
 | Validated property | `Rate = 0.05 where it >= 0 and it <= 0.2` |
 | Computed, read-only property | `Summary => "{Name}: {Balance:2}"` |
+| Custom setter: `it` is the new value, `field` the stored one | `Name = "?"` then `write` / `field = Text.Trim(it)` / `end` on the lines below |
+| Writable computed property | `Fahrenheit => Celsius * 9 / 5 + 32` then `write` / `Celsius = (it - 32) * 5 / 9` / `end` |
+| Dictionary | `ages = {"Mark": 50}`, `ages["Ada"] = 36`, `ages.Has(k)`, `ages.Remove(k)`, `ages.Count` |
+| Empty dictionary, type from first use | `counts = {}` then `counts[w] = counts.Get(w, 0) + 1` |
+| Dictionary type | `Stock: {string: int} = {}` |
+| Loop over a dictionary's keys | `for name in ages` (in the order they were added) |
 | Function, one expression | `fn Square(x) = x * x` |
 | Function, block | `fn Name(args) ... end` |
 | Loops | `for x in list`, `for i in 1..n`, `while cond`, `parallel for x in list` |
@@ -182,33 +192,76 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 
 There is no `nil`: every property always has a value.
 
+```haste
+class Temperature
+  Celsius = 0.0
+  Fahrenheit => Celsius * 9 / 5 + 32
+    write
+      Celsius = (it - 32) * 5 / 9
+    end
+end
+
+t = Temperature()
+t.Fahrenheit = 212
+print("{t.Celsius} C")
+
+counts = {}
+for w in Text.Split("to be or not to be", " ")
+  counts[w] = counts.Get(w, 0) + 1
+end
+for w in counts
+  print("{w}: {counts[w]}")
+end
+```
+
+### Text and files
+
+| Function | Does |
+|---|---|
+| `Text.Split(s, sep)` / `Text.Join(list, sep)` | Text to a list and back |
+| `Text.Trim(s)`, `Text.Upper(s)`, `Text.Lower(s)` | Tidy text |
+| `Text.Contains(s, part)`, `Text.IndexOf(s, part, from)`, `Text.Replace(s, old, new)` | Search and replace (`IndexOf` gives the length when not found) |
+| `Text.ToInt(s)`, `Text.ToFloat(s)` | Text to numbers; bad text raises an error you can `catch` |
+| `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |
+| `System.WriteText(path, text)`, `System.AppendText(path, text)`, `System.FileExists(path)` | Write and check files |
+
 ## How it works
 
 `haste.py` parses Haste, infers types and generates C for only the code your program reaches. The C is then
 compiled by [Zig](https://ziglang.org/)'s `zig cc`, which is built on LLVM and can target Windows, macOS and Linux
 from any of them. The runtime (`runtime.h`) is a few hundred lines of plain C included in each program.
 
+Memory is managed by a mark-and-sweep garbage collector in the runtime. When 8 MB of new memory has been used (or
+as much as was still in use after the last collection, if that is more), it marks everything the program can
+still reach and frees the rest. The heap stays below about twice the memory actually in use. Small blocks come
+from 64 KB pages grouped by size, so allocating and freeing them is fast. Text and lists of numbers are never
+searched for pointers. The stack is scanned conservatively: any value that looks like a pointer into a block
+keeps that block. So the generated C needs no bookkeeping, and an unlucky number can at worst keep a block
+alive a little longer. No collection runs during a `parallel for`; garbage made inside one is freed after it.
+
 ```
 haste.py          the compiler
 runtime.h         the runtime included in every program
 lib/              standard library modules (System, Text, Math, Time, Net)
 examples/         example programs
+tests/            stress tests (memory, parallel for)
 assets/           logo and icons
 ```
 
 ## Limitations
 
-- Memory is never freed. Fine for tools that run and exit, not yet for long-running programs.
+- Memory the collector frees is reused by the program but not handed back to the system until it ends.
+- A C library called through `extern fn` must not keep Haste lists, dictionaries or text in its own memory after
+  the call returns: the collector cannot see them there.
 - An error inside `parallel for` ends the program; it cannot be caught outside the loop.
 - The compiler checks that `parallel for` doesn't change outer variables, but not that two iterations don't change
   the same object through a method call.
-- No generics, custom property setters, `return` inside `try`, or GUI yet.
-- Error messages give a line number but not always the file name.
+- No generics, `return` inside `try`, or GUI yet.
+- Class properties holding a list or dictionary need a type (`Items: [Account] = []`); local variables don't.
 
 ## Roadmap
 
 - **Hasten**, the Haste IDE
-- Automatic memory management (reference counting with weak references)
 - A GUI library
 - A faster compiler, written in Haste or Delphi
 
@@ -217,7 +270,7 @@ assets/           logo and icons
 This project has no connection with the Haste Haskell-to-JavaScript compiler (`haste-compiler`), which was
 abandoned in 2017. Its former website, `haste-lang.org`, is no longer run by that project and is flagged by browsers
 as a deceptive site. Do not visit it. This project's only official home is
-[github.com/hasten-lang](https://github.com/hasten-lang).
+[github.com/GrooverMD/hasten-lang](https://github.com/GrooverMD/hasten-lang).
 
 ## License
 

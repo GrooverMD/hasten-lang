@@ -18,9 +18,9 @@ class HasteError(Exception):
 
 KEYWORDS = {'need', 'class', 'end', 'fn', 'let', 'var', 'if', 'then', 'elif', 'else',
             'while', 'for', 'in', 'return', 'try', 'catch', 'and', 'or', 'not', 'true', 'false',
-            'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch'}
+            'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch', 'write'}
 OPS2 = ('<>', '<=', '>=', '..', '=>')
-OPS1 = '=<>+-*/()[],.:'
+OPS1 = '=<>+-*/()[]{},.:'
 NUM = re.compile(r'\d+(\.\d+)?')
 WORD = re.compile(r'\w+')
 
@@ -28,6 +28,38 @@ WORD = re.compile(r'\w+')
 class Tok:
     def __init__(s, kind, val, line, file):
         s.kind, s.val, s.line, s.file = kind, val, line, file
+
+
+def string_end(src, i, file, line):
+    """Index of the quote closing the string that opens at src[i]. Quotes inside {...} belong to the
+    interpolated expression, so "{Join(parts, "|")}" is one string."""
+    j, depth, n = i + 1, 0, len(src)
+    while j < n:
+        c = src[j]
+        if c == '\n': break
+        if c == '\\': j += 2; continue
+        if c == '{': depth += 1
+        elif c == '}' and depth: depth -= 1
+        elif c == '"':
+            if not depth: return j
+            j = string_end(src, j, file, line)       # a string inside the expression
+        j += 1
+    raise HasteError(f'{file}:{line}: unterminated string')
+
+
+def brace_end(raw, i):
+    """Index of the } closing the { at raw[i], skipping strings inside it, or -1."""
+    j, depth = i, 0
+    while j < len(raw):
+        c = raw[j]
+        if c == '\\': j += 2; continue
+        if c == '"': j = string_end(raw, j, '', 0) + 1; continue
+        if c == '{': depth += 1
+        elif c == '}':
+            depth -= 1
+            if not depth: return j
+        j += 1
+    return -1
 
 
 def lex(src, file, line=1):
@@ -48,13 +80,7 @@ def lex(src, file, line=1):
             w = WORD.match(src, i).group()
             toks.append(Tok('KW' if w in KEYWORDS else 'NAME', w, line, file)); i += len(w)
         elif c == '"':
-            j = i + 1
-            while j < n and src[j] != '"':
-                if src[j] == '\n':
-                    raise HasteError(f'{file}:{line}: unterminated string')
-                j += 2 if src[j] == '\\' else 1
-            if j >= n:
-                raise HasteError(f'{file}:{line}: unterminated string')
+            j = string_end(src, i, file, line)
             toks.append(Tok('STR', src[i + 1:j], line, file)); i = j + 1
         elif src[i:i + 2] in OPS2:
             toks.append(Tok('OP', src[i:i + 2], line, file)); i += 2
@@ -69,18 +95,21 @@ def lex(src, file, line=1):
 # ───────────────────────────── parser ─────────────────────────────
 
 class N:
-    """AST node: N('kind', line, field=value, ...)"""
+    """AST node: N('kind', line, field=value, ...). Nodes remember the file being parsed."""
+    current_file = None
+
     def __init__(s, kind, line=0, **kw):
-        s.kind, s.line = kind, line
+        s.kind, s.line, s.file = kind, line, N.current_file
         s.__dict__.update(kw)
 
 
-ESCAPES = {'n': '\n', 't': '\t', '\\': '\\', '"': '"', '{': '{', '}': '}'}
+ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', '\\': '\\', '"': '"', '{': '{', '}': '}'}
 
 
 class Parser:
     def __init__(s, toks, lines=()):
         s.t, s.p, s.lines = toks, 0, lines
+        if toks: N.current_file = toks[0].file
 
     # helpers
     def peek(s, o=0): return s.t[s.p + o]
@@ -115,6 +144,8 @@ class Parser:
     def type(s):
         if s.at('['):
             s.next(); t = s.type(); s.eat(']'); return f'[{t}]'
+        if s.at('{'):                                    # {string: int}
+            s.next(); k = s.type(); s.eat(':'); v = s.type(); s.eat('}'); return '{' + k + ':' + v + '}'
         return '.'.join(s.dotted())
 
     # top level
@@ -193,7 +224,7 @@ class Parser:
             if s.at('fn'):
                 f = s.fn(); c.methods[f.name] = f; continue
             pl = s.peek().line
-            p = N('prop', pl, name=s.name(), type=None, default=None, where=None, wtext=None, computed=None)
+            p = N('prop', pl, name=s.name(), type=None, default=None, where=None, wtext=None, computed=None, write=None)
             if s.at(':'): s.next(); p.type = s.type()
             if s.at('=>'):
                 s.next(); p.computed = s.expr()
@@ -205,6 +236,8 @@ class Parser:
                 s.fail(f'property {p.name} needs a type or a default value')
             c.props[p.name] = p
             s.nl()
+            if s.at('write'):                    # write ... end: runs on every assignment to the property
+                s.next(); s.nl(); p.write = s.block(); s.eat('end'); s.nl()
         s.eat('end'); s.nl()
         return c
 
@@ -324,11 +357,20 @@ class Parser:
             e = s.expr(); s.eat(')'); return e
         if t.kind == 'OP' and t.val == '[':
             items = []
+            s.skipnl()
             while not s.at(']'):
-                items.append(s.expr())
-                if not s.at(']'): s.eat(',')
+                items.append(s.expr()); s.skipnl()
+                if not s.at(']'): s.eat(','); s.skipnl()
             s.next()
             return N('list', L, items=items)
+        if t.kind == 'OP' and t.val == '{':               # {"Mark": 50, "Ada": 36}
+            pairs = []
+            s.skipnl()
+            while not s.at('}'):
+                k = s.expr(); s.eat(':'); pairs.append((k, s.expr())); s.skipnl()
+                if not s.at('}'): s.eat(','); s.skipnl()
+            s.next()
+            return N('dict', L, pairs=pairs)
         s.p -= 1
         s.fail('expected an expression')
 
@@ -341,7 +383,7 @@ class Parser:
                 if raw[i + 1:i + 2] not in ESCAPES: s.fail('unknown escape in string', t)
                 lit += ESCAPES[raw[i + 1]]; i += 2
             elif c == '{':
-                j = raw.find('}', i)
+                j = brace_end(raw, i)
                 if j < 0: s.fail("missing '}' in string", t)
                 inner, spec = raw[i + 1:j], None
                 m = re.fullmatch(r'(.*):(\d+)', inner, re.S)
@@ -399,6 +441,7 @@ class Env:
         e.vars, e.mod, e.cls, e.parent = {}, mod, cls, parent
         e.spec = parent.spec if parent else None        # function being generated
         e.in_try = parent.in_try if parent else 0
+        e.writing = parent.writing if parent else None   # (class, property) whose write block this is
 
     def lookup(e, n):
         while e:
@@ -420,14 +463,31 @@ LOGIC = {'and': '&&', 'or': '||', 'xor': '!='}
 
 
 def cstr(v):
-    return '"' + v.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\t', '\\t') + '"'
+    return '"' + v.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"'
 
 
 def is_num(t): return t in ('int', 'float')
 
 
+def node_t(vs):
+    """'[' or '{' for the pending type a tracked variable was declared with."""
+    env, name, _ = vs[0]
+    return env.vars.get(name, ('[',))[0][:1]
+
+
+def kv(t):
+    """'{string:[int]}' -> ('string', '[int]')"""
+    depth = 0
+    for i, c in enumerate(t[1:-1], 1):
+        if c in '[{': depth += 1
+        elif c in ']}': depth -= 1
+        elif c == ':' and depth == 0: return t[1:i], t[i + 1:-1]
+    raise HasteError(f'bad dictionary type {t}')
+
+
 def mangle(t):
     if t.startswith('['): return 'L' + mangle(t[1:-1])
+    if t.startswith('{'): k, v = kv(t); return 'D' + mangle(k) + '_' + mangle(v) + '_E'
     return {'int': 'i', 'float': 'f', 'string': 's', 'bool': 'b'}.get(t, t.replace('.', '_'))
 
 
@@ -456,6 +516,7 @@ class Gen:
         g.fwd, g.lists, g.structs, g.protos, g.funcs = [], [], [], [], []
         g.done, g.queue, g.inferring = set(), [], set()
         g.class_used, g.list_types, g.specs = set(), {}, {}
+        g.pending, g.pending_vars = {}, {}          # empty lists whose element type the first Add decides
         g.used = {}
         g.tmp = 0
 
@@ -470,7 +531,8 @@ class Gen:
         if not mod.is_main: g.used.setdefault(mod.name, set()).add(name)
 
     def err(g, node, msg):
-        raise HasteError(f'line {node.line}: {msg}')
+        where = f'{node.file}:{node.line}' if getattr(node, 'file', None) else f'line {node.line}'
+        raise HasteError(f'{where}: {msg}')
 
     def fresh(g):
         g.tmp += 1
@@ -511,6 +573,9 @@ class Gen:
         """Resolve a written type (int, [Account], System.Bitmap, an alias) to its full name."""
         if t in PRIM: return t
         if t.startswith('['): return '[' + g.tname(t[1:-1], env, node) + ']'
+        if t.startswith('{'):
+            k, v = kv(t)
+            return '{' + g.tname(k, env, node) + ':' + g.tname(v, env, node) + '}'
         r = g.resolve(t.split('.'), env, node)
         if not r or r[0] != 'class': g.err(node, f'unknown type {t}')
         return r[1].qname
@@ -518,7 +583,9 @@ class Gen:
     # ── types ──
     def ctype(g, t):
         if t in PRIM: return PRIM[t]
+        if t[1:2] == '?': return f'@@P{t[2:-1]}@@*'       # filled in once the first Add or d[k] = v is seen
         if t.startswith('['): return g.list_type(t[1:-1]) + '*'
+        if t.startswith('{'): return g.dict_type(*kv(t)) + '*'
         g.use_class(t)
         return f'C_{g.classes[t].cname}*'
 
@@ -528,10 +595,11 @@ class Gen:
         name = 'L_' + mangle(elem)
         g.list_types[elem] = name
         va = 'int' if elem == 'bool' else et
+        at = int(elem in ('int', 'float', 'bool'))           # numbers hold no pointers: the collector skips them
         g.lists.append(f'''typedef struct {{ {et} *items; long long count, cap; }} {name};
 static {name} *{name}_new(void) {{ return hs_alloc(sizeof({name})); }}
 static void {name}_add({name} *l, {et} v) {{
-    if (l->count == l->cap) {{ l->cap = l->cap ? l->cap * 2 : 8; l->items = realloc(l->items, sizeof({et}) * (size_t)l->cap); }}
+    if (l->count == l->cap) {{ l->cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({et}) * (size_t)l->count, sizeof({et}) * (size_t)l->cap, {at}); }}
     l->items[l->count++] = v;
 }}
 static void {name}_check({name} *l, long long i) {{
@@ -543,6 +611,79 @@ static {name} *{name}_of(int n, ...) {{
     {name} *l = {name}_new(); va_list ap; va_start(ap, n);
     for (int k = 0; k < n; k++) {name}_add(l, ({et})va_arg(ap, {va}));
     va_end(ap); return l;
+}}''')
+        return name
+
+    def dict_type(g, k, v):
+        key = '{' + k + ':' + v + '}'
+        if key in g.list_types: return g.list_types[key]
+        if k not in ('int', 'string', 'bool'):
+            raise HasteError(f'dictionary keys must be whole numbers, text or true/false, not {k}')
+        kt, vt = g.ctype(k), g.ctype(v)
+        name = 'D_' + mangle(key)[1:]
+        g.list_types[key] = name
+        kva, vva = ('int' if k == 'bool' else kt), ('int' if v == 'bool' else vt)
+        ka, va = int(k != 'string'), int(v in ('int', 'float', 'bool'))
+        if k == 'string':
+            hash_ = 'unsigned long long x = 1469598103934665603ULL; while (*k) { x ^= (unsigned char)*k++; x *= 1099511628211ULL; } return x;'
+            eq, show = 'strcmp(a, b) == 0', 'hs_fmt("\\"%s\\"", k)'
+        else:
+            hash_ = 'unsigned long long x = (unsigned long long)k; x ^= x >> 33; x *= 0xff51afd7ed558ccdULL; x ^= x >> 33; return x;'
+            eq, show = 'a == b', 'hs_fmt("%lld", (long long)k)'
+        g.lists.append(f'''typedef struct {{ {kt} *keys; {vt} *vals; long long count, cap, *slots, nslots; }} {name};
+static {name} *{name}_new(void) {{ return hs_alloc(sizeof({name})); }}
+static unsigned long long {name}_hash({kt} k) {{ {hash_} }}
+static bool {name}_eq({kt} a, {kt} b) {{ return {eq}; }}
+static long long {name}_find({name} *d, {kt} k) {{
+    if (!d->nslots) return -1;
+    unsigned long long m = (unsigned long long)d->nslots - 1, h = {name}_hash(k) & m;
+    while (d->slots[h]) {{ long long i = d->slots[h] - 1; if ({name}_eq(d->keys[i], k)) return i; h = (h + 1) & m; }}
+    return -1;
+}}
+static void {name}_slot({name} *d, long long i) {{
+    unsigned long long m = (unsigned long long)d->nslots - 1, h = {name}_hash(d->keys[i]) & m;
+    while (d->slots[h]) h = (h + 1) & m;
+    d->slots[h] = i + 1;
+}}
+static void {name}_index({name} *d) {{
+    long long n = 16;
+    while (n < 2 * d->count + 2) n *= 2;
+    d->nslots = n; d->slots = hs_alloc_atomic(sizeof(long long) * (size_t)n);
+    for (long long i = 0; i < d->count; i++) {name}_slot(d, i);
+}}
+static void {name}_set({name} *d, {kt} k, {vt} v) {{
+    long long i = {name}_find(d, k);
+    if (i >= 0) {{ d->vals[i] = v; return; }}
+    if (d->count == d->cap) {{
+        d->cap = d->cap ? d->cap * 2 : 8;
+        d->keys = hs_grow(d->keys, sizeof({kt}) * (size_t)d->count, sizeof({kt}) * (size_t)d->cap, {ka});
+        d->vals = hs_grow(d->vals, sizeof({vt}) * (size_t)d->count, sizeof({vt}) * (size_t)d->cap, {va});
+    }}
+    d->keys[d->count] = k; d->vals[d->count] = v; d->count++;
+    if (2 * d->count + 2 > d->nslots) {name}_index(d); else {name}_slot(d, d->count - 1);
+}}
+static {vt} {name}_get({name} *d, {kt} k) {{
+    long long i = {name}_find(d, k);
+    if (i < 0) hs_raise(hs_fmt("key %s is not in the dictionary", {show}));
+    return d->vals[i];
+}}
+static bool {name}_has({name} *d, {kt} k) {{ return {name}_find(d, k) >= 0; }}
+static {vt} {name}_get_or({name} *d, {kt} k, {vt} fallback) {{
+    long long i = {name}_find(d, k);
+    return i < 0 ? fallback : d->vals[i];
+}}
+static void {name}_remove({name} *d, {kt} k) {{
+    long long i = {name}_find(d, k);
+    if (i < 0) return;
+    memmove(d->keys + i, d->keys + i + 1, sizeof({kt}) * (size_t)(d->count - i - 1));
+    memmove(d->vals + i, d->vals + i + 1, sizeof({vt}) * (size_t)(d->count - i - 1));
+    d->count--;
+    {name}_index(d);
+}}
+static {name} *{name}_of(int n, ...) {{
+    {name} *d = {name}_new(); va_list ap; va_start(ap, n);
+    for (int j = 0; j < n; j++) {{ {kt} k = ({kt})va_arg(ap, {kva}); {vt} v = ({vt})va_arg(ap, {vva}); {name}_set(d, k, v); }}
+    va_end(ap); return d;
 }}''')
         return name
 
@@ -571,8 +712,40 @@ static {name} *{name}_of(int n, ...) {{
         if p.rtype == 'void': g.err(p, f'{cls.name}.{p.name} has no value')
         return p.rtype
 
+    # ── created empty: x = [] or x = {}. The type comes from the first Add or x[key] = value ──
+    def new_pending(g, kind):
+        n = len(g.pending)
+        g.pending[n] = None
+        return f'@@P{n}@@_new()', f'{kind}?{n}{"]" if kind == "[" else "}"}'
+
+    def track(g, env, name, t, node):
+        if t[1:2] == '?': g.pending_vars.setdefault(int(t[2:-1]), []).append((env, name, node))
+
+    def settle(g, t, full):
+        n = int(t[2:-1])
+        g.pending[n] = full
+        for env, name, _ in g.pending_vars.get(n, []):
+            if env.vars.get(name, ('',))[0] == t:
+                _, mutable, cname = env.vars[name]
+                env.vars[name] = (full, mutable, cname)
+
+    def example(g, t, name):
+        return f'{name}: [int] = []' if t.startswith('[') else f'{name}: {{string: int}} = {{}}'
+
+    def known(g, t, node):
+        m = re.search(r'([\[{])\?(\d+)', t)
+        if m:
+            names = [nm for _, nm, _ in g.pending_vars.get(int(m.group(2)), [])]
+            what = names[0] if names else 'this ' + ('list' if m.group(1) == '[' else 'dictionary')
+            tip = f', or read it with {what}.Get(key, default)' if m.group(1) == '{' else ''
+            g.err(node, f'{what} is used before anything is added to it, so Haste cannot tell what it holds; '
+                        f'add something first{tip}, or give it a type, e.g. {g.example(m.group(1), what)}')
+        return t
+
     def coerce(g, code, frm, to, node):
         if frm == to: return code
+        if frm[1:2] == '?' and to[:1] == frm[:1] and '?' not in to:
+            g.settle(frm, to); return code
         if frm == 'int' and to == 'float': return f'(double)({code})'
         g.err(node, f'expected {to}, got {frm}')
 
@@ -602,22 +775,31 @@ static {name} *{name}_of(int n, ...) {{
         sig = f'static C_{cls.cname} *{cls.cname}_s_{pname}(C_{cls.cname} *self, {g.ctype(t)} it)'
         g.protos.append(sig + ';')
         body = []
+        env = Env(cls.mod, cls); env.vars['self'] = (qname, False, 'self')
+        env.vars['it'] = (t, False, 'it')
         if p.where:
-            env = Env(cls.mod, cls); env.vars['self'] = (qname, False, 'self')
-            env.vars['it'] = (t, False, 'it')
             c, ct = g.expr(p.where, env)
             if ct != 'bool': g.err(p, 'a where clause must be true or false')
             show = {'string': 'hs_fmt("\\"%s\\"", it)', 'int': 'hs_fmt("%lld", it)',
                     'float': 'hs_fmt("%g", it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
             body.append(f'    if (!({c})) hs_require_fail("{qname}.{pname}", {show}, {cstr(p.wtext)});')
-        body += [f'    self->p_{pname} = it;', '    return self;']
+        if p.write:                              # it = incoming value, field = the stored value
+            wenv = env.child()
+            wenv.writing = (qname, pname)
+            if not p.computed: wenv.vars['field'] = (t, True, f'self->p_{pname}')
+            body += g.block(p.write, wenv, 1)
+        else:
+            body.append(f'    self->p_{pname} = it;')
+        body.append('    return self;')
         g.funcs.append(sig + ' {\n' + '\n'.join(body) + '\n}')
 
     def emit_new(g, qname):
         cls = g.classes[qname]
         sig = f'static C_{cls.cname} *{cls.cname}_new(void)'
         g.protos.append(sig + ';')
-        body = [f'    C_{cls.cname} *self = hs_alloc(sizeof(C_{cls.cname}));']
+        plain = all(g.prop_type(cls, p) in ('int', 'float', 'bool') for p in cls.props.values() if not p.computed)
+        alloc = 'hs_alloc_atomic' if plain else 'hs_alloc'   # only numbers inside: nothing for the collector to follow
+        body = [f'    C_{cls.cname} *self = {alloc}(sizeof(C_{cls.cname}));']
         for p in cls.props.values():
             if p.computed: continue
             t = g.prop_type(cls, p)
@@ -626,6 +808,8 @@ static {name} *{name}_of(int n, ...) {{
                 c = g.coerce(c, ct, t, p)
             elif t.startswith('['):
                 c = f'{g.list_type(t[1:-1])}_new()'
+            elif t.startswith('{'):
+                c = f'{g.dict_type(*kv(t))}_new()'
             elif t in g.classes:
                 g.err(p, f'{cls.name}.{p.name} needs a default object (Haste has no nil)')
             else:
@@ -645,9 +829,13 @@ static {name} *{name}_of(int n, ...) {{
             c, t = g.expr(a, env, pt)
             if t == 'void': g.err(a, 'that expression has no value')
             if pt: c, t = g.coerce(c, t, pt, a), pt
-            codes.append(c); types.append(t)
+            codes.append(c); types.append(g.known(t, a))
         if f.cname:                                  # extern: call the C function directly
-            return f'{f.cname}({", ".join(codes)})', g.tname(f.ret, Env(mod), f)
+            ret = g.tname(f.ret, Env(mod), f)
+            # lists and dictionaries cross into C as plain pointers; the runtime uses the same layout
+            codes = [f'(void*)({c})' if t[:1] in '[{' else c for c, t in zip(codes, types)]
+            call = f'{f.cname}({", ".join(codes)})'
+            return (f'(({g.ctype(ret)}){call})' if ret[:1] in '[{' else call), ret
         cname, ret = g.specialize(mod, f, cls, tuple(types), node)
         return f'{cname}({", ".join(codes)})', ret
 
@@ -671,13 +859,18 @@ static {name} *{name}_of(int n, ...) {{
         if cls: env.vars['self'] = (cls.qname, False, 'self')
         for (pn, _), t in zip(f.params, types):
             env.vars[pn] = (t, False, 'v_' + pn)
-        if f.expr:
-            c, t = g.expr(f.expr, env, s.ret)
-            ret = s.ret or t
-            body = [f'    {c};'] if ret == 'void' else [f'    return {g.coerce(c, t, ret, f.expr)};']
-        else:
-            body = g.block(f.body, env, 1)
-            ret = s.ret or g.unify(s.rets, f)
+        try:
+            if f.expr:
+                c, t = g.expr(f.expr, env, s.ret)
+                ret = s.ret or t
+                body = [f'    {c};'] if ret == 'void' else [f'    return {g.coerce(c, t, ret, f.expr)};']
+            else:
+                body = g.block(f.body, env, 1)
+                ret = s.ret or g.unify(s.rets, f)
+        except HasteError as ex:             # a type-free function failed for these argument types: say who called it
+            if generic and getattr(node, 'file', None):
+                raise HasteError(f'{ex}\n  in {s.label}, called from {node.file}:{node.line}')
+            raise
             if ret != 'void':
                 body.append(f'    hs_raise("{f.name} ended without returning a value"); return 0;')
         s.ret = ret
@@ -711,6 +904,7 @@ static {name} *{name}_of(int n, ...) {{
             if want: c, t = g.coerce(c, t, want, st), want
             if t == 'void': g.err(st, 'that expression has no value')
             env.vars[st.name] = (t, st.mutable, 'v_' + st.name)
+            g.track(env, st.name, t, st)
             return [f'{pad}{g.ctype(t)} v_{st.name} = {c};']
         if k == 'assign':
             return [pad + g.assign(st, env) + ';']
@@ -740,7 +934,15 @@ static {name} *{name}_of(int n, ...) {{
                 head = f'{pad}for (long long v_{st.var} = {a}, {end} = {b}; v_{st.var} <= {end}; v_{st.var}++) {{'
                 return [head] + g.block(st.body, inner, d + 1) + [pad + '}']
             c, t = g.expr(st.a, env)
-            if not t.startswith('['): g.err(st, f'cannot loop over {t}')
+            if not t[:1] in '[{': g.err(st, f'cannot loop over {t}')
+            g.known(t, st)
+            if t.startswith('{'):                        # a dictionary: its keys, in the order they were added
+                k, _ = kv(t); dt = g.dict_type(*kv(t)); dv, i = g.fresh(), g.fresh()
+                inner.vars[st.var] = (k, False, 'v_' + st.var)
+                return [f'{pad}{{', f'{pad}    {dt} *{dv} = {c};',
+                        f'{pad}    for (long long {i} = 0; {i} < {dv}->count; {i}++) {{',
+                        f'{pad}        {g.ctype(k)} v_{st.var} = {dv}->keys[{i}];'] + \
+                    g.block(st.body, inner, d + 2) + [f'{pad}    }}', f'{pad}}}']
             et = t[1:-1]; lt = g.list_type(et); l, i = g.fresh(), g.fresh()
             inner.vars[st.var] = (et, False, 'v_' + st.var)
             return [f'{pad}{{', f'{pad}    {lt} *{l} = {c};',
@@ -795,6 +997,7 @@ static {name} *{name}_of(int n, ...) {{
         else:
             c, t = g.expr(st.a, env)
             if not t.startswith('['): g.err(st, f'cannot loop over {t}')
+            g.known(t, st)
             et = t[1:-1]
             src, count, item = (g.list_type(et) + ' *', c), '_c.src->count', 'ctx->src->items[i]'
             inner.vars[st.var] = (et, False, 'v_' + st.var)
@@ -829,18 +1032,37 @@ static {name} *{name}_of(int n, ...) {{
                 return f'{cname} = {g.coerce(c, ct, t, st)}'
             if env.cls and tg.name in env.cls.props:
                 return g.set_prop('self', env.cls, tg.name, st.value, env)
+            if tg.name == 'field' and env.writing:
+                g.err(st, f'{env.writing[1]} is computed, so it has no field to store into; '
+                          'set the properties it is computed from instead')
             c, t = g.expr(st.value, env)             # first assignment declares the variable
             if t == 'void': g.err(st, 'that expression has no value')
             env.vars[tg.name] = (t, True, 'v_' + tg.name)
+            g.track(env, tg.name, t, st)
             return f'{g.ctype(t)} v_{tg.name} = {c}'
         if tg.kind == 'member':
             oc, ot = g.expr(tg.obj, env)
             if ot in g.classes and tg.name in g.classes[ot].props:
                 return g.set_prop(oc, g.classes[ot], tg.name, st.value, env)
             g.err(st, f'{ot} has no property {tg.name}')
+        if tg.kind == 'index' and g.expr(tg.obj, env)[1][:1] == '{':     # d[key] = value
+            oc, ot = g.expr(tg.obj, env)
+            if ot[1:2] == '?':                          # the first d[key] = value decides the type
+                kc, kt = g.expr(tg.idx, env); vc, vt = g.expr(st.value, env)
+                if 'void' in (kt, vt): g.err(st, 'that expression has no value')
+                oc, now = g.expr(tg.obj, env)            # the value may have settled it, e.g. d.Get(k, 0) + 1
+                if now[1:2] != '?':
+                    k, v = kv(now)
+                    return f'{g.dict_type(k, v)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
+                g.settle(ot, '{' + g.known(kt, st) + ':' + g.known(vt, st) + '}')
+                return f'{g.dict_type(kt, vt)}_set({oc}, {kc}, {vc})'
+            k, v = kv(ot)
+            kc, kt = g.expr(tg.idx, env, k); vc, vt = g.expr(st.value, env, v)
+            return f'{g.dict_type(k, v)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
         if tg.kind == 'index':
             oc, ot = g.expr(tg.obj, env)
             if not ot.startswith('['): g.err(st, f'cannot index {ot}')
+            g.known(ot, st)
             ic, it = g.expr(tg.idx, env)
             if it != 'int': g.err(st, 'an index must be a whole number')
             c, ct = g.expr(st.value, env, ot[1:-1])
@@ -849,7 +1071,10 @@ static {name} *{name}_of(int n, ...) {{
 
     def set_prop(g, objc, cls, pname, value, env):
         p = cls.props[pname]
-        if p.computed: g.err(value, f'{cls.name}.{pname} is computed and read-only')
+        if p.computed and not p.write: g.err(value, f'{cls.name}.{pname} is computed and read-only')
+        if env.writing == (cls.qname, pname):
+            g.err(value, f'inside its own write block, assign to field instead of {pname}, or it would call itself forever'
+                  if not p.computed else f'{pname} is computed: set the properties it is computed from instead')
         t = g.prop_type(cls, p)
         c, ct = g.expr(value, env, t)
         g.request(('setter', cls.qname, pname))
@@ -891,8 +1116,7 @@ static {name} *{name}_of(int n, ...) {{
             g.not_a_value([e.name], env, e)
         if k == 'list':
             if not e.items:
-                if not (want and want.startswith('[')):
-                    g.err(e, 'an empty list needs a type, e.g. Items: [Account] = []')
+                if not (want and want.startswith('[')): return g.new_pending('[')
                 return f'{g.list_type(want[1:-1])}_new()', want
             elem_want = want[1:-1] if want and want.startswith('[') else None
             items = [g.expr(x, env, elem_want) for x in e.items]
@@ -900,6 +1124,20 @@ static {name} *{name}_of(int n, ...) {{
                                else items[0][1])
             codes = [g.coerce(c, t, et, x) for (c, t), x in zip(items, e.items)]
             return f'{g.list_type(et)}_of({len(codes)}, {", ".join(codes)})', f'[{et}]'
+        if k == 'dict':
+            if not e.pairs:
+                if not (want and want.startswith('{')): return g.new_pending('{')
+                return f'{g.dict_type(*kv(want))}_new()', want
+            kw_, vw_ = kv(want) if want and want.startswith('{') else (None, None)
+            keys = [g.expr(a, env, kw_) for a, _ in e.pairs]
+            vals = [g.expr(b, env, vw_) for _, b in e.pairs]
+            kt = kw_ or keys[0][1]
+            vt = vw_ or ('float' if any(t == 'float' for _, t in vals) and all(is_num(t) for _, t in vals)
+                         else vals[0][1])
+            codes = []
+            for (kc, kt2), (vc, vt2), (a, b) in zip(keys, vals, e.pairs):
+                codes += [g.coerce(kc, kt2, kt, a), g.coerce(vc, vt2, vt, b)]
+            return f'{g.dict_type(kt, vt)}_of({len(e.pairs)}, {", ".join(codes)})', '{' + kt + ':' + vt + '}'
         if k == 'ifx':
             c = g.cond(e.cond, env)
             a, at = g.expr(e.a, env, want)
@@ -921,7 +1159,7 @@ static {name} *{name}_of(int n, ...) {{
             parts = dotted(e)
             if g.is_path(parts, env): g.not_a_value(parts, env, e)
             oc, ot = g.expr(e.obj, env)
-            if ot.startswith('[') and e.name == 'Count': return f'({oc})->count', 'int'
+            if ot[:1] in '[{' and e.name == 'Count': return f'({oc})->count', 'int'
             if ot == 'string' and e.name == 'Length': return f'(long long)hs_len({oc})', 'int'
             if ot in g.classes:
                 cls = g.classes[ot]
@@ -930,7 +1168,12 @@ static {name} *{name}_of(int n, ...) {{
             g.err(e, f'{ot} has no property {e.name}')
         if k == 'index':
             oc, ot = g.expr(e.obj, env)
+            if ot.startswith('{'):
+                g.known(ot, e); kt_, vt_ = kv(ot)
+                kc, kt = g.expr(e.idx, env, kt_)
+                return f'{g.dict_type(kt_, vt_)}_get({oc}, {g.coerce(kc, kt, kt_, e)})', vt_
             if not ot.startswith('['): g.err(e, f'cannot index {ot}')
+            g.known(ot, e)
             ic, it = g.expr(e.idx, env)
             if it != 'int': g.err(e, 'an index must be a whole number')
             return f'{g.list_type(ot[1:-1])}_get({oc}, {ic})', ot[1:-1]
@@ -996,6 +1239,27 @@ static {name} *{name}_of(int n, ...) {{
             g.err(e, f'{".".join(parts)} is a module, not a function')
         if f.kind == 'member':
             oc, ot = g.expr(f.obj, env)
+            if ot.startswith('[?') and f.name == 'Add':        # the first Add decides the type
+                if len(e.args) != 1: g.err(e, 'Add takes one value')
+                c, t = g.expr(e.args[0][1], env)
+                if t == 'void': g.err(e, 'that expression has no value')
+                g.settle(ot, f'[{g.known(t, e)}]')
+                return f'{g.list_type(t)}_add({oc}, {c})', 'void'
+            if ot.startswith('{') and f.name == 'Get':      # d.Get(key, default): the default decides the type
+                if len(e.args) != 2: g.err(e, 'Get takes a key and a default value')
+                if ot[1:2] == '?':
+                    kc, kt = g.expr(e.args[0][1], env); vc, vt = g.expr(e.args[1][1], env)
+                    g.settle(ot, '{' + g.known(kt, e) + ':' + g.known(vt, e) + '}')
+                    return f'{g.dict_type(kt, vt)}_get_or({oc}, {kc}, {vc})', vt
+                k, v = kv(ot)
+                kc, kt = g.expr(e.args[0][1], env, k); vc, vt = g.expr(e.args[1][1], env, v)
+                return f'{g.dict_type(k, v)}_get_or({oc}, {g.coerce(kc, kt, k, e)}, {g.coerce(vc, vt, v, e)})', v
+            if ot.startswith('{') and f.name in ('Has', 'Remove'):
+                if len(e.args) != 1: g.err(e, f'{f.name} takes one key')
+                g.known(ot, e); k, v = kv(ot)
+                kc, kt = g.expr(e.args[0][1], env, k)
+                return f'{g.dict_type(k, v)}_{f.name.lower()}({oc}, {g.coerce(kc, kt, k, e)})', \
+                    ('bool' if f.name == 'Has' else 'void')
             if ot.startswith('[') and f.name == 'Add':
                 if len(e.args) != 1: g.err(e, 'Add takes one value')
                 c, t = g.expr(e.args[0][1], env, ot[1:-1])
@@ -1061,9 +1325,26 @@ static {name} *{name}_of(int n, ...) {{
             g.drain()
         with open(os.path.join(HERE, 'runtime.h')) as fh:
             runtime = fh.read()
+        names = {}
+        for n, full in g.pending.items():
+            if full is None:
+                vs = g.pending_vars.get(n)
+                if vs:
+                    _, nm, node = vs[0]
+                    g.err(node, f'{nm} never has anything added to it, so Haste cannot tell what it holds; '
+                                f'give it a type, e.g. {g.example(node_t(vs), nm)}')
+                raise HasteError('an empty list or dictionary never has anything added to it')
+            names[n] = g.ctype(full)[:-1]
         parts = [runtime] + g.fwd + g.lists + g.structs + g.protos + g.funcs
-        main = 'int main(int argc, char **argv) {\n' + '\n'.join(switches + inits + body) + '\n    return 0;\n}'
-        return '\n\n'.join(p for p in parts if p) + '\n\n' + main + '\n'
+        # The program runs in its own function, so every frame the collector must scan is below main's.
+        main = ('static __attribute__((noinline)) int hs_program(int argc, char **argv) {\n' +
+                '\n'.join(switches + inits + body) + '\n    return 0;\n}\n\n' +
+                'int main(int argc, char **argv) {\n    volatile char base = 0;\n    hs_stack_base = (char *)&base;\n'
+                '    return hs_program(argc, argv);\n}')
+        out = '\n\n'.join(p for p in parts if p) + '\n\n' + main + '\n'
+        for n, name in names.items():
+            out = out.replace(f'@@P{n}@@', name)
+        return out
 
     def report(g):
         lines = []

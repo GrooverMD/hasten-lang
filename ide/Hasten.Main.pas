@@ -118,6 +118,10 @@ begin
   FEditor.Align := alClient;
   FEditor.Font.Name := 'Consolas';
   FEditor.Font.Size := 11;
+  FEditor.Color := $001E1E1E;                    // dark, for the colours in SynHighlighterHaste.msg
+  FEditor.Font.Color := $00D4D4D4;              // identifiers and types use the plain text colour
+  FEditor.Gutter.Color := $00262626;
+  FEditor.Gutter.Font.Color := $00808080;
   FEditor.TabWidth := 2;
   FEditor.WantTabs := True;
   FEditor.Options := FEditor.Options + [eoAutoIndent, eoTabsToSpaces];

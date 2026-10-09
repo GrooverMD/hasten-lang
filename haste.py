@@ -151,6 +151,13 @@ class Parser:
     # top level
     def program(s):
         prog = N('program', imports=[], classes={}, funcs={}, stmts=[], inits=[], aliases={}, switches=[])
+        seen = {}                            # functions, classes and aliases share one set of names
+
+        def declare(name, line, what):
+            if name in seen:
+                was, at = seen[name]
+                raise HasteError(f'{s.t[0].file}:{line}: {name} is already {was} on line {at}')
+            seen[name] = (what, line)
         s.skipnl()
         while s.peek().kind != 'EOF':
             if s.at('need'):
@@ -164,11 +171,12 @@ class Parser:
                 prog.switches.append(s.switch())
             elif s.at('alias'):
                 line = s.next().line; nm = s.name(); s.eat('=')
+                declare(nm, line, 'an alias')
                 prog.aliases[nm] = (s.dotted(), line); s.nl()
             elif s.at('class'):
-                c = s.cls(); prog.classes[c.name] = c
+                c = s.cls(); declare(c.name, c.line, 'a class'); prog.classes[c.name] = c
             elif s.at('fn', 'extern'):
-                f = s.fn(); prog.funcs[f.name] = f
+                f = s.fn(); declare(f.name, f.line, 'a function'); prog.funcs[f.name] = f
             elif s.at('init'):
                 s.next(); s.nl(); prog.inits.append(s.block()); s.eat('end'); s.nl()
             else:
@@ -546,8 +554,12 @@ class Gen:
         return m
 
     def resolve(g, parts, env, node):
-        aliases = env.mod.prog.aliases
-        if parts[0] in aliases: parts = aliases[parts[0]][0] + parts[1:]
+        aliases, seen = env.mod.prog.aliases, []
+        while parts[0] in aliases and parts[0] not in seen:      # an alias may name another alias
+            seen.append(parts[0])
+            parts = aliases[parts[0]][0] + parts[1:]
+        if len(parts) == 1 and parts[0] in seen:
+            g.err(node, 'alias ' + ' -> '.join(seen + [parts[0]]) + ' goes round in a circle')
         if len(parts) == 1:
             n, m = parts[0], env.mod
             if n in m.prog.classes: return ('class', m.prog.classes[n])

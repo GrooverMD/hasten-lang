@@ -3,6 +3,8 @@
 A Delphi VCL editor for Haste: tabs, Haste syntax highlighting, Run (F9) and Build (Ctrl+F9) through
 `haste.py`, an output panel, and a jump to the line of each compiler error.
 
+![Hasten running fractal.haste](../assets/hasten-ide.png)
+
 ## Building
 
 You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.com/TurboPack/SynEdit)

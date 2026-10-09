@@ -58,7 +58,6 @@ xor
 
 KEYS Builtin
 print
-Str
 |><|
 
 KEYS Type
@@ -74,23 +73,6 @@ field
 self
 |><|
 
-KEYS Member
-Add
-Count
-Length
-Has
-Remove
-Get
-|><|
-
-KEYS Module
-System
-Text
-Math
-Time
-Net
-|><|
-
 CHARS
 
 'A'..'Z', 'a'..'z', '_':: Ident
@@ -99,12 +81,19 @@ BeginProc
   Inc(Run, fStringLen);
   while IsIdentChar(fLine[Run]) do
     Inc(Run);
+  // Capitalised words are coloured here, not in KEYS: SynGen's case-sensitive hash table is wrong for
+  // keywords with capitals (it hashes them lowercased in InitIdent but as written in KeyIndices), which
+  // leaves nil entries in fIdentFuncTable and crashes on the first identifier that lands on one.
   if fTokenID = tkIdentifier then
   begin
     var S: string;
     SetString(S, fLine + fTokenPos, Run - fTokenPos);
-    if (S = 'Int') or (S = 'Float') then
-      fTokenID := tkBuiltin;
+    if (S = 'Str') or (S = 'Int') or (S = 'Float') then
+      fTokenID := tkBuiltin
+    else if (S = 'Add') or (S = 'Count') or (S = 'Length') or (S = 'Has') or (S = 'Remove') or (S = 'Get') then
+      fTokenID := tkMember
+    else if (S = 'System') or (S = 'Text') or (S = 'Math') or (S = 'Time') or (S = 'Net') then
+      fTokenID := tkModule;
   end;
 EndProc
 

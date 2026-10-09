@@ -67,6 +67,7 @@ type
     function JumpToError(const Line: string): Boolean;
     procedure EditorStatus(Sender: TObject; Changes: TSynStatusChanges);
     procedure UpdateStatus;
+    function SwitchHint(Tab: TEditorTab): string;
     procedure PagesChange(Sender: TObject);
     procedure OutputDblClick(Sender: TObject);
     procedure FindNext(Sender: TObject);
@@ -161,6 +162,7 @@ begin
   FHighlighter := TSynHasteSyn.Create(Self);
   FSearch := TSynEditSearch.Create(Self);
   FIniName := TPath.Combine(TPath.Combine(TPath.GetHomePath, 'Hasten'), 'Hasten.ini');
+  Application.HintHidePause := 30000;            // long enough to read the list of switches
   SetEnvironmentVariable('PYTHONIOENCODING', 'utf-8');
   SetEnvironmentVariable('PYTHONUNBUFFERED', '1');
   BuildUi;
@@ -613,6 +615,36 @@ begin
   FStatus.Panels[0].Text := Format('Line %d, Col %d', [Tab.Editor.CaretY, Tab.Editor.CaretX]);
   if Tab.Modified then FStatus.Panels[1].Text := 'Modified' else FStatus.Panels[1].Text := '';
   if Tab.FileName <> '' then Caption := Tab.FileName + ' - Hasten' else Caption := Tab.Title + ' - Hasten';
+  FArgs.Hint := SwitchHint(Tab);
+end;
+
+{ The switches the open program accepts, read from its source the way haste.py reads them:
+    switch Name[: type] = default [where rule]   // help
+  Kept current as you type, because UpdateStatus runs on every edit and caret move. }
+function TMainForm.SwitchHint(Tab: TEditorTab): string;
+var
+  I: Integer;
+  Line, Item: string;
+  M: TMatch;
+begin
+  Result := '';
+  for I := 0 to Tab.Editor.Lines.Count - 1 do
+  begin
+    Line := Tab.Editor.Lines[I];
+    if not Line.TrimLeft.StartsWith('switch ') then Continue;
+    M := TRegEx.Match(Line, '^\s*switch\s+(\w+)\s*(?::\s*\w+\s*)?=\s*("(?:[^"\\]|\\.)*"|.+?)(?:\s+where\s+(.+?))?\s*(?://\s*(.*))?$');
+    if not M.Success then Continue;
+    Item := '--' + M.Groups[1].Value.ToLower + ' ' + M.Groups[2].Value;
+    if (M.Groups.Count > 4) and (M.Groups[4].Value <> '') then
+      Item := Item + '    ' + M.Groups[4].Value;
+    if (M.Groups.Count > 3) and (M.Groups[3].Value <> '') then
+      Item := Item + '    (' + M.Groups[3].Value + ')';
+    Result := Result + sLineBreak + Item.Replace('|', '/');   // | would split the hint in two
+  end;
+  if Result = '' then
+    Result := Tab.Title + ' has no switches. Anything typed here is passed to the program on Run.'
+  else
+    Result := 'Switches for ' + Tab.Title + ', passed on Run (shown with their defaults):' + Result;
 end;
 
 procedure TMainForm.PagesChange(Sender: TObject);

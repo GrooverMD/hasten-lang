@@ -1,24 +1,23 @@
-TSynHasteSyn    {first identifier is the class name}
+TSynHasteSyn
 tk              {second identifier is the token prefix}
-Sensitive
-IdentStart '_', 'a'..'z', 'A'..'Z':: '_', '0'..'9', 'a'..'z', 'A'..'Z'::
-
-TOKENTYPES
-Identifier
-Comment Style=[fsItalic]|Foreground=clGreen
-Space
-String Foreground=clMaroon
-Number Foreground=clBlue
-Symbol Foreground=clNavy
-Key Style=[fsBold]|Foreground=$001A50F2
-Builtin Style=[fsBold]|Foreground=clTeal
-Type Foreground=clPurple
-Special Style=[fsBold, fsItalic]|Foreground=clPurple
-Member Foreground=clTeal
-Module Foreground=clOlive
+IdentStart '_', 'a'..'z', 'A'..'Z' :: '_', '0'..'9', 'a'..'z', 'A'..'Z'::
 |><|
-
-KEYS
+TOKENTYPES
+Builtin Foreground=RGB(255,128,128)
+Comment Foreground=RGB(62,255,62)|Style=[fsItalic]
+Identifiers Foreground=clYellow
+Types Foreground=clWindowText
+Special Foreground=clFuchsia
+Member Foreground=RGB(134,166,104)
+Module Foreground=clLime
+Symbol Foreground=RGB(128,128,255)
+String Foreground=RGB(255,128,0)
+|><|
+KEYS Builtin
+print
+Str
+|><|
+KEYS Identifiers
 alias
 and
 catch
@@ -53,25 +52,17 @@ while
 write
 xor
 |><|
-
-KEYS Builtin
-print
-Str
-|><|
-
-KEYS Type
+KEYS Types
 int
 float
 string
 bool
 |><|
-
 KEYS Special
 it
 field
 self
 |><|
-
 KEYS Member
 Add
 Count
@@ -80,7 +71,6 @@ Has
 Remove
 Get
 |><|
-
 KEYS Module
 System
 Text
@@ -88,86 +78,19 @@ Math
 Time
 Net
 |><|
-
 CHARS
-
-'A'..'Z', 'a'..'z', '_':: Ident
+'_', 'a'..'z', 'A'..'Z':: Ident
 BeginProc
   fTokenID := IdentKind(fLine + Run);
-  Inc(Run, fStringLen);
+  inc(Run, fStringLen);
   while IsIdentChar(fLine[Run]) do
     Inc(Run);
-  if fTokenID = tkIdentifier then
-  begin
-    var S: string;
-    SetString(S, fLine + fTokenPos, Run - fTokenPos);
-    if (S = 'Int') or (S = 'Float') then
-      fTokenID := tkBuiltin;
-  end;
 EndProc
-
-'0'..'9':: Number
-BeginProc
-  fTokenID := tkNumber;
-  while CharInSet(fLine[Run], ['0'..'9']) do
-    Inc(Run);
-  if (fLine[Run] = '.') and CharInSet(fLine[Run + 1], ['0'..'9']) then
-  begin
-    Inc(Run);
-    while CharInSet(fLine[Run], ['0'..'9']) do
-      Inc(Run);
-  end;
-EndProc
-
-'"':: String
-BeginProc
-  var Depth := 0;
-  var Inner := False;
-  fTokenID := tkString;
-  Inc(Run);
-  while not IsLineEnd(Run) do
-  begin
-    case fLine[Run] of
-      '\': if not IsLineEnd(Run + 1) then Inc(Run);
-      '{': if not Inner then Inc(Depth);
-      '}': if not Inner and (Depth > 0) then Dec(Depth);
-      '"':
-        if Depth = 0 then
-        begin
-          Inc(Run);
-          Exit;
-        end
-        else
-          Inner := not Inner;
-    end;
-    Inc(Run);
-  end;
-EndProc
-
-'/':: Slash
-BeginProc
-  if fLine[Run + 1] = '/' then
-  begin
-    fTokenID := tkComment;
-    repeat
-      Inc(Run);
-    until IsLineEnd(Run);
-  end
-  else
-  begin
-    fTokenID := tkSymbol;
-    Inc(Run);
-  end;
-EndProc
-
-'=', '<', '>', '+', '-', '*', '(', ')', '[', ']', '{', '}', ',', '.', ':':: Symbol
-BeginProc
-  fTokenID := tkSymbol;
-  Inc(Run);
-EndProc
-
 |><|
-
+ENCLOSEDBY
+Comment,CommentLine,//
+String,StringDQ,","
+|><|
 SAMPLESOURCE
 // Haste sample: properties, lists, dictionaries and switches
 alias Upper = Text.Upper

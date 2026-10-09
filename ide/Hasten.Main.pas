@@ -275,7 +275,8 @@ begin
   FArgs := TEdit.Create(Self);
   FArgs.Parent := Bar;
   FArgs.SetBounds(150, 6, 360, 22);
-  FArgs.TextHint := 'e.g. --width 1920 --height 1080';
+  FArgs.Hint := 'Passed to the program on Run, e.g. --width 1920 --height 1080';   // a tooltip: the
+  FArgs.ShowHint := True;                       // VCL style draws a TextHint too faintly to read
 
   Lbl := TLabel.Create(Self);
   Lbl.Parent := Bar;

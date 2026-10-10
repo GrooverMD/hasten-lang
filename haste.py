@@ -1577,6 +1577,12 @@ def build(path, targets):
         if t not in TARGETS: raise HasteError(f'unknown target {t}; choose from {", ".join(TARGETS)}')
         triple, suffix, extra = TARGETS[t]
         out = os.path.join(out_dir, stem + suffix)
+        try:                                 # replace the old program; say why when that is impossible
+            if os.path.exists(out): os.remove(out)
+        except OSError:
+            raise HasteError(f'cannot replace {os.path.relpath(out)}: it is locked. If your antivirus '
+                             'quarantined it, delete it from the quarantine (or restart Windows); '
+                             'if the program is still running, close it')
         cmd = zig() + ['cc', '-target', triple, '-O2', '-std=gnu11', '-w', c_file, '-o', out] + extra
         if t == 'windows':
             cmd.insert(cmd.index(c_file) + 1, windows_resources(out_dir, stem))

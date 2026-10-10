@@ -10,7 +10,7 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, System.UITypes,
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics,
-  SynEdit, SynEditTypes, SynEditSearch, Hasten.Highlighter, Hasten.Runner;
+  SynEdit, SynEditTypes, SynEditSearch, Hasten.Highlighter, Hasten.Runner, Hasten.Watcher;
 
 type
   TEditorTab = class(TTabSheet)
@@ -47,6 +47,8 @@ type
     FWordsFinished: TRunner;
     FWordLines: TStringList;
     FWordsAgain: Boolean;
+    FWatcher: TFolderWatcher;                   // lib and the program's folder: new modules appear at once
+    FWordsTimer: TTimer;                        // gathers a burst of file changes into one refresh
     FRunFolder: string;
     FJumped: Boolean;
     FUntitled: Integer;
@@ -66,6 +68,8 @@ type
     function SaveAllForRun: Boolean;
     function LocateHastePy(Ask: Boolean = True): Boolean;
     procedure RefreshWords;
+    procedure WatchFolders;
+    procedure WordsTimerFire(Sender: TObject);
     procedure WordsDone(ExitCode: Cardinal; Stopped: Boolean);
     procedure Start(const Verb: string);
     procedure RunnerLine(const Line: string);
@@ -167,6 +171,10 @@ begin
   inherited CreateNew(AOwner);                  // no .dfm: everything is built in BuildUi
   FHighlighter := THasteHighlighter.Create(Self);
   FWordLines := TStringList.Create;
+  FWordsTimer := TTimer.Create(Self);
+  FWordsTimer.Enabled := False;
+  FWordsTimer.Interval := 300;
+  FWordsTimer.OnTimer := WordsTimerFire;
   FSearch := TSynEditSearch.Create(Self);
   FIniName := TPath.Combine(TPath.Combine(TPath.GetHomePath, 'Hasten'), 'Hasten.ini');
   Application.HintHidePause := 30000;            // long enough to read the list of switches
@@ -185,6 +193,8 @@ end;
 
 destructor TMainForm.Destroy;
 begin
+  FWordsTimer.Enabled := False;
+  FreeAndNil(FWatcher);
   if FRunner <> nil then
   begin
     FRunner.Stop;
@@ -551,12 +561,13 @@ var
   Cmd: string;
   Tab: TEditorTab;
 begin
+  if not LocateHastePy(False) then Exit;       // never ask for haste.py just to colour words
+  WatchFolders;
   if FWordsRunner <> nil then
   begin
     FWordsAgain := True;
     Exit;
   end;
-  if not LocateHastePy(False) then Exit;       // never ask for haste.py just to colour words
   Cmd := Quote(FPython) + ' ' + Quote(FHastePy) + ' words';
   Tab := ActiveTab;
   if (Tab <> nil) and (Tab.FileName <> '') then
@@ -564,6 +575,34 @@ begin
   FWordLines.Clear;
   FWordsRunner := TRunner.Create(Cmd, ExtractFileDir(FHastePy),
     procedure(const Line: string) begin FWordLines.Add(Line) end, WordsDone);
+end;
+
+{ Watch the folders haste.py words looks in: lib, and the open program's folder. Only restarts the watcher
+  when that set changes, e.g. on switching to a tab from another folder. }
+procedure TMainForm.WatchFolders;
+var
+  Folders: TArray<string>;
+  Tab: TEditorTab;
+begin
+  if not FileExists(FHastePy) then Exit;
+  Folders := [TPath.Combine(ExtractFileDir(FHastePy), 'lib')];
+  Tab := ActiveTab;
+  if (Tab <> nil) and (Tab.FileName <> '') and not SameFileName(ExtractFileDir(Tab.FileName), Folders[0]) then
+    Folders := Folders + [ExtractFileDir(Tab.FileName)];
+  if (FWatcher <> nil) and (string.Join('|', FWatcher.Folders) = string.Join('|', Folders)) then Exit;
+  FreeAndNil(FWatcher);
+  FWatcher := TFolderWatcher.Create(Folders,
+    procedure
+    begin
+      FWordsTimer.Enabled := False;             // restart the wait: a copy of ten files is one refresh
+      FWordsTimer.Enabled := True;
+    end);
+end;
+
+procedure TMainForm.WordsTimerFire(Sender: TObject);
+begin
+  FWordsTimer.Enabled := False;
+  RefreshWords;
 end;
 
 procedure TMainForm.WordsDone(ExitCode: Cardinal; Stopped: Boolean);

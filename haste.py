@@ -16,6 +16,10 @@ class HasteError(Exception):
     pass
 
 
+class Widen(Exception):
+    """A whole-number variable was given a decimal: compile again with it declared as a decimal."""
+
+
 # ───────────────────────────── lexer ─────────────────────────────
 
 KEYWORDS = {'need', 'class', 'end', 'fn', 'let', 'var', 'if', 'then', 'elif', 'else',
@@ -571,6 +575,7 @@ def find_module(name, registry, search):
 class Env:
     def __init__(e, mod, cls=None, parent=None):
         e.vars, e.mod, e.cls, e.parent = {}, mod, cls, parent
+        e.decls = {}                                    # name -> key of its declaration, for widening
         e.params = set()                                # names in vars that are function parameters
         e.spec = parent.spec if parent else None        # function being generated
         e.in_try = parent.in_try if parent else 0
@@ -579,6 +584,12 @@ class Env:
     def lookup(e, n):
         while e:
             if n in e.vars: return e.vars[n]
+            e = e.parent
+        return None
+
+    def decl(e, n):
+        while e:
+            if n in e.vars: return e.decls.get(n)
             e = e.parent
         return None
 
@@ -653,8 +664,9 @@ def dotted(e):
 
 
 class Gen:
-    def __init__(g, main, registry, search):
+    def __init__(g, main, registry, search, widen=frozenset()):
         g.main, g.reg, g.search = main, registry, search
+        g.widen = widen                      # variables to declare as decimals (see Widen)
         g.depth = 0                          # how deeply the expression being generated is nested
         g.try_names = {}                     # module -> names assigned inside a try (made volatile)
         g.classes = {}
@@ -945,7 +957,12 @@ static {name} *{name}_of(int n, ...) {{
         m = re.search(r'([\[{])\?(\d+)', t)
         if m:
             names = [nm for _, nm, _ in g.pending_vars.get(int(m.group(2)), [])]
-            what = names[0] if names else 'this ' + ('list' if m.group(1) == '[' else 'dictionary')
+            kind = 'list' if m.group(1) == '[' else 'dictionary'
+            if not names:                        # an empty [] or {} inside another list or dictionary
+                g.err(node, f'this empty {kind} is used before anything is added to it, so Haste cannot tell what '
+                            f'it holds; write the type on the variable holding it, e.g. let g: [[int]] = [[]] or '
+                            f'let d: {{string: [int]}} = {{}}')
+            what = names[0]
             tip = f', or read it with {what}.Get(key, default)' if m.group(1) == '{' else ''
             g.err(node, f'{what} is used before anything is added to it, so Haste cannot tell what it holds; '
                         f'add something first{tip}, or give it a type, e.g. {g.example(m.group(1), what)}')
@@ -1107,6 +1124,14 @@ static {name} *{name}_of(int n, ...) {{
             out += g.stmt(st, env, depth)
         return out
 
+    def declare(g, env, name, node, c, t):
+        """A new variable: remember where it was declared, and make it a decimal if a later assignment
+        gives it one (found on an earlier pass)."""
+        key = (env.spec.cname if env.spec else env.mod.name, name, node.line)
+        env.decls[name] = key
+        if t == 'int' and key in g.widen: return g.coerce(c, 'int', 'float', node), 'float'
+        return c, t
+
     def vol(g, env, name):
         """' volatile' for a variable some try in this module assigns to: after an error jumps (longjmp) to
         the catch, C only promises the latest value of a variable that is volatile."""
@@ -1143,6 +1168,7 @@ static {name} *{name}_of(int n, ...) {{
             c, t = g.expr(st.value, env, want)
             if want: c, t = g.coerce(c, t, want, st), want
             if t == 'void': g.err(st, 'that expression has no value')
+            c, t = g.declare(env, st.name, st, c, t)
             env.vars[st.name] = (t, st.mutable, 'v_' + st.name)
             g.track(env, st.name, t, st)
             return [f'{pad}{g.ctype(t)}{g.vol(env, st.name)} v_{st.name} = {c};']
@@ -1273,6 +1299,8 @@ static {name} *{name}_of(int n, ...) {{
                               'iterations run at the same time, so each must only change its own data')
                 if not mutable: g.err(st, env.fixed_reason(tg.name))
                 c, ct = g.expr(st.value, env, t)
+                if t == 'int' and ct == 'float' and env.decl(tg.name):
+                    raise Widen(env.decl(tg.name))
                 return f'{cname} = {g.coerce(c, ct, t, st)}'
             if env.cls and tg.name in env.cls.props:
                 return g.set_prop('self', env.cls, tg.name, st.value, env)
@@ -1281,6 +1309,7 @@ static {name} *{name}_of(int n, ...) {{
                           'set the properties it is computed from instead')
             c, t = g.expr(st.value, env)             # first assignment declares the variable
             if t == 'void': g.err(st, 'that expression has no value')
+            c, t = g.declare(env, tg.name, st, c, t)
             env.vars[tg.name] = (t, True, 'v_' + tg.name)
             g.track(env, tg.name, t, st)
             return f'{g.ctype(t)}{g.vol(env, tg.name)} v_{tg.name} = {c}'
@@ -1747,8 +1776,13 @@ def compile_now(path):
     registry = {}
     search = [os.path.dirname(os.path.abspath(path)), os.path.join(HERE, 'lib')]
     main = load(path, registry, search, '__main__', is_main=True)
-    g = Gen(main, registry, search)
-    return g.program(), g.report()
+    widen = set()
+    while True:                              # var t = 0 ... t = t + 2.5: t becomes a decimal, compile again
+        g = Gen(main, registry, search, frozenset(widen))
+        try:
+            return g.program(), g.report()
+        except Widen as w:
+            widen.add(w.args[0])
 
 
 def deep(path, work):

@@ -1,0 +1,23 @@
+// a whole-number variable that is later given a decimal is a decimal from the start; each
+// specialisation of a type-free function decides for itself
+fn Sum(l)
+  var t = 0
+  for x in l
+    t = t + x
+  end
+  return t
+end
+print(Sum([1, 2, 3]) div 2)
+print(Sum([1.5, 2.5, 0.25]))
+var x = 1
+if true then
+  x = 0.5
+end
+print(x)
+var n = 1
+n = n + 1
+print(n div 2)
+// out: 3
+// out: 4.25
+// out: 0.5
+// out: 1

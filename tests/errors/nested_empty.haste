@@ -1,0 +1,5 @@
+// an empty list inside another one needs its type on the variable holding it
+let g = [[]]
+g[0].Add(1)
+// error: nested_empty.haste:3: this empty list is used before anything is added to it
+// error: let g: [[int]] = [[]]

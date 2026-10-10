@@ -3,7 +3,7 @@
 A Delphi VCL editor for Haste: tabs, Haste syntax highlighting, Run (F9) and Build (Ctrl+F9) through
 `haste.py`, an output panel, and a jump to the line of each compiler error.
 
-![Hasten running aliases.haste](../assets/hasten-ide.png)
+![Hasten running aliases.haste](../assets/hasten-ide-aliases.png)
 
 Modules and module, type and class aliases are lime; function aliases are sky blue.
 

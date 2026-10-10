@@ -1,0 +1,7 @@
+// a class's methods and properties share one set of names
+class Box
+  fn Size() = 1
+  fn Size() = 2
+end
+print(Box().Size())
+// error: duplicate_method.haste:4: Box already has a method Size on line 3

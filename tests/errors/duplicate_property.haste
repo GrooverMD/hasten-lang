@@ -1,0 +1,7 @@
+// a property cannot have the same name as another property or a method
+class Box
+  fn Size() = 1
+  Size: int = 2
+end
+print(Box().Size)
+// error: duplicate_property.haste:4: Box already has a method Size on line 3

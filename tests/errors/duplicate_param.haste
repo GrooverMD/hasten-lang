@@ -1,0 +1,4 @@
+// a parameter name can be used once per function
+fn Sub(a, a) = a - a
+print(Sub(1, 2))
+// error: duplicate_param.haste:2: parameter a is listed twice

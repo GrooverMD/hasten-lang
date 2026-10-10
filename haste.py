@@ -49,6 +49,16 @@ def string_end(src, i, file, line):
     raise HasteError(f'{file}:{line}: unterminated string')
 
 
+def comment_at(line):
+    """Index of the // that starts a comment on this line, or -1. A // inside a string is not one."""
+    i = 0
+    while i < len(line):
+        if line[i] == '"': i = string_end(line, i, '', 0) + 1; continue
+        if line.startswith('//', i): return i
+        i += 1
+    return -1
+
+
 def brace_end(raw, i):
     """Index of the } closing the { at raw[i], skipping strings inside it, or -1."""
     j, depth = i, 0
@@ -75,7 +85,7 @@ def lex(src, file, line=1):
         elif src.startswith('//', i):
             while i < n and src[i] != '\n':
                 i += 1
-        elif c.isdigit():
+        elif '0' <= c <= '9':
             m = NUM.match(src, i)
             toks.append(Tok('FLOAT' if m.group(1) else 'INT', m.group(), line, file)); i = m.end()
         elif c.isalpha() or c == '_':
@@ -203,7 +213,8 @@ class Parser:
         if s.at('where'):
             s.next(); start = s.p; sw.where = s.expr(); sw.wtext = s.text(start)
         raw = s.lines[line - 1] if line <= len(s.lines) else ''
-        sw.help = raw.split('//', 1)[1].strip() if '//' in raw.replace('"//', '') else ''
+        at = comment_at(raw)
+        sw.help = raw[at + 2:].strip() if at >= 0 else ''
         s.nl()
         return sw
 
@@ -213,7 +224,8 @@ class Parser:
         f = N('fn', line, name=s.name(), params=[], ret=None, body=None, expr=None, cname=None)
         s.eat('(')
         while not s.at(')'):
-            pn = s.name(); pt = None
+            pt, t = None, s.peek(); pn = s.name()
+            if any(pn == q for q, _ in f.params): raise HasteError(f'{t.file}:{t.line}: parameter {pn} is listed twice')
             if s.at(':'): s.next(); pt = s.type()
             elif ext: s.fail(f'extern parameter {pn} needs a type')
             f.params.append((pn, pt))
@@ -234,10 +246,17 @@ class Parser:
         line = s.eat('class').line
         c = N('class', line, name=s.name(), props={}, methods={})
         s.nl()
+        seen = {}                                # properties and methods share one set of names
+
+        def declare(name, line, what):
+            if name in seen:
+                was, at = seen[name]
+                raise HasteError(f'{s.t[0].file}:{line}: {c.name} already has {was} {name} on line {at}')
+            seen[name] = (what, line)
         while not s.at('end'):
             if s.peek().kind == 'EOF': s.fail(f"class {c.name} is missing 'end'")
             if s.at('fn'):
-                f = s.fn(); c.methods[f.name] = f; continue
+                f = s.fn(); declare(f.name, f.line, 'a method'); c.methods[f.name] = f; continue
             pl = s.peek().line
             p = N('prop', pl, name=s.name(), type=None, default=None, where=None, wtext=None, computed=None, write=None)
             if s.at(':'): s.next(); p.type = s.type()
@@ -249,7 +268,7 @@ class Parser:
                     s.next(); start = s.p; p.where = s.expr(); p.wtext = s.text(start)
             if not (p.type or p.default or p.computed):
                 s.fail(f'property {p.name} needs a type or a default value')
-            c.props[p.name] = p
+            declare(p.name, pl, 'a property'); c.props[p.name] = p
             s.nl()
             if s.at('write'):                    # write ... end: runs on every assignment to the property
                 s.next(); s.nl(); p.write = s.block(); s.eat('end'); s.nl()
@@ -335,7 +354,8 @@ class Parser:
 
     def unary(s):
         if s.at('-'):
-            L = s.next().line; return N('un', L, op='-', e=s.unary())
+            L = s.next().line; e = s.unary()
+            return N('int', L, v=-e.v) if e.kind == 'int' else N('un', L, op='-', e=e)
         return s.postfix()
 
     def postfix(s):
@@ -554,6 +574,7 @@ def dotted(e):
 class Gen:
     def __init__(g, main, registry, search):
         g.main, g.reg, g.search = main, registry, search
+        g.depth = 0                          # how deeply the expression being generated is nested
         g.classes = {}
         for m in list(registry.values()): g.register(m)
         g.fwd, g.lists, g.structs, g.protos, g.funcs = [], [], [], [], []
@@ -1144,9 +1165,23 @@ static {name} *{name}_of(int n, ...) {{
         return f'{objc}->p_{p.name}', t
 
     # ── expressions: return (C code, Haste type) ──
+    MAX_DEPTH = 2000                         # the C compiler itself gives out at about 6000 levels
+
     def expr(g, e, env, want=None):
+        g.depth += 1
+        try:
+            if g.depth > g.MAX_DEPTH:
+                g.err(e, f'this expression is nested more than {g.MAX_DEPTH} levels deep; split it up')
+            return g.expr_now(e, env, want)
+        finally:
+            g.depth -= 1
+
+    def expr_now(g, e, env, want=None):
         k = e.kind
-        if k == 'int': return f'{e.v}LL', 'int'
+        if k == 'int':
+            if not -2**63 <= e.v < 2**63:
+                g.err(e, f'{e.v} is too big for a whole number (they go from {-2**63} to {2**63 - 1})')
+            return (f'{e.v}LL' if e.v > -2**63 else '(-9223372036854775807LL - 1)'), 'int'
         if k == 'float': return e.v, 'float'
         if k == 'bool': return ('true' if e.v else 'false'), 'bool'
         if k == 'str': return cstr(e.v), 'string'
@@ -1421,11 +1456,40 @@ static {name} *{name}_of(int n, ...) {{
 
 
 def compile_to_c(path):
+    return deep(path, lambda: compile_now(path))
+
+
+def compile_now(path):
     registry = {}
     search = [os.path.dirname(os.path.abspath(path)), os.path.join(HERE, 'lib')]
     main = load(path, registry, search, '__main__', is_main=True)
     g = Gen(main, registry, search)
     return g.program(), g.report()
+
+
+def deep(path, work):
+    """Runs work() with room for deeply nested code. The parser and code generator recurse once per level
+    of nesting, and Python's default stack gives out at about 90 brackets or a 600-term sum."""
+    import threading
+    result, limit = [], sys.getrecursionlimit()
+
+    def run():
+        try:
+            result.append((True, work()))
+        except RecursionError:
+            result.append((False, HasteError(f'{os.path.basename(path)}: the code is nested too deeply '
+                                             '(thousands of levels of brackets, or one very long sum)')))
+        except BaseException as ex:
+            result.append((False, ex))
+    sys.setrecursionlimit(200000)
+    old = threading.stack_size(512 * 1024 * 1024)
+    try:
+        t = threading.Thread(target=run); t.start(); t.join()
+    finally:
+        threading.stack_size(old); sys.setrecursionlimit(limit)
+    ok, value = result[0]
+    if not ok: raise value
+    return value
 
 
 # ─────────────────────────── build driver ───────────────────────────
@@ -1595,7 +1659,7 @@ def build(path, targets):
             raise HasteError(f'cannot replace {os.path.relpath(out)}: it is locked. If your antivirus '
                              'quarantined it, delete it from the quarantine (or restart Windows); '
                              'if the program is still running, close it')
-        cmd = zig() + ['cc', '-target', triple, '-O2', '-std=gnu11', '-w', c_file, '-o', out] + extra
+        cmd = zig() + ['cc', '-target', triple, '-O2', '-std=gnu11', '-w', '-fbracket-depth=100000', c_file, '-o', out] + extra
         if t == 'windows':
             cmd.insert(cmd.index(c_file) + 1, windows_resources(out_dir, stem))
         print(f'  compiling for {t} with Zig (the first build after its cache is cleared can take minutes)...'
@@ -1645,7 +1709,7 @@ def alias_kinds(path, search):
     try:
         src = open(path, encoding='utf-8-sig').read()
         prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()
-    except (HasteError, OSError, IndexError):
+    except (HasteError, OSError, IndexError, RecursionError):
         return {}
     registry, kinds = {}, {}
 

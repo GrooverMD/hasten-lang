@@ -10,7 +10,8 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, System.UITypes,
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd,
-  SynEdit, SynEditTypes, SynEditSearch, Hasten.Highlighter, Hasten.Runner, Hasten.Watcher;
+  SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
+  Hasten.Watcher;
 
 type
   TEditorTab = class(TTabSheet)
@@ -32,7 +33,8 @@ type
   TMainForm = class(TForm)
   private
     FPages: TPageControl;
-    FOutput: TMemo;
+    FOutput: TSynEdit;                          // read-only, coloured by SynHighlighterHasteOutput
+    FOutputHighlighter: TSynHasteOutputSyn;
     FStatus: TStatusBar;
     FArgs: TEdit;
     FTarget: TComboBox;
@@ -85,6 +87,8 @@ type
     function SwitchHint(Tab: TEditorTab): string;
     procedure PagesChange(Sender: TObject);
     procedure OutputDblClick(Sender: TObject);
+    procedure OutputClear;
+    procedure OutputAdd(const Line: string);
     procedure FindNext(Sender: TObject);
     procedure BuildEditorMenu;
     procedure ApplyFont;
@@ -385,15 +389,19 @@ begin
   FStatus.Panels.Add.Width := 90;
   FStatus.Panels.Add;
 
-  FOutput := TMemo.Create(Self);
+  FOutputHighlighter := TSynHasteOutputSyn.Create(Self);
+  FOutput := TSynEdit.Create(Self);
   FOutput.Parent := Self;
   FOutput.Align := alBottom;
   FOutput.Height := 180;
   FOutput.ReadOnly := True;
-  FOutput.ScrollBars := ssBoth;
-  FOutput.WordWrap := False;
+  FOutput.Highlighter := FOutputHighlighter;
   FOutput.Font.Name := 'Consolas';
   FOutput.Font.Size := 10;
+  FOutput.Color := $001E1E1E;                    // the same dark background as the editor
+  FOutput.Font.Color := $00D4D4D4;
+  FOutput.Gutter.Visible := False;
+  FOutput.RightEdge := 0;                        // no margin line in the output
   FOutput.OnDblClick := OutputDblClick;
 
   Split := TSplitter.Create(Self);
@@ -468,7 +476,7 @@ end;
 function EditTarget(Form: TMainForm; FromPopup: Boolean): TWinControl;
 begin
   Result := nil;
-  if not FromPopup and (Form.ActiveControl is TCustomEdit) then
+  if not FromPopup and ((Form.ActiveControl is TCustomEdit) or (Form.ActiveControl is TSynEdit)) then
     Result := Form.ActiveControl
   else if Form.ActiveTab <> nil then
     Result := Form.ActiveTab.Editor;
@@ -954,17 +962,17 @@ begin
     Cmd := Cmd + ' ' + Trim(FArgs.Text);
   FRunFolder := ExtractFileDir(Tab.FileName);
   FJumped := False;
-  FOutput.Clear;
-  FOutput.Lines.Add('> ' + Cmd);
+  OutputClear;
+  OutputAdd('> ' + Cmd);
   FStatus.Panels[2].Text := 'Running ' + Tab.Title + '...';
   FRunner := TRunner.Create(Cmd, FRunFolder, RunnerLine, RunnerDone);
 end;
 
 procedure TMainForm.RunnerLine(const Line: string);
 begin
-  FOutput.Lines.Add(Line);
+  OutputAdd(Line);
   if Line.StartsWith('Cannot start: ') then
-    FOutput.Lines.Add('Python could not be started. Check that "python --version" works in a new command ' +
+    OutputAdd('Python could not be started. Check that "python --version" works in a new command ' +
       'prompt; if Python was installed while Hasten was open, restart Hasten so it sees the new PATH.');
   if not FJumped and Line.StartsWith('error:') then
     FJumped := JumpToError(Line);               // go straight to the first compiler error
@@ -973,9 +981,9 @@ end;
 procedure TMainForm.RunnerDone(ExitCode: Cardinal; Stopped: Boolean);
 begin
   if Stopped then
-    FOutput.Lines.Add('[stopped]')
+    OutputAdd('[stopped]')
   else
-    FOutput.Lines.Add(Format('[finished, exit code %d]', [ExitCode]));
+    OutputAdd(Format('[finished, exit code %d]', [ExitCode]));
   FStatus.Panels[2].Text := '';
   FFinished.Free;                               // the run before this one: its thread ended long ago
   FFinished := FRunner;                         // this one is still inside its own callback, so not yet
@@ -1017,11 +1025,28 @@ begin
   Result := False;
 end;
 
+procedure TMainForm.OutputClear;
+begin
+  FOutput.Lines.Clear;
+end;
+
+{ Adds a line and keeps the end of the output in view, as a console does. A line holding several lines
+  (an error with its cause) is split, so each gets its own colour. }
+procedure TMainForm.OutputAdd(const Line: string);
+var
+  Part: string;
+begin
+  for Part in Line.Replace(#13#10, #10).Split([#10]) do
+    FOutput.Lines.Add(Part);
+  FOutput.CaretXY := BufferCoord(1, FOutput.Lines.Count);
+  FOutput.EnsureCursorPosVisible;
+end;
+
 procedure TMainForm.OutputDblClick(Sender: TObject);
 var
   Row: Integer;
 begin
-  Row := FOutput.CaretPos.Y;
+  Row := FOutput.CaretY - 1;                    // SynEdit counts lines from 1
   if (Row >= 0) and (Row < FOutput.Lines.Count) then
     JumpToError(FOutput.Lines[Row]);
 end;
@@ -1240,8 +1265,8 @@ begin
   Cmd := Quote(PythonCommand) + ' ' + Quote(Tests);
   FRunFolder := ExtractFileDir(Tests);
   FJumped := True;                              // a failing test should not pull the editor away
-  FOutput.Clear;
-  FOutput.Lines.Add('> ' + Cmd);
+  OutputClear;
+  OutputAdd('> ' + Cmd);
   FStatus.Panels[2].Text := 'Running the test suite...';
   FRunner := TRunner.Create(Cmd, FRunFolder, RunnerLine, RunnerDone);
 end;

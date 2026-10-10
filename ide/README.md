@@ -10,7 +10,8 @@ A Delphi VCL editor for Haste: tabs, Haste syntax highlighting, Run (F9) and Bui
 You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.com/TurboPack/SynEdit)
 (TurboPack, also in GetIt).
 
-1. Run `SynHighlighterHaste.msg` through SynGen. It writes `SynHighlighterHaste.pas` next to it.
+1. Run `SynHighlighterHaste.msg` and `SynHighlighterHasteOutput.msg` through SynGen. Each writes its `.pas`
+   next to it.
 2. Open `Hasten.dpr` in Delphi. Add the SynEdit source folder to the search path if it isn't already.
 3. Optional: Project > Options > Application > Icon: `..\assets\haste.ico`.
 4. Build. The first Run looks for `haste.py` beside the exe and up to four folders above it (so
@@ -42,4 +43,5 @@ there. Settings, the editor font and the files you had open are kept in `%APPDAT
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |
 | `Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |
+| `SynHighlighterHasteOutput.msg` | SynGen description of the output panel's colours: the command, Haste's reports, errors, test results |
 | `SynHighlighterHaste.msg` | SynGen description of Haste's syntax; colours designed with [SynEdit Msg Designer](https://groovermd.github.io/SynEditMsgDesigner/) |

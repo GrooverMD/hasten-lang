@@ -1,0 +1,4 @@
+// written types are checked in code nothing calls
+fn Show(name: Strng) = name
+print("ran")
+// error: param_type.haste:2: unknown type Strng

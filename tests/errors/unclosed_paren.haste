@@ -1,0 +1,4 @@
+// a bracket left open is reported where it opens
+let x = (1 + 2
+print(x)
+// error: unclosed_paren.haste:2: this ( is never closed with ), or a ',' is missing before line 3

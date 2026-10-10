@@ -1,0 +1,9 @@
+// a for variable is not known after its loop, even in a function nobody calls
+fn Unused()
+  for i in 1..3
+    print(i)
+  end
+  print(i)
+end
+print("ran")
+// error: scope.haste:6: unknown name i

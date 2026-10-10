@@ -202,8 +202,9 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Short names | `alias T = Text`, `alias Bmp = System.Bitmap`, `alias Up = Text.Upper` |
 | Type names | `alias Grid = [[int]]`, `alias Stock = {string: int}`, then `Cells: Grid = []` |
 | Include a whole module | `need Module` (rarely needed) |
+| Long lines | A line continues while a `(`, `[` or `{` is open |
 
-There is no `nil`: every property always has a value.
+There is no `nil`: every property always has a value. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
 
 ```haste
 class Temperature

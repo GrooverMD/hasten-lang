@@ -1,0 +1,4 @@
+// an alias must name something, used or not
+alias Up = Text.Uper
+print("ran")
+// error: alias_target.haste:2: module Text has no Uper

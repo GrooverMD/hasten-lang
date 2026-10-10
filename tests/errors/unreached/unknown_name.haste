@@ -1,0 +1,6 @@
+// code nothing calls is still checked for names
+fn Unused()
+  return nope + 1
+end
+print("ran")
+// error: unknown_name.haste:3: unknown name nope

@@ -1,0 +1,4 @@
+// an alias to nothing
+alias X = Nope
+print("ran")
+// error: alias_nothing.haste:2: alias X names Nope, which is not a module, class or function

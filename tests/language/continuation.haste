@@ -1,0 +1,21 @@
+// a line can continue inside ( ), [ ] and { }; comments may sit at the ends of those lines
+need Text
+fn Area(width, height) = width * height
+let a = Area(3,
+             4)
+let b = (1 +
+         2)
+let s = Text.Join(["a",      // first
+                   "b"],     // second
+                  "-")
+let d = {
+  "x": 1, "y": 2
+}
+print(a)
+print(b)
+print(s)
+print(d.Count)
+// out: 12
+// out: 3
+// out: a-b
+// out: 2

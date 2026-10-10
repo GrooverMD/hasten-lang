@@ -1,0 +1,3 @@
+// {} in a string needs an expression; \{ is a brace that is just text
+print("a{}b")
+// error: empty_interp.haste:2: empty {} in a string

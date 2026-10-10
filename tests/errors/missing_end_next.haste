@@ -1,0 +1,6 @@
+// without indentation to go by, the open block is named with what came next
+fn Pick(x)
+return 1
+
+fn Other() = 3
+// error: missing_end_next.haste:2: this fn has no 'end' before the fn on line 5

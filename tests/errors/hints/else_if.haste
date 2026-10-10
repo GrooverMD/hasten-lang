@@ -1,0 +1,7 @@
+// else if is elif
+if false then
+  print("a")
+else if true then
+  print("b")
+end
+// error: else_if.haste:4: write elif, not 'else if'

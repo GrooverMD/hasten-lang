@@ -1,0 +1,3 @@
+// an if body goes on the next line
+if true then print("x")
+// error: one_line_if.haste:2: put what the if does on the next line

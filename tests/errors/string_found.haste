@@ -1,0 +1,3 @@
+// a string in an error keeps its quotes
+print("a" "b")
+// error: string_found.haste:2: expected ',', found "b"

@@ -204,7 +204,7 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Include a whole module | `need Module` (rarely needed) |
 | Long lines | A line continues while a `(`, `[` or `{` is open |
 
-There is no `nil`: every property always has a value. Whole numbers are 64-bit, and going past that is an error you can `catch`, never a silent wrap; `shl` and `shr` take amounts from 0 to 63. An unhandled error names the line it happened on and the lines each call came from. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
+There is no `nil`: every property always has a value. Whole numbers are 64-bit, and going past that is an error you can `catch`, never a silent wrap; `shl` and `shr` take amounts from 0 to 63. An unhandled error names the line it happened on and the lines each call came from. `=` compares lists and dictionaries by what they hold, and objects by being the same object. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
 
 ```haste
 class Temperature
@@ -234,6 +234,7 @@ end
 |---|---|
 | `Text.Split(s, sep)` / `Text.Join(list, sep)` | Text to a list and back |
 | `Text.Trim(s)`, `Text.Upper(s)`, `Text.Lower(s)` | Tidy text |
+| `s.Length`, `Text.Sub(s, start, count)`, `Text.Code(s, i)` | Lengths and positions count characters, so `"café".Length` is 4. `Upper`/`Lower` know accented Latin letters, Greek and Cyrillic. |
 | `Text.Contains(s, part)`, `Text.IndexOf(s, part, from)`, `Text.Replace(s, old, new)` | Search and replace (`IndexOf` gives the length when not found) |
 | `Text.ToInt(s)`, `Text.ToFloat(s)` | Text to numbers; bad text raises an error you can `catch` |
 | `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |

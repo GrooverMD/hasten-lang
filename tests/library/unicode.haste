@@ -1,0 +1,28 @@
+// text is UTF-8; lengths and positions count characters, not bytes
+need Text
+let s = "café ✓ 日本"
+print(s.Length)
+print(Text.Sub(s, 3, 1))
+print(Text.Sub(s, 5, 4))
+print(Text.Code(s, 5))
+print(Text.Find(s, 26412, 0))
+print(Text.IndexOf(s, "日", 0))
+print(Text.PadRight(s, 12) + "|")
+print(Text.Upper("café αβγ привет"))
+print(Text.Lower("CAFÉ ΑΒΓ ПРИВЕТ"))
+var total = 0
+let long = Text.Repeat("añb✓", 1000)
+for i in 0..long.Length - 1
+  total = total + Text.Code(long, i)
+end
+print(total)
+// out: 9
+// out: é
+// out: ✓ 日本
+// out: 10003
+// out: 8
+// out: 7
+// out: café ✓ 日本   |
+// out: CAFÉ ΑΒΓ ПРИВЕТ
+// out: café αβγ привет
+// out: 10439000

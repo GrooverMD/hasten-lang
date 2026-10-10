@@ -3,7 +3,8 @@ unit Hasten.Highlighter;
 { The highlighter Hasten uses: the one SynGen generates from SynHighlighterHaste.msg, plus names that change
   without the .msg changing. Built-ins, list and dictionary members, module names and the open file's
   aliases come from "haste.py words", so a new module in lib (or next to the program) is coloured as soon
-  as it exists, and module, type and class aliases are coloured like modules.
+  as it exists, and module, type and class aliases are coloured like modules (function aliases in
+  their own colour).
   The generated unit is never edited by hand. }
 
 interface
@@ -15,6 +16,7 @@ type
   THasteHighlighter = class(TSynHasteSyn)
   private
     FWords: TDictionary<string, TSynHighlighterAttributes>;
+    FFunctionAliasAttri: TSynHighlighterAttributes;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -22,6 +24,9 @@ type
     procedure LoadWords(Lines: TStrings);
     function GetTokenAttribute: TSynHighlighterAttributes; override;
     property Words: TDictionary<string, TSynHighlighterAttributes> read FWords;
+    { Function aliases: sky blue, apart from the lime of module, type and class aliases. Not a token type
+      in the .msg, so it needs no SynGen run; the highlighter owns and frees it. }
+    property FunctionAliasAttri: TSynHighlighterAttributes read FFunctionAliasAttri;
   end;
 
 implementation
@@ -30,6 +35,9 @@ constructor THasteHighlighter.Create(AOwner: TComponent);
 begin
   inherited;
   FWords := TDictionary<string, TSynHighlighterAttributes>.Create;
+  FFunctionAliasAttri := TSynHighlighterAttributes.Create('FunctionAlias', 'Function alias');
+  FFunctionAliasAttri.Foreground := $00FFC14F;                // RGB(79, 193, 255)
+  AddAttribute(FFunctionAliasAttri);
 end;
 
 destructor THasteHighlighter.Destroy;
@@ -55,6 +63,7 @@ begin
     else if Parts[0] = 'module' then Attr := ModuleAttri
     else if Parts[0] = 'type' then Attr := ModuleAttri     // type and class aliases look like module
                                                            // aliases, so every alias reads as one
+    else if Parts[0] = 'function' then Attr := FFunctionAliasAttri
     else Continue;                             // keywords are already in the generated hash table
     for I := 1 to High(Parts) do
     begin

@@ -1634,12 +1634,13 @@ def words(path=None):
     print('member', *MEMBERS)
     print('module', *sorted({m for m in mods if re.fullmatch(r'[A-Za-z_]\w*', m)} | set(kinds.get('module', []))))
     if kinds.get('type'): print('type', *sorted(kinds['type']))
+    if kinds.get('function'): print('function', *sorted(kinds['function']))
     return 0
 
 
 def alias_kinds(path, search):
     """What each alias in a program stands for, so an editor can colour it the same way:
-    {'module': [...], 'type': [...]}. Aliases of functions are left out (function names are not coloured).
+    {'module': [...], 'type': [...], 'function': [...]}.
     A file that does not parse yet simply has no aliases to report."""
     try:
         src = open(path, encoding='utf-8-sig').read()
@@ -1648,22 +1649,28 @@ def alias_kinds(path, search):
         return {}
     registry, kinds = {}, {}
 
-    def kind(name, seen):
-        if name in prog.type_aliases or name in prog.classes: return 'type'
-        if name not in prog.aliases or name in seen: return None
-        parts = prog.aliases[name][0]
-        if len(parts) == 1 and (parts[0] in prog.aliases or parts[0] in prog.type_aliases or parts[0] in prog.classes):
-            return kind(parts[0], seen | {name})
+    def kind(name):
+        parts, seen = [name], []
+        while parts[0] in prog.aliases and parts[0] not in seen:   # follow alias -> alias, as resolve() does
+            seen.append(parts[0])
+            parts = prog.aliases[parts[0]][0] + parts[1:]
+        if len(parts) == 1:
+            n = parts[0]
+            if n in prog.type_aliases or n in prog.classes: return 'type'
+            if n in prog.funcs: return 'function'
+            if n in seen: return None                                # a circle: the build reports it
         try:
+            if len(parts) > 1:
+                head = find_module('.'.join(parts[:-1]), registry, search)
+                if head and parts[-1] in head.prog.classes: return 'type'
+                if head and parts[-1] in head.prog.funcs: return 'function'
             if find_module('.'.join(parts), registry, search): return 'module'
-            head = find_module('.'.join(parts[:-1]), registry, search) if len(parts) > 1 else None
-            if head and parts[-1] in head.prog.classes: return 'type'
         except HasteError:
             pass
         return None
 
     for name in list(prog.aliases) + list(prog.type_aliases):
-        k = kind(name, set())
+        k = kind(name)
         if k: kinds.setdefault(k, []).append(name)
     return kinds
 

@@ -1477,6 +1477,16 @@ def setup():
     return 0
 
 
+def zig_cache_warm():
+    """Whether Zig's global cache already holds built C libraries; when it does not (first use, or after an
+    antivirus emptied it), Zig rebuilds them from source before the first program, which takes a while."""
+    root = os.environ.get('ZIG_GLOBAL_CACHE_DIR') or (
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'zig') if sys.platform == 'win32'
+        else os.path.join(os.environ.get('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'zig'))
+    o = os.path.join(root, 'o')
+    return os.path.isdir(o) and len(os.listdir(o)) > 20
+
+
 def toolchain():
     """Which Python and which Zig are doing the work, for the top of every build: when something breaks,
     this is the first thing to know."""
@@ -1485,7 +1495,10 @@ def toolchain():
     where = z[0] if len(z) == 1 else 'ziglang package (' + os.path.dirname(__import__('ziglang').__file__) + ')'
     r = subprocess.run(z + ['version'], capture_output=True, text=True)
     ver = r.stdout.strip() or 'unknown version'
-    return f'  Python  {platform.python_version()}  {sys.executable}\n  Zig     {ver}  {where}'
+    line = f'  Python  {platform.python_version()}  {sys.executable}\n  Zig     {ver}  {where}'
+    if ver != ZIG_VERSION:
+        line += f'\n  note: Haste is tested with Zig {ZIG_VERSION}; "python haste.py setup" installs it'
+    return line
 
 
 def build(path, targets):
@@ -1504,6 +1517,8 @@ def build(path, targets):
         triple, suffix, extra = TARGETS[t]
         out = os.path.join(out_dir, stem + suffix)
         cmd = zig() + ['cc', '-target', triple, '-O2', '-std=gnu11', '-w', c_file, '-o', out] + extra
+        print(f'  compiling for {t} with Zig (the first build after its cache is cleared can take minutes)...'
+              if not zig_cache_warm() else f'  compiling for {t}...', flush=True)
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode:
             raise HasteError(f'C compiler failed for {t}:\n{r.stderr}')

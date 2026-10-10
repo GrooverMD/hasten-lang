@@ -82,3 +82,6 @@ __recovery/
 build/
 words_alpha.txt
 __pycache__/
+
+# Zig downloaded by "haste.py setup"
+tools/

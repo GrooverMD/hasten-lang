@@ -116,14 +116,24 @@ doesn't use.
 
 ## Getting started
 
-You need **Python 3.8 or newer**. Everything else is one package, which brings the cross-compiling C toolchain:
+You need **Python 3.8 or newer**. The only other thing is [Zig](https://ziglang.org/), the cross-compiling C
+toolchain, which `haste.py setup` downloads into the Haste folder:
 
 ```
-pip install ziglang
 git clone https://github.com/GrooverMD/hasten-lang.git
-cd hasten-lang/examples
+cd hasten-lang
+python haste.py setup
+cd examples
 python ../haste.py run hello.haste
 ```
+
+`setup` puts Zig in `tools/zig`, checked against the checksum ziglang.org publishes. `pip install ziglang` works
+too; Haste uses `tools/zig` first, then a `zig` on the PATH, then the pip package.
+
+**Antivirus programs** (Norton, Avast and AVG in particular) can mistake freshly built programs, and even Zig
+itself, for threats and quarantine them; the detection usually has "gen" in its name, such as
+`Win64:Evo-gen [Trj]`. Exclude the Haste folder from scanning, and with it Zig's cache, `%LOCALAPPDATA%\zig`
+on Windows. Keeping Zig in `tools/zig` means the one exclusion covers it.
 
 | Command | What it does |
 |---|---|
@@ -131,6 +141,7 @@ python ../haste.py run hello.haste
 | `python haste.py build file.haste` | Build for this system |
 | `python haste.py build file.haste --target windows,macos,linux` | Build for every system (`macos-x64` for Intel Macs) |
 | `python haste.py c file.haste` | Show the generated C |
+| `python haste.py setup` | Download Zig into `tools/zig` |
 
 Executables go into `build/` next to the source file.
 

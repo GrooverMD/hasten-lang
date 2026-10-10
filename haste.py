@@ -152,7 +152,8 @@ class Parser:
 
     # top level
     def program(s):
-        prog = N('program', imports=[], classes={}, funcs={}, stmts=[], inits=[], aliases={}, switches=[])
+        prog = N('program', imports=[], classes={}, funcs={}, stmts=[], inits=[], aliases={}, type_aliases={},
+                 switches=[])
         seen = {}                            # functions, classes and aliases share one set of names
 
         def declare(name, line, what):
@@ -174,7 +175,11 @@ class Parser:
             elif s.at('alias'):
                 line = s.next().line; nm = s.name(); s.eat('=')
                 declare(nm, line, 'an alias')
-                prog.aliases[nm] = (s.dotted(), line); s.nl()
+                if s.at('[', '{') or s.peek().val in PRIM:   # a type: alias Grid = [[int]], alias Score = int
+                    prog.type_aliases[nm] = (s.type(), line)
+                else:
+                    prog.aliases[nm] = (s.dotted(), line)
+                s.nl()
             elif s.at('class'):
                 c = s.cls(); declare(c.name, c.line, 'a class'); prog.classes[c.name] = c
             elif s.at('fn', 'extern'):
@@ -611,13 +616,20 @@ class Gen:
         """True when a.b.c should be looked up as a name path, not as a value."""
         return parts and not env.lookup(parts[0]) and not (env.cls and parts[0] in env.cls.props)
 
-    def tname(g, t, env, node):
+    def tname(g, t, env, node, seen=()):
         """Resolve a written type (int, [Account], System.Bitmap, an alias) to its full name."""
         if t in PRIM: return t
-        if t.startswith('['): return '[' + g.tname(t[1:-1], env, node) + ']'
+        types = env.mod.prog.type_aliases
+        if t in types:                       # alias Grid = [[int]]: use what it stands for
+            if t in seen: g.err(node, 'alias ' + ' -> '.join(seen + (t,)) + ' goes round in a circle')
+            return g.tname(types[t][0], env, node, seen + (t,))
+        names = env.mod.prog.aliases
+        if t in names and '.'.join(names[t][0]) in types:     # alias Table = Grid, where Grid is a type alias
+            return g.tname('.'.join(names[t][0]), env, node, seen + (t,))
+        if t.startswith('['): return '[' + g.tname(t[1:-1], env, node, seen) + ']'
         if t.startswith('{'):
             k, v = kv(t)
-            return '{' + g.tname(k, env, node) + ':' + g.tname(v, env, node) + '}'
+            return '{' + g.tname(k, env, node, seen) + ':' + g.tname(v, env, node, seen) + '}'
         r = g.resolve(t.split('.'), env, node)
         if not r or r[0] != 'class': g.err(node, f'unknown type {t}')
         return r[1].qname

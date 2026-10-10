@@ -420,7 +420,7 @@ def load(path, registry, search, name, is_main=False):
     except OSError:
         raise HasteError(f'cannot read {path}')
     prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()
-    mod = N('module', name=name, prog=prog, imports={}, needed=False, is_main=is_main,
+    mod = N('module', name=name, path=os.path.abspath(path), prog=prog, imports={}, needed=False, is_main=is_main,
             cprefix='f' if is_main else name.replace('.', '_'))
     if not is_main and prog.stmts:
         raise HasteError(f'{path}: a module may only contain classes, functions and init blocks')
@@ -434,12 +434,28 @@ def load(path, registry, search, name, is_main=False):
     return mod
 
 
+def exact_path(d, parts):
+    """Whether d/parts... exists with exactly this spelling. On Windows and macOS file names ignore case,
+    so os.path.exists says Text.haste exists when only text.haste does; module names must match exactly."""
+    for i, part in enumerate(parts):
+        try:
+            if part not in os.listdir(d): return False
+        except OSError:
+            return False
+        d = os.path.join(d, part)
+    return True
+
+
 def find_module(name, registry, search):
-    """System.Drawing -> <dir>/System/Drawing.haste, searched in each directory."""
+    """System.Drawing -> <dir>/System/Drawing.haste, searched in each directory. The name must match the
+    file's name exactly, and the program being compiled is never its own module."""
     if name in registry: return registry[name]
+    mains = {os.path.normcase(m.path) for m in registry.values() if m.is_main}
     for d in search:
-        p = os.path.join(d, *name.split('.')) + '.haste'
-        if os.path.exists(p):
+        parts = name.split('.')
+        parts[-1] += '.haste'
+        p = os.path.join(d, *parts)
+        if exact_path(d, parts) and os.path.normcase(os.path.abspath(p)) not in mains:
             return load(p, registry, search, name)
     return None
 

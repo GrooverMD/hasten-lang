@@ -1,0 +1,3 @@
+// a bracket still open at the end of the file
+print(1
+// error: unclosed_eof.haste:2: this ( is never closed with )

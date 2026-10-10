@@ -80,11 +80,12 @@ def brace_end(raw, i):
 
 
 def lex(src, file, line=1):
-    toks, i, n = [], 0, len(src)
+    toks, i, n, depth = [], 0, len(src), 0     # depth: brackets open; a line break inside them is not an end
     while i < n:
         c = src[i]
         if c == '\n':
-            toks.append(Tok('NL', '', line, file)); line += 1; i += 1
+            if not depth: toks.append(Tok('NL', '', line, file))
+            line += 1; i += 1
         elif c in ' \t\r':
             i += 1
         elif src.startswith('//', i):
@@ -105,6 +106,8 @@ def lex(src, file, line=1):
             toks.append(Tok('OP', src[i:i + 2], line, file)); i += 2
         elif c in OPS1:
             toks.append(Tok('OP', c, line, file)); i += 1
+            if c in '([{': depth += 1
+            elif c in ')]}': depth = max(0, depth - 1)
         else:
             raise HasteError(f'{file}:{line}: unexpected character {c!r}')
     toks += [Tok('NL', '', line, file), Tok('EOF', '', line, file)]
@@ -148,6 +151,23 @@ class Parser:
     def fail(s, msg, t=None):
         t = t or s.peek()
         raise HasteError(f"{t.file}:{t.line}: {msg}, found {shown(t)}")
+
+    STARTS = ('let', 'var', 'while', 'for', 'parallel', 'return', 'try', 'end', 'elif', 'else', 'catch') + TOP_ONLY
+
+    def sep(s, close, opener, line):
+        """After an item in brackets: a comma, or the closing bracket (which the caller eats)."""
+        if s.at(close): return
+        if s.at(','): s.next(); return
+        s.unclosed_bracket(close, opener, line)
+
+    def unclosed_bracket(s, close, opener, line):
+        t = s.peek()
+        at = Tok('', '', line, t.file)
+        if t.kind in ('NL', 'EOF') or s.at(*s.STARTS):
+            s.error(f"this {opener} is never closed with {close}", at)
+        if t.line > line and s.t[s.p - 1].line < t.line:    # the next line starts without a comma
+            s.error(f"this {opener} is never closed with {close}, or a ',' is missing before line {t.line}", at)
+        s.fail(f"expected ',' or '{close}'")
 
     def error(s, msg, t=None):
         t = t or s.peek()
@@ -416,7 +436,7 @@ class Parser:
         e = s.primary()
         while True:
             if s.at('('):
-                L = s.next().line; e = N('call', L, fn=e, args=s.args())
+                L = s.next().line; e = N('call', L, fn=e, args=s.args(L))
             elif s.at('.'):
                 L = s.next().line; e = N('member', L, obj=e, name=s.name())
             elif s.at('['):
@@ -424,14 +444,14 @@ class Parser:
             else:
                 return e
 
-    def args(s):
+    def args(s, L):
         out = []
         while not s.at(')'):
             nm = None
             if s.peek().kind == 'NAME' and s.peek(1).kind == 'OP' and s.peek(1).val == ':':
                 nm = s.next().val; s.next()
             out.append((nm, s.expr()))
-            if not s.at(')'): s.eat(',')
+            s.sep(')', '(', L)
         s.next()
         return out
 
@@ -443,13 +463,15 @@ class Parser:
         if t.kind == 'NAME': return N('name', L, name=t.val)
         if t.kind == 'KW' and t.val in ('true', 'false'): return N('bool', L, v=t.val == 'true')
         if t.kind == 'OP' and t.val == '(':
-            e = s.expr(); s.eat(')'); return e
+            e = s.expr()
+            if not s.at(')'): s.unclosed_bracket(')', '(', L)
+            s.next(); return e
         if t.kind == 'OP' and t.val == '[':
             items = []
             s.skipnl()
             while not s.at(']'):
                 items.append(s.expr()); s.skipnl()
-                if not s.at(']'): s.eat(','); s.skipnl()
+                s.sep(']', '[', L); s.skipnl()
             s.next()
             return N('list', L, items=items)
         if t.kind == 'OP' and t.val == '{':               # {"Mark": 50, "Ada": 36}
@@ -457,7 +479,7 @@ class Parser:
             s.skipnl()
             while not s.at('}'):
                 k = s.expr(); s.eat(':'); pairs.append((k, s.expr())); s.skipnl()
-                if not s.at('}'): s.eat(','); s.skipnl()
+                s.sep('}', '{', L); s.skipnl()
             s.next()
             return N('dict', L, pairs=pairs)
         s.p -= 1
@@ -1330,6 +1352,117 @@ static {name} *{name}_of(int n, ...) {{
         if k == 'call': return g.call(e, env)
         g.err(e, f'unknown expression {k}')
 
+    # ── checking code nothing calls ──
+    # Only reachable code is generated, so a typo in a function nobody calls yet would wait until someone
+    # does. This walks every function, class, alias and statement of each loaded module and checks what
+    # can be checked without knowing types: names, alias targets, written types and literal defaults.
+    def check_all(g):
+        done = set()
+        while True:
+            todo = [m for m in list(g.reg.values()) if m.name not in done]
+            if not todo: return
+            for m in todo:
+                done.add(m.name); g.check_module(m)
+
+    def check_module(g, m):
+        prog, file = m.prog, os.path.basename(m.path)
+        env = Env(m)
+        for nm, (parts, line) in prog.aliases.items():
+            at = N('alias', line); at.file = file
+            end, seen = parts, set()
+            while len(end) == 1 and end[0] in prog.aliases and end[0] not in seen:   # alias -> alias
+                seen.add(end[0]); end = prog.aliases[end[0]][0]
+            if len(end) == 1 and end[0] in prog.type_aliases: continue           # alias -> type alias
+            if not g.resolve(parts, env, at):
+                g.err(at, f'alias {nm} names {".".join(parts)}, which is not a module, class or function')
+        for nm, (t, line) in prog.type_aliases.items():
+            at = N('alias', line); at.file = file
+            g.tname(nm, env, at)
+        top = set()
+        for sw in prog.switches:
+            g.check(sw.default, m, None, [top])
+            if sw.where: g.check(sw.where, m, None, [top, {sw.name, 'it'}])
+            top.add(sw.name)
+        g.check_block(prog.stmts, m, None, [top])
+        for blk in prog.inits: g.check_block(blk, m, None, [set()])
+        for f in prog.funcs.values(): g.check_fn(f, m, None)
+        for c in prog.classes.values():
+            for pr in c.props.values():
+                if pr.type: g.tname(pr.type, env, pr)
+                if pr.default: g.check(pr.default, m, c, [{'self'}]); g.check_literal(pr, env)
+                if pr.where: g.check(pr.where, m, c, [{'self', 'it'}])
+                if pr.computed: g.check(pr.computed, m, c, [{'self'}])
+                if pr.write: g.check_block(pr.write, m, c, [{'self', 'it', 'field'}])
+            for f in c.methods.values(): g.check_fn(f, m, c)
+
+    def check_literal(g, pr, env):
+        """x: int = "text" is wrong whether or not the class is ever used."""
+        lit = {'int': 'int', 'float': 'float', 'str': 'string', 'interp': 'string', 'bool': 'bool'}.get(pr.default.kind)
+        want = g.tname(pr.type, env, pr) if pr.type else None
+        if lit and want in ('int', 'float', 'string', 'bool') and lit != want and not (lit, want) == ('int', 'float'):
+            g.err(pr.default, f'expected {want}, got {lit}')
+
+    def check_fn(g, f, m, c):
+        env = Env(m)
+        for _, pt in f.params:
+            if pt: g.tname(pt, env, f)
+        if f.ret and f.ret != 'void': g.tname(f.ret, env, f)
+        if f.cname: return
+        scope = [{pn for pn, _ in f.params} | ({'self'} if c else set())]
+        if f.expr: g.check(f.expr, m, c, scope)
+        else: g.check_block(f.body, m, c, scope)
+
+    def check_block(g, stmts, m, c, scopes):
+        scopes = scopes + [set()]
+        for st in stmts:
+            k = st.kind
+            if k == 'let':
+                if st.type: g.tname(st.type, Env(m), st)
+                g.check(st.value, m, c, scopes); scopes[-1].add(st.name)
+            elif k == 'assign':
+                g.check(st.value, m, c, scopes)
+                tg = st.target
+                if tg.kind == 'name' and not (any(tg.name in sc for sc in scopes) or (c and tg.name in c.props)):
+                    scopes[-1].add(tg.name)          # the first assignment declares the variable
+                else:
+                    g.check(tg, m, c, scopes)
+            elif k == 'exprstmt': g.check(st.expr, m, c, scopes)
+            elif k == 'if':
+                for cond, body in st.arms: g.check(cond, m, c, scopes); g.check_block(body, m, c, scopes)
+                if st.els: g.check_block(st.els, m, c, scopes)
+            elif k == 'while': g.check(st.cond, m, c, scopes); g.check_block(st.body, m, c, scopes)
+            elif k == 'for':
+                g.check(st.a, m, c, scopes)
+                if st.b: g.check(st.b, m, c, scopes)
+                g.check_block(st.body, m, c, scopes + [{st.var}])
+            elif k == 'return':
+                if st.value: g.check(st.value, m, c, scopes)
+            elif k == 'try':
+                g.check_block(st.body, m, c, scopes); g.check_block(st.handler, m, c, scopes + [{st.var}])
+
+    def check(g, e, m, c, scopes):
+        k = e.kind
+        if k in ('name', 'member'):
+            parts = dotted(e)
+            head = parts[0] if parts else None
+            if head is None or any(head in sc for sc in scopes) or (c and (head in c.props or head in c.methods)):
+                if k == 'member': g.check(e.obj, m, c, scopes)
+                return
+            if len(parts) == 1 and head in BUILTINS: return
+            if not g.resolve(parts, Env(m), e): g.err(e, f'unknown name {".".join(parts)}')
+        elif k == 'call':
+            g.check(e.fn, m, c, scopes)
+            for _, a in e.args: g.check(a, m, c, scopes)
+        elif k == 'interp':
+            for part in e.parts:
+                if not isinstance(part, str): g.check(part[0], m, c, scopes)
+        else:
+            for sub in (getattr(e, 'items', None) or []): g.check(sub, m, c, scopes)
+            for a, b in (getattr(e, 'pairs', None) or []): g.check(a, m, c, scopes); g.check(b, m, c, scopes)
+            for name in ('obj', 'idx', 'e', 'l', 'r', 'cond', 'a', 'b'):
+                sub = getattr(e, name, None)
+                if isinstance(sub, N): g.check(sub, m, c, scopes)
+
     def not_a_value(g, parts, env, e):
         name = '.'.join(parts)
         r = g.resolve(parts, env, e)
@@ -1458,6 +1591,7 @@ static {name} *{name}_of(int n, ...) {{
         switches = g.switches(env)
         body = g.block(g.main.prog.stmts, env, 1)
         g.drain()
+        g.check_all()
         inits, seen = [], set()
         while True:                          # init blocks run only for modules that are kept
             kept = [m for m in list(g.reg.values())

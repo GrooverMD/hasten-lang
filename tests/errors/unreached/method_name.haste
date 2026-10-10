@@ -1,0 +1,10 @@
+// a method nobody calls is checked too; properties and self are known inside it
+class Point
+  x: int = 1
+  fn Show()
+    print(x + self.x)
+    print(xx)
+  end
+end
+print("ran")
+// error: method_name.haste:6: unknown name xx

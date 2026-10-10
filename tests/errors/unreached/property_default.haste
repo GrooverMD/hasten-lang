@@ -1,0 +1,6 @@
+// a property default must match its written type, used or not
+class Never
+  x: int = "text"
+end
+print("ran")
+// error: property_default.haste:3: expected int, got string

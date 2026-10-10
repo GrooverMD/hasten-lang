@@ -1,0 +1,9 @@
+// a parallel for must not set properties of an object from outside the loop: every iteration would change it
+class Counter
+  N = 0
+end
+c = Counter()
+parallel for i in 1..10
+  c.N = c.N + 1
+end
+// error: parallel_object.haste:7: c.N cannot be set inside parallel for

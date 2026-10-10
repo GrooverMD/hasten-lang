@@ -1,0 +1,27 @@
+// iterations may add to a shared list or dictionary (they take turns), and fill their own slot of a list
+class Task
+  Results: [int] = []
+end
+shared = []
+seen = {}
+slots = []
+for i in 1..1000
+  slots.Add(0)
+end
+parallel for i in 1..1000
+  shared.Add(i)
+  seen[i] = true
+  slots[i - 1] = i * 2
+end
+tasks = [Task(), Task(), Task()]
+parallel for t in tasks
+  for k in 1..100
+    t.Results.Add(k)
+  end
+end
+total = 0
+for v in shared
+  total = total + v
+end
+print("{shared.Count} {total} {seen.Count} {slots[999]} {tasks[2].Results.Count}")
+// out: 1000 500500 1000 2000 100

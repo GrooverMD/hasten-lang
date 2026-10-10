@@ -263,7 +263,8 @@ still reach and frees the rest. The heap stays below about twice the memory actu
 from 64 KB pages grouped by size, so allocating and freeing them is fast. Text and lists of numbers are never
 searched for pointers. The stack is scanned conservatively: any value that looks like a pointer into a block
 keeps that block. So the generated C needs no bookkeeping, and an unlucky number can at worst keep a block
-alive a little longer. No collection runs during a `parallel for`; garbage made inside one is freed after it.
+alive a little longer. Collections also run during a `parallel for`: the worker threads stop at their next
+allocation or iteration, the collector scans every thread's stack, and they carry on.
 
 ```
 haste.py          the compiler
@@ -281,9 +282,10 @@ assets/           logo and icons
 - A C library called through `extern fn` must not keep Haste lists, dictionaries or text in its own memory after
   the call returns: the collector cannot see them there.
 - An error inside `parallel for` ends the program; it cannot be caught outside the loop.
-- The compiler checks that `parallel for` doesn't change outer variables, but not that two iterations don't change
-  the same object through a method call.
-- No generics, `return` inside `try`, or GUI yet.
+- The compiler checks that `parallel for` doesn't change outer variables or set properties of an outer object,
+  but not that two iterations don't change the same object through a method call. Adding to a shared list or
+  changing a shared dictionary is safe (it is locked), in no particular order.
+- No generics or GUI yet.
 - Class properties holding a list or dictionary need a type (`Items: [Account] = []`); local variables don't.
 
 ## Roadmap

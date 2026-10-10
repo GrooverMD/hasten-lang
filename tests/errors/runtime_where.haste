@@ -1,0 +1,12 @@
+// an unhandled error says where it happened and where each call came from
+fn Get(l, i) = l[i]
+fn Show(l)
+  print(Get(l, 0))
+  print(Get(l, 5))
+end
+Show([1, 2])
+// out: 1
+// error: index 5 is outside 0..1
+// error: in runtime_where.haste:2
+// error: called from runtime_where.haste:5
+// error: called from runtime_where.haste:7

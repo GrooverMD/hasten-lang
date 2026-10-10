@@ -974,8 +974,8 @@ begin
   if Line.StartsWith('Cannot start: ') then
     OutputAdd('Python could not be started. Check that "python --version" works in a new command ' +
       'prompt; if Python was installed while Hasten was open, restart Hasten so it sees the new PATH.');
-  if not FJumped and Line.StartsWith('error:') then
-    FJumped := JumpToError(Line);               // go straight to the first compiler error
+  if not FJumped and (Line.StartsWith('error:') or Line.StartsWith('  in ')) then
+    FJumped := JumpToError(Line);               // go straight to the first compiler or run-time error
 end;
 
 procedure TMainForm.RunnerDone(ExitCode: Cardinal; Stopped: Boolean);
@@ -992,7 +992,8 @@ begin
 end;
 
 { Compiler errors look like  error: fractal.haste:12: message  and a second line may add
-  in Shade, called from fractal.haste:30. The file is looked for next to the program, then in lib. }
+  in Shade, called from fractal.haste:30. Run-time errors are followed by  in fractal.haste:12  and
+  called from ... lines. The file is looked for next to the program, then in lib. }
 function TMainForm.JumpToError(const Line: string): Boolean;
 var
   M: TMatch;

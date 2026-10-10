@@ -8,7 +8,8 @@ A test is an ordinary Haste program whose comments say what should happen:
 
     // out: text      the next line the program must print (in order; "// out:" alone is an empty line;
                       "..." stands for any text, e.g. a program name that differs between platforms)
-    // error: text    the build or the run must fail, and its messages must contain this text
+    // error: text    the build or the run must fail, and its messages must contain this text (several
+                      error lines: each must appear)
     // args: --x 5    switches to run the program with
 
 Lines the program prints must match the "out" lines exactly and completely. Tests build in parallel, one
@@ -23,27 +24,28 @@ SKIP = {'build'}
 
 
 def spec(path):
-    want, error, args = [], None, []
+    want, errors, args = [], [], []
     for line in open(path, encoding='utf-8-sig'):
         m = re.search(r'//\s*(out|error|args):(.*)$', line)
         if not m: continue
         kind, text = m.group(1), m.group(2)
         text = text[1:] if text.startswith(' ') else text      # one space after the colon is layout
         if kind == 'out': want.append(text.rstrip())
-        elif kind == 'error': error = text.strip()
+        elif kind == 'error': errors.append(text.strip())
         else: args = text.split()
-    return want, error, args
+    return want, errors, args
 
 
 def run(path):
     """Returns (path, failure message or None, seconds)."""
     start = time.time()
-    want, error, args = spec(path)
+    want, errors, args = spec(path)
+    error = errors[0] if errors else None
     folder = os.path.dirname(path)
     b = subprocess.run([sys.executable, HASTE, 'build', path], cwd=folder, capture_output=True, text=True)
     if b.returncode != 0:
         msg = (b.stdout + b.stderr).strip()
-        if error and error in msg: return path, None, time.time() - start
+        if errors and all(x in msg for x in errors): return path, None, time.time() - start
         return path, ('expected it to build, got:\n' if not error else
                       f'expected an error containing "{error}", got:\n') + indent(msg), time.time() - start
     built = re.search(r'built (\S+)', b.stdout)
@@ -58,8 +60,10 @@ def run(path):
         problems.append('output differs:\n' + diff(want, got))
     if error:
         if r.returncode == 0: problems.append(f'expected an error containing "{error}", but it ran to the end')
-        elif error not in r.stderr + r.stdout: problems.append(f'expected an error containing "{error}", got:\n'
-                                                           + indent(r.stderr.strip()))
+        else:
+            for x in errors:
+                if x not in r.stderr + r.stdout:
+                    problems.append(f'expected an error containing "{x}", got:\n' + indent(r.stderr.strip()))
     elif r.returncode != 0:
         problems.append(f'exit code {r.returncode}:\n' + indent(r.stderr.strip()))
     return path, '\n'.join(problems) or None, time.time() - start

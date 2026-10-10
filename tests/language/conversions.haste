@@ -1,0 +1,21 @@
+// Int() goes towards zero; a decimal that cannot be a whole number is an error
+print(Int(2.7))
+print(Int(-2.7))
+print(Int(9007199254740992.0))
+try
+  print(Int(1.0 / 0.0))
+catch e
+  print(e)
+end
+try
+  print(Int(10000000000000000000.0))
+catch e
+  print(e)
+end
+print(Float(3))
+// out: 2
+// out: -2
+// out: 9007199254740992
+// out: inf cannot be a whole number
+// out: 1e+19 cannot be a whole number
+// out: 3

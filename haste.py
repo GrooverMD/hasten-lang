@@ -1493,6 +1493,51 @@ def setup():
     return 0
 
 
+def windows_resources(out_dir, stem):
+    """A version resource and a manifest for a Windows program, as every ordinary Windows program has.
+    Programs without them look unusual to antivirus heuristics (Norton and Avast's "Evo-gen"); the
+    manifest also says the program runs as the user and needs no administrator rights. Adds about 1.5 KB."""
+    name = re.sub(r'[^A-Za-z0-9_.-]', '_', stem)
+    with open(os.path.join(out_dir, stem + '.manifest'), 'w') as fh:
+        fh.write(f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity type="win32" name="Haste.{name}" version="1.0.0.0"/>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges>
+    <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+  </requestedPrivileges></security></trustInfo>
+</assembly>
+''')
+    rc = os.path.join(out_dir, stem + '.rc')
+    with open(rc, 'w') as fh:
+        fh.write(f'''#include <winver.h>
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "{name} (built with Haste)"
+      VALUE "FileVersion", "1.0.0.0"
+      VALUE "InternalName", "{name}"
+      VALUE "OriginalFilename", "{name}.exe"
+      VALUE "ProductName", "{name}"
+      VALUE "ProductVersion", "1.0.0.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
+1 24 "{stem}.manifest"
+''')
+    return rc
+
+
 def zig_cache_warm():
     """Whether Zig's global cache already holds built C libraries; when it does not (first use, or after an
     antivirus emptied it), Zig rebuilds them from source before the first program, which takes a while."""
@@ -1533,6 +1578,8 @@ def build(path, targets):
         triple, suffix, extra = TARGETS[t]
         out = os.path.join(out_dir, stem + suffix)
         cmd = zig() + ['cc', '-target', triple, '-O2', '-std=gnu11', '-w', c_file, '-o', out] + extra
+        if t == 'windows':
+            cmd.insert(cmd.index(c_file) + 1, windows_resources(out_dir, stem))
         print(f'  compiling for {t} with Zig (the first build after its cache is cleared can take minutes)...'
               if not zig_cache_warm() else f'  compiling for {t}...', flush=True)
         r = subprocess.run(cmd, capture_output=True, text=True)

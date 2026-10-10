@@ -94,7 +94,7 @@ python haste.py build hello.haste --target windows,macos,linux
 |---|---|
 | Linux (static, x86-64) | 5 KB |
 | macOS (Apple Silicon) | 48 KB |
-| Windows (x86-64) | 72 KB |
+| Windows (x86-64) | 73 KB |
 
 The sizes are measured. The Linux and Windows executables have been run; the macOS executable has been built but
 not yet run on a Mac.
@@ -104,7 +104,7 @@ from building anything with them:
 
 | Language | Whole program is one line | Native executable | Cross-compiles to all three, out of the box |
 |---|---|---|---|
-| **Haste** | ✅ | ✅ 5–72 KB | ✅ one command, nothing extra to install |
+| **Haste** | ✅ | ✅ 5–73 KB | ✅ one command, nothing extra to install |
 | Python, Ruby, Lua | ✅ | ❌ needs the interpreter, or a bundle of several MB | ❌ |
 | Nim | ✅ | ✅ | ⚠️ needs a separate cross-compiler per target, and extra flags |
 | Crystal | ✅ | ✅ larger | ❌ links on the target machine |

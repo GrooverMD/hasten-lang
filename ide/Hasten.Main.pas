@@ -37,7 +37,7 @@ type
     FArgs: TEdit;
     FTarget: TComboBox;
     FActions: TActionList;
-    FRunAction, FBuildAction, FStopAction: TAction;
+    FRunAction, FBuildAction, FStopAction, FTestsAction: TAction;
     FHighlighter: THasteHighlighter;
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
@@ -102,6 +102,7 @@ type
     procedure DoRun(Sender: TObject);
     procedure DoBuild(Sender: TObject);
     procedure DoStop(Sender: TObject);
+    procedure DoTests(Sender: TObject);
     procedure DoHastePy(Sender: TObject);
     procedure ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
   protected
@@ -304,9 +305,12 @@ begin
   FRunAction := AddAction('&Run', 'F9', DoRun);
   FBuildAction := AddAction('&Build', 'Ctrl+F9', DoBuild);
   FStopAction := AddAction('&Stop', 'Ctrl+F2', DoStop);
+  FTestsAction := AddAction('Run &Tests', '', DoTests);
   Item(RunMenu, FRunAction);
   Item(RunMenu, FBuildAction);
   Item(RunMenu, FStopAction);
+  Item(RunMenu, nil);
+  Item(RunMenu, FTestsAction);
   Item(RunMenu, nil);
   Item(RunMenu, AddAction('Where is &haste.py...', '', DoHastePy));
 
@@ -849,6 +853,12 @@ var
   Name, Path: string;
   Candidates: TArray<string>;
 begin
+  M := TRegEx.Match(Line, '^FAIL\s+(\S+\.haste)');                // a failed test: open the test itself
+  if M.Success and FileExists(TPath.Combine(FRunFolder, M.Groups[1].Value)) then
+  begin
+    OpenFile(TPath.GetFullPath(TPath.Combine(FRunFolder, M.Groups[1].Value)));
+    Exit(True);
+  end;
   M := TRegEx.Match(Line, '([^\s:]+\.haste):(\d+)');
   if not M.Success then Exit(False);
   Name := M.Groups[1].Value;
@@ -858,6 +868,12 @@ begin
     if (Path <> '') and FileExists(Path) then
     begin
       OpenFile(TPath.GetFullPath(Path), M.Groups[2].Value.ToInteger);
+      Exit(True);
+    end;
+  if DirectoryExists(FRunFolder) then           // only then look in subfolders (tests live in tests\errors etc.)
+    for Path in TDirectory.GetFiles(FRunFolder, ExtractFileName(Name), TSearchOption.soAllDirectories) do
+    begin
+      OpenFile(Path, M.Groups[2].Value.ToInteger);
       Exit(True);
     end;
   Result := False;
@@ -937,6 +953,7 @@ begin
   FStopAction.Enabled := Running;
   FRunAction.Enabled := not Running and (ActiveTab <> nil);
   FBuildAction.Enabled := FRunAction.Enabled;
+  FTestsAction.Enabled := not Running;
 end;
 
 { ---- commands ---- }
@@ -1059,6 +1076,36 @@ end;
 procedure TMainForm.DoStop(Sender: TObject);
 begin
   if FRunner <> nil then FRunner.Stop;
+end;
+
+{ Runs tests/run.py beside haste.py. Changed files are saved first, so an edited test is the one that runs;
+  output goes to the panel, and double-clicking a FAIL line opens that test. }
+procedure TMainForm.DoTests(Sender: TObject);
+var
+  I: Integer;
+  Tab: TEditorTab;
+  Tests, Cmd: string;
+begin
+  if Running or not LocateHastePy then Exit;
+  Tests := TPath.Combine(TPath.Combine(ExtractFileDir(FHastePy), 'tests'), 'run.py');
+  if not FileExists(Tests) then
+  begin
+    MessageDlg('There is no test suite at ' + Tests, mtInformation, [mbOK], 0);
+    Exit;
+  end;
+  for I := 0 to FPages.PageCount - 1 do
+  begin
+    Tab := TEditorTab(FPages.Pages[I]);
+    if Tab.Modified and (Tab.FileName <> '') then
+      SaveTab(Tab, False);
+  end;
+  Cmd := Quote(FPython) + ' ' + Quote(Tests);
+  FRunFolder := ExtractFileDir(Tests);
+  FJumped := True;                              // a failing test should not pull the editor away
+  FOutput.Clear;
+  FOutput.Lines.Add('> ' + Cmd);
+  FStatus.Panels[2].Text := 'Running the test suite...';
+  FRunner := TRunner.Create(Cmd, FRunFolder, RunnerLine, RunnerDone);
 end;
 
 procedure TMainForm.DoHastePy(Sender: TObject);

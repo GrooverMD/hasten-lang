@@ -1628,11 +1628,44 @@ def words(path=None):
                 mods.add(stem)
             elif os.path.isdir(full) and any(f.endswith('.haste') for f in os.listdir(full)):
                 mods.add(e)
+    kinds = alias_kinds(path, dirs) if path else {}
     print('keyword', *sorted(KEYWORDS))
     print('builtin', *BUILTINS)
     print('member', *MEMBERS)
-    print('module', *sorted(m for m in mods if re.fullmatch(r'[A-Za-z_]\w*', m)))
+    print('module', *sorted({m for m in mods if re.fullmatch(r'[A-Za-z_]\w*', m)} | set(kinds.get('module', []))))
+    if kinds.get('type'): print('type', *sorted(kinds['type']))
     return 0
+
+
+def alias_kinds(path, search):
+    """What each alias in a program stands for, so an editor can colour it the same way:
+    {'module': [...], 'type': [...]}. Aliases of functions are left out (function names are not coloured).
+    A file that does not parse yet simply has no aliases to report."""
+    try:
+        src = open(path, encoding='utf-8-sig').read()
+        prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()
+    except (HasteError, OSError, IndexError):
+        return {}
+    registry, kinds = {}, {}
+
+    def kind(name, seen):
+        if name in prog.type_aliases or name in prog.classes: return 'type'
+        if name not in prog.aliases or name in seen: return None
+        parts = prog.aliases[name][0]
+        if len(parts) == 1 and (parts[0] in prog.aliases or parts[0] in prog.type_aliases or parts[0] in prog.classes):
+            return kind(parts[0], seen | {name})
+        try:
+            if find_module('.'.join(parts), registry, search): return 'module'
+            head = find_module('.'.join(parts[:-1]), registry, search) if len(parts) > 1 else None
+            if head and parts[-1] in head.prog.classes: return 'type'
+        except HasteError:
+            pass
+        return None
+
+    for name in list(prog.aliases) + list(prog.type_aliases):
+        k = kind(name, set())
+        if k: kinds.setdefault(k, []).append(name)
+    return kinds
 
 
 def main(argv):

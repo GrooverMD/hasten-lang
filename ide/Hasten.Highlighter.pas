@@ -1,8 +1,9 @@
 unit Hasten.Highlighter;
 
 { The highlighter Hasten uses: the one SynGen generates from SynHighlighterHaste.msg, plus names that change
-  without the .msg changing. Built-ins, list and dictionary members, and module names come from
-  "haste.py words", so a new module in lib (or next to the program) is coloured as soon as it exists.
+  without the .msg changing. Built-ins, list and dictionary members, module names and the open file's
+  aliases come from "haste.py words", so a new module in lib (or next to the program) is coloured as soon
+  as it exists, and an alias is coloured like what it stands for (module or type).
   The generated unit is never edited by hand. }
 
 interface
@@ -52,7 +53,8 @@ begin
     if Parts[0] = 'builtin' then Attr := BuiltinAttri
     else if Parts[0] = 'member' then Attr := MemberAttri
     else if Parts[0] = 'module' then Attr := ModuleAttri
-    else Continue;                              // keywords are already in the generated hash table
+    else if Parts[0] = 'type' then Attr := TypeAttri       // type aliases and class aliases
+    else Continue;                             // keywords are already in the generated hash table
     for I := 1 to High(Parts) do
     begin
       Name := Parts[I];

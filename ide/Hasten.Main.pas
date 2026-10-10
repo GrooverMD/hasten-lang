@@ -10,7 +10,7 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, System.UITypes,
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics,
-  SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHaste, Hasten.Runner;
+  SynEdit, SynEditTypes, SynEditSearch, Hasten.Highlighter, Hasten.Runner;
 
 type
   TEditorTab = class(TTabSheet)
@@ -38,11 +38,15 @@ type
     FTarget: TComboBox;
     FActions: TActionList;
     FRunAction, FBuildAction, FStopAction: TAction;
-    FHighlighter: TSynHasteSyn;
+    FHighlighter: THasteHighlighter;
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
     FRunner: TRunner;
     FFinished: TRunner;                         // the last run, freed once its thread is long gone
+    FWordsRunner: TRunner;                      // "haste.py words": names to colour, asked in the background
+    FWordsFinished: TRunner;
+    FWordLines: TStringList;
+    FWordsAgain: Boolean;
     FRunFolder: string;
     FJumped: Boolean;
     FUntitled: Integer;
@@ -60,7 +64,9 @@ type
     function SaveTab(Tab: TEditorTab; AskName: Boolean): Boolean;
     function CloseTab(Tab: TEditorTab): Boolean;
     function SaveAllForRun: Boolean;
-    function LocateHastePy: Boolean;
+    function LocateHastePy(Ask: Boolean = True): Boolean;
+    procedure RefreshWords;
+    procedure WordsDone(ExitCode: Cardinal; Stopped: Boolean);
     procedure Start(const Verb: string);
     procedure RunnerLine(const Line: string);
     procedure RunnerDone(ExitCode: Cardinal; Stopped: Boolean);
@@ -159,7 +165,8 @@ var
   I: Integer;
 begin
   inherited CreateNew(AOwner);                  // no .dfm: everything is built in BuildUi
-  FHighlighter := TSynHasteSyn.Create(Self);
+  FHighlighter := THasteHighlighter.Create(Self);
+  FWordLines := TStringList.Create;
   FSearch := TSynEditSearch.Create(Self);
   FIniName := TPath.Combine(TPath.Combine(TPath.GetHomePath, 'Hasten'), 'Hasten.ini');
   Application.HintHidePause := 30000;            // long enough to read the list of switches
@@ -173,6 +180,7 @@ begin
   if FPages.PageCount = 0 then
     DoNew(nil);
   ActiveControl := ActiveTab.Editor;            // focused when the form appears; SetFocus can't be used yet
+  RefreshWords;
 end;
 
 destructor TMainForm.Destroy;
@@ -185,6 +193,15 @@ begin
     FreeAndNil(FRunner);
   end;
   FFinished.Free;
+  if FWordsRunner <> nil then
+  begin
+    FWordsRunner.Stop;
+    FWordsRunner.WaitFor;
+    TThread.RemoveQueuedEvents(FWordsRunner);
+    FreeAndNil(FWordsRunner);
+  end;
+  FWordsFinished.Free;
+  FWordLines.Free;
   inherited;
 end;
 
@@ -447,6 +464,7 @@ begin
   if Showing and Tab.Editor.CanFocus then      // not while the constructor reopens last session's files:
     Tab.Editor.SetFocus;                        // the form isn't on screen yet and SetFocus would raise
   UpdateStatus;
+  RefreshWords;
 end;
 
 function TMainForm.SaveTab(Tab: TEditorTab; AskName: Boolean): Boolean;
@@ -470,6 +488,7 @@ begin
   Tab.Editor.Lines.SaveToFile(Tab.FileName, TEncoding.UTF8);
   Tab.Editor.Modified := False;
   Tab.UpdateCaption;
+  RefreshWords;                                 // a file saved into lib is a new module
   Result := True;
 end;
 
@@ -503,7 +522,7 @@ end;
 
 { haste.py is found once: next to the exe or up to four folders above it (the repository layout puts
   the IDE in ide\Win64\Debug), otherwise the user is asked. }
-function TMainForm.LocateHastePy: Boolean;
+function TMainForm.LocateHastePy(Ask: Boolean): Boolean;
 var
   Dir: string;
   I: Integer;
@@ -519,8 +538,52 @@ begin
     end;
     Dir := ExtractFileDir(Dir);
   end;
-  DoHastePy(nil);
+  if Ask then
+    DoHastePy(nil);
   Result := FileExists(FHastePy);
+end;
+
+{ Asks haste.py which built-ins, members and modules exist, so the highlighter colours a new module in lib
+  (or next to the program) without the .msg being regenerated. Runs in the background; a request made
+  while one is running is remembered and run straight after. }
+procedure TMainForm.RefreshWords;
+var
+  Cmd: string;
+  Tab: TEditorTab;
+begin
+  if FWordsRunner <> nil then
+  begin
+    FWordsAgain := True;
+    Exit;
+  end;
+  if not LocateHastePy(False) then Exit;       // never ask for haste.py just to colour words
+  Cmd := Quote(FPython) + ' ' + Quote(FHastePy) + ' words';
+  Tab := ActiveTab;
+  if (Tab <> nil) and (Tab.FileName <> '') then
+    Cmd := Cmd + ' ' + Quote(Tab.FileName);    // modules next to the program count too
+  FWordLines.Clear;
+  FWordsRunner := TRunner.Create(Cmd, ExtractFileDir(FHastePy),
+    procedure(const Line: string) begin FWordLines.Add(Line) end, WordsDone);
+end;
+
+procedure TMainForm.WordsDone(ExitCode: Cardinal; Stopped: Boolean);
+var
+  I: Integer;
+begin
+  if (ExitCode = 0) and not Stopped then
+  begin
+    FHighlighter.LoadWords(FWordLines);
+    for I := 0 to FPages.PageCount - 1 do
+      TEditorTab(FPages.Pages[I]).Editor.Invalidate;
+  end;
+  FWordsFinished.Free;                          // same reason as in RunnerDone
+  FWordsFinished := FWordsRunner;
+  FWordsRunner := nil;
+  if FWordsAgain then
+  begin
+    FWordsAgain := False;
+    RefreshWords;
+  end;
 end;
 
 procedure TMainForm.Start(const Verb: string);
@@ -560,6 +623,7 @@ begin
   FFinished.Free;                               // the run before this one: its thread ended long ago
   FFinished := FRunner;                         // this one is still inside its own callback, so not yet
   FRunner := nil;
+  RefreshWords;
 end;
 
 { Compiler errors look like  error: fractal.haste:12: message  and a second line may add
@@ -650,6 +714,7 @@ end;
 procedure TMainForm.PagesChange(Sender: TObject);
 begin
   UpdateStatus;
+  RefreshWords;                                 // another folder can mean other modules
 end;
 
 procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);

@@ -41,6 +41,7 @@ type
     FHighlighter: THasteHighlighter;
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
+    FEditorMenu: TPopupMenu;                    // right-click menu shared by every editor tab
     FRunner: TRunner;
     FFinished: TRunner;                         // the last run, freed once its thread is long gone
     FWordsRunner: TRunner;                      // "haste.py words": names to colour, asked in the background
@@ -81,6 +82,9 @@ type
     procedure PagesChange(Sender: TObject);
     procedure OutputDblClick(Sender: TObject);
     procedure FindNext(Sender: TObject);
+    procedure BuildEditorMenu;
+    procedure EditorMenuPopup(Sender: TObject);
+    procedure EditorMenuClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure DoNew(Sender: TObject);
     procedure DoOpen(Sender: TObject);
@@ -350,9 +354,90 @@ begin
   FPages.Align := alClient;
   FPages.OnChange := PagesChange;
 
+  BuildEditorMenu;
+
   FFind := TFindDialog.Create(Self);
   FFind.Options := [frDown];
   FFind.OnFind := FindNext;
+end;
+
+{ ---- right-click menu ----
+  SynEdit has no context menu of its own. The keys are shown after a tab, not set as ShortCut, because the
+  editor already handles Ctrl+Z, Ctrl+C and the rest itself; a real ShortCut would also fire them in
+  other controls. Tag says what an item does. }
+
+const
+  emUndo = 1; emRedo = 2; emCut = 3; emCopy = 4; emPaste = 5; emDelete = 6; emSelectAll = 7;
+  emFind = 8; emGoToLine = 9;
+
+procedure TMainForm.BuildEditorMenu;
+
+  procedure Add(const Caption, Keys: string; Tag: Integer);
+  var
+    Item: TMenuItem;
+  begin
+    Item := TMenuItem.Create(FEditorMenu);
+    Item.Caption := Caption;
+    if Keys <> '' then
+      Item.Caption := Item.Caption + #9 + Keys;
+    Item.Tag := Tag;
+    if Tag > 0 then
+      Item.OnClick := EditorMenuClick;
+    FEditorMenu.Items.Add(Item);
+  end;
+
+begin
+  FEditorMenu := TPopupMenu.Create(Self);
+  FEditorMenu.OnPopup := EditorMenuPopup;
+  Add('&Undo', 'Ctrl+Z', emUndo);
+  Add('&Redo', 'Ctrl+Shift+Z', emRedo);
+  Add('-', '', 0);
+  Add('Cu&t', 'Ctrl+X', emCut);
+  Add('&Copy', 'Ctrl+C', emCopy);
+  Add('&Paste', 'Ctrl+V', emPaste);
+  Add('&Delete', 'Del', emDelete);
+  Add('-', '', 0);
+  Add('Select &All', 'Ctrl+A', emSelectAll);
+  Add('-', '', 0);
+  Add('&Find...', 'Ctrl+F', emFind);
+  Add('&Go to Line...', 'Ctrl+G', emGoToLine);
+end;
+
+{ Grey out what can't be done right now. }
+procedure TMainForm.EditorMenuPopup(Sender: TObject);
+var
+  Item: TMenuItem;
+  E: TSynEdit;
+begin
+  if ActiveTab = nil then Exit;
+  E := ActiveTab.Editor;
+  for Item in FEditorMenu.Items do
+    case Item.Tag of
+      emUndo: Item.Enabled := E.CanUndo;
+      emRedo: Item.Enabled := E.CanRedo;
+      emCut, emDelete: Item.Enabled := E.SelAvail and not E.ReadOnly;
+      emCopy: Item.Enabled := E.SelAvail;
+      emPaste: Item.Enabled := E.CanPaste;
+    end;
+end;
+
+procedure TMainForm.EditorMenuClick(Sender: TObject);
+var
+  E: TSynEdit;
+begin
+  if ActiveTab = nil then Exit;
+  E := ActiveTab.Editor;
+  case (Sender as TMenuItem).Tag of
+    emUndo: E.Undo;
+    emRedo: E.Redo;
+    emCut: E.CutToClipboard;
+    emCopy: E.CopyToClipboard;
+    emPaste: E.PasteFromClipboard;
+    emDelete: E.SelText := '';
+    emSelectAll: E.SelectAll;
+    emFind: DoFind(Sender);
+    emGoToLine: DoGoToLine(Sender);
+  end;
 end;
 
 { ---- settings: %APPDATA%\Hasten\Hasten.ini ---- }
@@ -426,6 +511,7 @@ begin
   Result.Editor.Highlighter := FHighlighter;
   Result.Editor.SearchEngine := FSearch;
   Result.Editor.OnStatusChange := EditorStatus;
+  Result.Editor.PopupMenu := FEditorMenu;
   if AFileName = '' then
   begin
     Inc(FUntitled);

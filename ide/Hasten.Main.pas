@@ -104,6 +104,8 @@ type
     procedure DoStop(Sender: TObject);
     procedure DoHastePy(Sender: TObject);
     procedure ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -197,6 +199,17 @@ begin
     DoNew(nil);
   ActiveControl := ActiveTab.Editor;            // focused when the form appears; SetFocus can't be used yet
   RefreshWords;
+end;
+
+{ The window handle is made inside the constructor (reopening last session's files needs it), which is
+  before Application.CreateForm records this form as the main form. VCL then makes the hidden application
+  window its owner, and an owned window gets no taskbar button and minimises to the desktop. This is the
+  main window, so it is never owned and always has its own taskbar button. }
+procedure TMainForm.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.ExStyle := Params.ExStyle or WS_EX_APPWINDOW;
+  Params.WndParent := 0;
 end;
 
 destructor TMainForm.Destroy;

@@ -1,0 +1,13 @@
+// whole numbers are 64-bit; a minus sign before a number is part of it
+let hi = 9223372036854775807
+let lo = -9223372036854775808
+print(hi)
+print(lo)
+print(- -5)
+print(-(-5))
+print(3 - -2)
+// out: 9223372036854775807
+// out: -9223372036854775808
+// out: 5
+// out: 5
+// out: 5

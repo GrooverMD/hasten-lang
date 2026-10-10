@@ -1,0 +1,4 @@
+// a whole number must fit in 64 bits; the smallest, -9223372036854775808, can be written directly
+let lo = -9223372036854775808
+let hi = 9223372036854775808
+// error: int_too_big.haste:3: 9223372036854775808 is too big for a whole number

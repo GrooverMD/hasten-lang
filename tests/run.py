@@ -6,7 +6,8 @@
 
 A test is an ordinary Haste program whose comments say what should happen:
 
-    // out: text      the next line the program must print (in order; "// out:" alone is an empty line)
+    // out: text      the next line the program must print (in order; "// out:" alone is an empty line;
+                      "..." stands for any text, e.g. a program name that differs between platforms)
     // error: text    the build or the run must fail, and its messages must contain this text
     // args: --x 5    switches to run the program with
 
@@ -53,7 +54,7 @@ def run(path):
         return path, 'did not finish within 60 seconds', time.time() - start
     got = [l.rstrip() for l in r.stdout.splitlines()]
     problems = []
-    if got != want:
+    if not matches(want, got):
         problems.append('output differs:\n' + diff(want, got))
     if error:
         if r.returncode == 0: problems.append(f'expected an error containing "{error}", but it ran to the end')
@@ -62,6 +63,11 @@ def run(path):
     elif r.returncode != 0:
         problems.append(f'exit code {r.returncode}:\n' + indent(r.stderr.strip()))
     return path, '\n'.join(problems) or None, time.time() - start
+
+
+def matches(want, got):
+    return len(want) == len(got) and all(
+        re.fullmatch('.*'.join(map(re.escape, w.split('...'))), g) for w, g in zip(want, got))
 
 
 def indent(text):
@@ -73,8 +79,9 @@ def diff(want, got):
     for i in range(max(len(want), len(got))):
         w = want[i] if i < len(want) else '(nothing)'
         g = got[i] if i < len(got) else '(nothing)'
-        mark = '  ' if w == g else '->'
-        out.append(f'   {mark} line {i + 1}: expected {w!r}' + ('' if w == g else f'\n            got      {g!r}'))
+        same = matches([w], [g])
+        mark = '  ' if same else '->'
+        out.append(f'   {mark} line {i + 1}: expected {w!r}' + ('' if same else f'\n            got      {g!r}'))
     return '\n'.join(out)
 
 

@@ -1,0 +1,9 @@
+// --help lists the switches with the comment after each; a // inside a string is not a comment
+switch Url = "http://example.com"     // the address to fetch
+switch Path = "a//b"
+print(Url)
+// args: --help
+// out: Usage: ... [switches]
+// out:
+// out:   --url          text     the address to fetch (default "http://example.com")
+// out:   --path         text     (default "a//b")

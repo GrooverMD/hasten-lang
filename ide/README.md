@@ -23,6 +23,7 @@ You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.c
 | F9 | Save, then `haste.py run` the current file, with the switches from the toolbar |
 | Ctrl+F9 | Save, then `haste.py build` for the systems chosen in "Build for" |
 | Ctrl+F2 | Stop the running program |
+| Run > Run Tests | Run the test suite (`tests/run.py`); double-click a `FAIL` line to open that test |
 | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+W | New, open, save, close tab |
 | Ctrl+F, F3 | Find, find next |
 | Ctrl+G | Go to line |

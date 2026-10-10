@@ -1,0 +1,9 @@
+// an end that does not line up with its block points at the block missing its own end
+fn Pick(x)
+  if x > 1 then
+    return 1
+  return 2
+end
+
+fn Other() = 3
+// error: missing_end_inner.haste:3: this if seems to have no 'end': the 'end' on line 6 does not line up with it

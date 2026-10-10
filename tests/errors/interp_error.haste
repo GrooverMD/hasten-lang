@@ -1,0 +1,4 @@
+// an error inside {...} in a string says so
+let x = 1
+print("v {x +}")
+// error: interp_error.haste:3: expected an expression, found the end of the line, inside {x +} in a string

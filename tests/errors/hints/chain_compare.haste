@@ -1,0 +1,3 @@
+// comparisons do not chain
+print(1 < 2 < 3)
+// error: chain_compare.haste:2: comparisons don't chain; write a < b and b < c

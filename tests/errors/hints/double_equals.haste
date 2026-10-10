@@ -1,0 +1,5 @@
+// == is = in Haste
+if 1 == 2 then
+  print("x")
+end
+// error: double_equals.haste:2: Haste compares with a single =

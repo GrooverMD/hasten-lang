@@ -1,0 +1,4 @@
+// Haste has no +=
+var i = 0
+i += 1
+// error: plus_equals.haste:3: Haste has no +=

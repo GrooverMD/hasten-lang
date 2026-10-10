@@ -1,0 +1,6 @@
+// a missing end is reported where the block begins, not at the end of the file
+let x = 1
+if x > 0 then
+  print("x")
+print("y")
+// error: missing_end_eof.haste:3: this if has no 'end' before the end of the file

@@ -23,6 +23,11 @@ KEYWORDS = {'need', 'class', 'end', 'fn', 'let', 'var', 'if', 'then', 'elif', 'e
             'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch', 'write'}
 OPS2 = ('<>', '<=', '>=', '..', '=>')
 OPS1 = '=<>+-*/()[]{},.:'
+HINTS = {'!=': "Haste writes 'not equal' as <>", '==': 'Haste compares with a single =',
+         '+=': 'Haste has no +=; write x = x + 1', '-=': 'Haste has no -=; write x = x - 1',
+         '*=': 'Haste has no *=; write x = x * 2', '/=': 'Haste has no /=; write x = x / 2',
+         '&&': "Haste writes && as 'and'", '||': "Haste writes || as 'or'", '!': "Haste writes ! as 'not'",
+         ';': "Haste has no ';'; put each statement on its own line"}
 NUM = re.compile(r'\d+(\.\d+)?')
 WORD = re.compile(r'\w+')
 
@@ -94,6 +99,8 @@ def lex(src, file, line=1):
         elif c == '"':
             j = string_end(src, i, file, line)
             toks.append(Tok('STR', src[i + 1:j], line, file)); i = j + 1
+        elif src[i:i + 2] in HINTS or c in HINTS:
+            raise HasteError(f'{file}:{line}: {HINTS.get(src[i:i + 2]) or HINTS[c]}')
         elif src[i:i + 2] in OPS2:
             toks.append(Tok('OP', src[i:i + 2], line, file)); i += 2
         elif c in OPS1:
@@ -118,9 +125,19 @@ class N:
 ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', '\\': '\\', '"': '"', '{': '{', '}': '}'}
 
 
+TOP_ONLY = ('fn', 'extern', 'class', 'init', 'need', 'switch', 'alias')   # never inside a block
+
+
+def shown(t):
+    if t.kind == 'STR': return f'"{t.val}"'
+    if t.kind == 'NL': return 'the end of the line'
+    if t.kind == 'EOF': return 'the end of the file'
+    return f"'{t.val}'"
+
+
 class Parser:
     def __init__(s, toks, lines=()):
-        s.t, s.p, s.lines = toks, 0, lines
+        s.t, s.p, s.lines, s.opens, s.misfit = toks, 0, lines, [], None
         if toks: N.current_file = toks[0].file
 
     # helpers
@@ -130,7 +147,34 @@ class Parser:
 
     def fail(s, msg, t=None):
         t = t or s.peek()
-        raise HasteError(f"{t.file}:{t.line}: {msg}, found '{t.val or t.kind.lower()}'")
+        raise HasteError(f"{t.file}:{t.line}: {msg}, found {shown(t)}")
+
+    def error(s, msg, t=None):
+        t = t or s.peek()
+        raise HasteError(f'{t.file}:{t.line}: {msg}')
+
+    # 7: what is open, so a missing 'end' is reported where the if, fn, while... begins
+    def indent(s, line):
+        text = s.lines[line - 1] if line <= len(s.lines) else ''
+        return len(text) - len(text.lstrip())
+
+    def opened(s, what, line): s.opens.append((what, line, s.indent(line)))
+
+    def close(s):
+        t = s.eat('end'); what, line, ind = s.opens.pop()
+        if s.misfit is None and s.indent(t.line) != ind:
+            s.misfit = (what, line, t.line)     # the first 'end' that does not line up with its block
+        s.nl()
+
+    def unclosed(s):
+        what, line, _ = s.opens[-1]
+        t = s.peek()
+        if s.misfit and s.misfit[1] > line:    # an end inside this block was out of line: likely the culprit
+            w, l, e = s.misfit
+            s.error(f"this {w} seems to have no 'end': the 'end' on line {e} does not line up with it",
+                    Tok('', '', l, t.file))
+        before = 'the end of the file' if t.kind == 'EOF' else f'the {t.val} on line {t.line}'
+        s.error(f"this {what} has no 'end' before {before}", Tok('', '', line, t.file))
 
     def eat(s, val):
         if not s.at(val): s.fail(f"expected '{val}'")
@@ -195,7 +239,7 @@ class Parser:
             elif s.at('fn', 'extern'):
                 f = s.fn(); declare(f.name, f.line, 'a function'); prog.funcs[f.name] = f
             elif s.at('init'):
-                s.next(); s.nl(); prog.inits.append(s.block()); s.eat('end'); s.nl()
+                s.opened('init', s.next().line); s.nl(); prog.inits.append(s.block()); s.close()
             else:
                 prog.stmts.append(s.stmt())
             s.skipnl()
@@ -239,13 +283,13 @@ class Parser:
         elif s.at('='):
             s.next(); f.expr = s.expr(); s.nl()
         else:
-            s.nl(); f.body = s.block(); s.eat('end'); s.nl()
+            s.opened('fn', line); s.nl(); f.body = s.block(); s.close()
         return f
 
     def cls(s):
         line = s.eat('class').line
         c = N('class', line, name=s.name(), props={}, methods={})
-        s.nl()
+        s.opened('class', line); s.nl()
         seen = {}                                # properties and methods share one set of names
 
         def declare(name, line, what):
@@ -254,7 +298,7 @@ class Parser:
                 raise HasteError(f'{s.t[0].file}:{line}: {c.name} already has {was} {name} on line {at}')
             seen[name] = (what, line)
         while not s.at('end'):
-            if s.peek().kind == 'EOF': s.fail(f"class {c.name} is missing 'end'")
+            if s.peek().kind == 'EOF' or (s.at(*TOP_ONLY) and not s.at('fn')): s.unclosed()
             if s.at('fn'):
                 f = s.fn(); declare(f.name, f.line, 'a method'); c.methods[f.name] = f; continue
             pl = s.peek().line
@@ -271,8 +315,8 @@ class Parser:
             declare(p.name, pl, 'a property'); c.props[p.name] = p
             s.nl()
             if s.at('write'):                    # write ... end: runs on every assignment to the property
-                s.next(); s.nl(); p.write = s.block(); s.eat('end'); s.nl()
-        s.eat('end'); s.nl()
+                s.opened('write', s.next().line); s.nl(); p.write = s.block(); s.close()
+        s.close()
         return c
 
     # statements
@@ -280,13 +324,18 @@ class Parser:
         out = []
         s.skipnl()
         while not s.at('end', 'elif', 'else', 'catch'):
-            if s.peek().kind == 'EOF': s.fail("missing 'end'")
+            if s.peek().kind == 'EOF' or s.at(*TOP_ONLY): s.unclosed()
             out.append(s.stmt()); s.skipnl()
         return out
+
+    def no_do(s):
+        if s.peek().kind == 'NAME' and s.peek().val == 'do':
+            s.error("Haste has no 'do'; end the line after the condition")
 
     def cond_then(s):
         c = s.expr()
         if s.at('then'): s.next()
+        if s.peek().kind not in ('NL', 'EOF'): s.error("put what the if does on the next line, and close it with 'end'")
         s.nl()
         return c
 
@@ -298,29 +347,32 @@ class Parser:
             s.eat('='); e = s.expr(); s.nl()
             return N('let', L, name=nm, type=ty, value=e, mutable=t.val == 'var')
         if s.at('if'):
-            s.next(); arms = [(s.cond_then(), s.block())]; els = None
+            s.opened('if', s.next().line); arms = [(s.cond_then(), s.block())]; els = None
             while s.at('elif'):
                 s.next(); arms.append((s.cond_then(), s.block()))
             if s.at('else'):
-                s.next(); s.nl(); els = s.block()
-            s.eat('end'); s.nl()
+                s.next()
+                if s.at('if'): s.error("write elif, not 'else if'")
+                s.nl(); els = s.block()
+            s.close()
             return N('if', L, arms=arms, els=els)
         if s.at('while'):
-            s.next(); c = s.expr(); s.nl(); b = s.block(); s.eat('end'); s.nl()
+            s.opened('while', s.next().line); c = s.expr(); s.no_do(); s.nl(); b = s.block(); s.close()
             return N('while', L, cond=c, body=b)
         if s.at('parallel', 'for'):
             par = s.next().val == 'parallel'
             if par: s.eat('for')
+            s.opened('parallel for' if par else 'for', L)
             v = s.name(); s.eat('in'); a = s.expr(); b = None
             if s.at('..'): s.next(); b = s.expr()
-            s.nl(); body = s.block(); s.eat('end'); s.nl()
+            s.no_do(); s.nl(); body = s.block(); s.close()
             return N('for', L, var=v, a=a, b=b, body=body, parallel=par)
         if s.at('return'):
             s.next(); e = None if s.peek().kind in ('NL', 'EOF') else s.expr(); s.nl()
             return N('return', L, value=e)
         if s.at('try'):
-            s.next(); s.nl(); b = s.block(); s.eat('catch'); v = s.name(); s.nl()
-            h = s.block(); s.eat('end'); s.nl()
+            s.opened('try', s.next().line); s.nl(); b = s.block(); s.eat('catch'); v = s.name(); s.nl()
+            h = s.block(); s.close()
             return N('try', L, body=b, var=v, handler=h)
         e = s.postfix()                      # a statement is an assignment or a call
         if s.at('='):
@@ -349,7 +401,9 @@ class Parser:
         while s.at(*s.LEVELS[lvl]):
             t = s.next()
             e = N('bin', t.line, op=t.val, l=e, r=s.binary(lvl + 1))
-            if lvl == 3: break                # comparisons don't chain
+            if lvl == 3:                      # comparisons don't chain
+                if s.at(*s.LEVELS[3]): s.error(f"comparisons don't chain; write a {t.val} b and b {s.peek().val} c")
+                break
         return e
 
     def unary(s):
@@ -421,11 +475,16 @@ class Parser:
                 j = brace_end(raw, i)
                 if j < 0: s.fail("missing '}' in string", t)
                 inner, spec = raw[i + 1:j], None
+                if not inner.strip():
+                    s.error(r'empty {} in a string; write \{ for a { that is just text', t)
                 m = re.fullmatch(r'(.*):(\d+)', inner, re.S)
                 if m: inner, spec = m.group(1), int(m.group(2))
-                sub = Parser(lex(inner, t.file, t.line))
-                e = sub.expr()
-                if sub.peek().kind not in ('NL', 'EOF'): sub.fail('unexpected text in {...}')
+                try:
+                    sub = Parser(lex(inner, t.file, t.line))
+                    e = sub.expr()
+                    if sub.peek().kind not in ('NL', 'EOF'): sub.fail('unexpected text')
+                except HasteError as ex:
+                    raise HasteError(f'{ex}, inside {{{inner}}} in a string') from None
                 if lit: parts.append(lit); lit = ''
                 parts.append((e, spec)); i = j + 1
             else:

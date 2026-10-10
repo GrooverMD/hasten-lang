@@ -1,0 +1,5 @@
+// no do after a condition
+while false do
+  print(1)
+end
+// error: while_do.haste:2: Haste has no 'do'

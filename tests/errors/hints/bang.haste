@@ -1,0 +1,5 @@
+// ! is not
+if !true then
+  print("x")
+end
+// error: bang.haste:2: Haste writes ! as 'not'

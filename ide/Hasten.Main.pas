@@ -9,7 +9,7 @@ interface
 uses
   Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, System.UITypes,
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
-  Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics,
+  Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd,
   SynEdit, SynEditTypes, SynEditSearch, Hasten.Highlighter, Hasten.Runner, Hasten.Watcher;
 
 type
@@ -42,6 +42,7 @@ type
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
     FEditorMenu: TPopupMenu;                    // right-click menu shared by every editor tab
+    FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
     FFinished: TRunner;                         // the last run, freed once its thread is long gone
     FWordsRunner: TRunner;                      // "haste.py words": names to colour, asked in the background
@@ -83,7 +84,10 @@ type
     procedure OutputDblClick(Sender: TObject);
     procedure FindNext(Sender: TObject);
     procedure BuildEditorMenu;
+    procedure AddEditItems(Parent: TMenuItem; WithFind: Boolean);
+    procedure UpdateEditItems(Parent: TMenuItem);
     procedure EditorMenuPopup(Sender: TObject);
+    procedure EditMenuOpen(Sender: TObject);
     procedure EditorMenuClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure DoNew(Sender: TObject);
@@ -275,6 +279,10 @@ begin
   Item(FileMenu, AddAction('E&xit', 'Alt+F4', DoQuit));
 
   EditMenu := Head('&Edit');
+  FEditMenu := EditMenu;
+  EditMenu.OnClick := EditMenuOpen;             // runs as the menu opens: grey out what can't apply
+  AddEditItems(EditMenu, False);
+  Item(EditMenu, nil);
   Item(EditMenu, AddAction('&Find...', 'Ctrl+F', DoFind));
   Item(EditMenu, AddAction('Find &Next', 'F3', DoFindNext));
   Item(EditMenu, AddAction('&Go to Line...', 'Ctrl+G', DoGoToLine));
@@ -370,25 +378,23 @@ const
   emUndo = 1; emRedo = 2; emCut = 3; emCopy = 4; emPaste = 5; emDelete = 6; emSelectAll = 7;
   emFind = 8; emGoToLine = 9;
 
-procedure TMainForm.BuildEditorMenu;
+procedure TMainForm.AddEditItems(Parent: TMenuItem; WithFind: Boolean);
 
   procedure Add(const Caption, Keys: string; Tag: Integer);
   var
     Item: TMenuItem;
   begin
-    Item := TMenuItem.Create(FEditorMenu);
+    Item := TMenuItem.Create(Self);
     Item.Caption := Caption;
     if Keys <> '' then
       Item.Caption := Item.Caption + #9 + Keys;
     Item.Tag := Tag;
     if Tag > 0 then
       Item.OnClick := EditorMenuClick;
-    FEditorMenu.Items.Add(Item);
+    Parent.Add(Item);
   end;
 
 begin
-  FEditorMenu := TPopupMenu.Create(Self);
-  FEditorMenu.OnPopup := EditorMenuPopup;
   Add('&Undo', 'Ctrl+Z', emUndo);
   Add('&Redo', 'Ctrl+Shift+Z', emRedo);
   Add('-', '', 0);
@@ -398,43 +404,114 @@ begin
   Add('&Delete', 'Del', emDelete);
   Add('-', '', 0);
   Add('Select &All', 'Ctrl+A', emSelectAll);
-  Add('-', '', 0);
-  Add('&Find...', 'Ctrl+F', emFind);
-  Add('&Go to Line...', 'Ctrl+G', emGoToLine);
+  if WithFind then                              // the Edit menu has these as actions already
+  begin
+    Add('-', '', 0);
+    Add('&Find...', 'Ctrl+F', emFind);
+    Add('&Go to Line...', 'Ctrl+G', emGoToLine);
+  end;
+end;
+
+procedure TMainForm.BuildEditorMenu;
+begin
+  FEditorMenu := TPopupMenu.Create(Self);
+  FEditorMenu.OnPopup := EditorMenuPopup;
+  AddEditItems(FEditorMenu.Items, True);
+end;
+
+{ What the items act on: the right-click menu acts on the editor it was opened in; the Edit menu acts on
+  whatever has focus, so Copy works in the output panel and Paste in the switches box too. }
+function EditTarget(Form: TMainForm; FromPopup: Boolean): TWinControl;
+begin
+  Result := nil;
+  if not FromPopup and (Form.ActiveControl is TCustomEdit) then
+    Result := Form.ActiveControl
+  else if Form.ActiveTab <> nil then
+    Result := Form.ActiveTab.Editor;
 end;
 
 { Grey out what can't be done right now. }
-procedure TMainForm.EditorMenuPopup(Sender: TObject);
+procedure TMainForm.UpdateEditItems(Parent: TMenuItem);
 var
   Item: TMenuItem;
+  Target: TWinControl;
   E: TSynEdit;
+  C: TCustomEdit;
 begin
-  if ActiveTab = nil then Exit;
-  E := ActiveTab.Editor;
-  for Item in FEditorMenu.Items do
-    case Item.Tag of
-      emUndo: Item.Enabled := E.CanUndo;
-      emRedo: Item.Enabled := E.CanRedo;
-      emCut, emDelete: Item.Enabled := E.SelAvail and not E.ReadOnly;
-      emCopy: Item.Enabled := E.SelAvail;
-      emPaste: Item.Enabled := E.CanPaste;
-    end;
+  Target := EditTarget(Self, Parent = FEditorMenu.Items);
+  for Item in Parent do
+  begin
+    if Item.Tag = 0 then Continue;
+    if Target is TSynEdit then
+    begin
+      E := TSynEdit(Target);
+      case Item.Tag of
+        emUndo: Item.Enabled := E.CanUndo;
+        emRedo: Item.Enabled := E.CanRedo;
+        emCut, emDelete: Item.Enabled := E.SelAvail and not E.ReadOnly;
+        emCopy: Item.Enabled := E.SelAvail;
+        emPaste: Item.Enabled := E.CanPaste;
+      else
+        Item.Enabled := True;
+      end;
+    end
+    else if Target is TCustomEdit then
+    begin
+      C := TCustomEdit(Target);
+      case Item.Tag of
+        emUndo: Item.Enabled := C.CanUndo;
+        emRedo: Item.Enabled := False;          // a plain edit box has one level of undo, no redo
+        emCut, emDelete: Item.Enabled := (C.SelLength > 0) and not C.ReadOnly;
+        emCopy: Item.Enabled := C.SelLength > 0;
+        emPaste: Item.Enabled := not C.ReadOnly and Clipboard.HasFormat(CF_TEXT);
+      else
+        Item.Enabled := True;
+      end;
+    end
+    else
+      Item.Enabled := False;
+  end;
+end;
+
+procedure TMainForm.EditorMenuPopup(Sender: TObject);
+begin
+  UpdateEditItems(FEditorMenu.Items);
+end;
+
+procedure TMainForm.EditMenuOpen(Sender: TObject);
+begin
+  UpdateEditItems(FEditMenu);
 end;
 
 procedure TMainForm.EditorMenuClick(Sender: TObject);
 var
-  E: TSynEdit;
+  Item: TMenuItem;
+  Target: TWinControl;
 begin
-  if ActiveTab = nil then Exit;
-  E := ActiveTab.Editor;
-  case (Sender as TMenuItem).Tag of
-    emUndo: E.Undo;
-    emRedo: E.Redo;
-    emCut: E.CutToClipboard;
-    emCopy: E.CopyToClipboard;
-    emPaste: E.PasteFromClipboard;
-    emDelete: E.SelText := '';
-    emSelectAll: E.SelectAll;
+  Item := Sender as TMenuItem;
+  Target := EditTarget(Self, Item.GetParentMenu = FEditorMenu);
+  if Target is TSynEdit then
+    with TSynEdit(Target) do
+      case Item.Tag of
+        emUndo: Undo;
+        emRedo: Redo;
+        emCut: CutToClipboard;
+        emCopy: CopyToClipboard;
+        emPaste: PasteFromClipboard;
+        emDelete: SelText := '';
+        emSelectAll: SelectAll;
+      end
+  else if Target is TCustomEdit then
+    with TCustomEdit(Target) do
+      case Item.Tag of
+        emUndo: Undo;
+        emCut: CutToClipboard;
+        emCopy: CopyToClipboard;
+        emPaste: PasteFromClipboard;
+        emDelete: ClearSelection;
+        emSelectAll: SelectAll;
+      end;
+  case Item.Tag of
     emFind: DoFind(Sender);
     emGoToLine: DoGoToLine(Sender);
   end;

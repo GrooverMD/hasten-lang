@@ -768,8 +768,10 @@ class Gen:
         g.lists.append(f'''typedef struct {{ {et} *items; long long count, cap; }} {name};
 static {name} *{name}_new(void) {{ return hs_alloc(sizeof({name})); }}
 static void {name}_add({name} *l, {et} v) {{
-    if (l->count == l->cap) {{ l->cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({et}) * (size_t)l->count, sizeof({et}) * (size_t)l->cap, {at}); }}
+    int par = hs_lock_shared();                   /* iterations of a parallel for may add at the same time */
+    if (l->count == l->cap) {{ long long cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({et}) * (size_t)l->count, sizeof({et}) * (size_t)cap, {at}); l->cap = cap; }}
     l->items[l->count++] = v;
+    hs_unlock_shared(par);
 }}
 static void {name}_check({name} *l, long long i) {{
     if (i < 0 || i >= l->count) hs_raise(hs_fmt("index %lld is outside 0..%lld", i, l->count - 1));
@@ -869,7 +871,7 @@ static void {name}_compact({name} *d) {{
     d->used = j;
     {name}_index(d);
 }}
-static void {name}_set({name} *d, {kt} k, {vt} v) {{
+static void {name}_set_now({name} *d, {kt} k, {vt} v) {{
     long long i = {name}_find(d, k);
     if (i >= 0) {{ d->vals[i] = v; return; }}
     if (d->used == d->cap) {{
@@ -885,6 +887,9 @@ static void {name}_set({name} *d, {kt} k, {vt} v) {{
     d->keys[d->used] = k; d->vals[d->used] = v; d->dead[d->used] = 0; d->used++; d->count++;
     if (2 * d->used + 2 > d->nslots) {name}_index(d); else {name}_slot(d, d->used - 1);
 }}
+static void {name}_set({name} *d, {kt} k, {vt} v) {{
+    int par = hs_lock_shared(); {name}_set_now(d, k, v); hs_unlock_shared(par);
+}}
 static {vt} {name}_get({name} *d, {kt} k) {{
     long long i = {name}_find(d, k);
     if (i < 0) hs_raise(hs_fmt("key %s is not in the dictionary", {show}));
@@ -896,10 +901,12 @@ static {vt} {name}_get_or({name} *d, {kt} k, {vt} fallback) {{
     return i < 0 ? fallback : d->vals[i];
 }}
 static void {name}_remove({name} *d, {kt} k) {{
+    int par = hs_lock_shared();
     long long i = {name}_find(d, k);
-    if (i < 0) return;
+    if (i < 0) {{ hs_unlock_shared(par); return; }}
     d->dead[i] = 1; d->count--;
     memset(&d->keys[i], 0, sizeof({kt})); memset(&d->vals[i], 0, sizeof({vt}));   /* let the collector free them */
+    hs_unlock_shared(par);
 }}
 static {name} *{name}_of(int n, ...) {{
     {name} *d = {name}_new(); va_list ap; va_start(ap, n);
@@ -1124,6 +1131,14 @@ static {name} *{name}_of(int n, ...) {{
             out += g.stmt(st, env, depth)
         return out
 
+    def shared_write(g, env, name, node, what):
+        """Inside parallel for, outer variables are read-only (marked None); setting a property of the object
+        one holds would have every iteration change the same object at once."""
+        v = env.lookup(name)
+        if v and v[1] is None:
+            g.err(node, f'{what} cannot be set inside parallel for: every iteration would change the same object '
+                        'at the same time; give each iteration its own object, e.g. loop over a list of them')
+
     def declare(g, env, name, node, c, t):
         """A new variable: remember where it was declared, and make it a decimal if a later assignment
         gives it one (found on an earlier pass)."""
@@ -1303,6 +1318,7 @@ static {name} *{name}_of(int n, ...) {{
                     raise Widen(env.decl(tg.name))
                 return f'{cname} = {g.coerce(c, ct, t, st)}'
             if env.cls and tg.name in env.cls.props:
+                g.shared_write(env, 'self', st, tg.name)
                 return g.set_prop('self', env.cls, tg.name, st.value, env)
             if tg.name == 'field' and env.writing:
                 g.err(st, f'{env.writing[1]} is computed, so it has no field to store into; '
@@ -1314,6 +1330,7 @@ static {name} *{name}_of(int n, ...) {{
             g.track(env, tg.name, t, st)
             return f'{g.ctype(t)}{g.vol(env, tg.name)} v_{tg.name} = {c}'
         if tg.kind == 'member':
+            if tg.obj.kind == 'name': g.shared_write(env, tg.obj.name, st, f'{tg.obj.name}.{tg.name}')
             oc, ot = g.expr(tg.obj, env)
             if ot in g.classes and tg.name in g.classes[ot].props:
                 return g.set_prop(oc, g.classes[ot], tg.name, st.value, env)

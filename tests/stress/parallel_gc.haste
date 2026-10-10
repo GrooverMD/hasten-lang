@@ -1,0 +1,52 @@
+// The collector runs during parallel for: workers stop at safe points while it scans every thread's stack.
+// Everything built by the workers must survive, and garbage made inside the loop must not pile up.
+need Text
+class Item
+  Value = 0
+  Label = ""
+  Parts: [string] = []
+end
+
+items = []
+for i in 1..2000
+  items.Add(Item(Value: i))
+end
+shared = []
+counts = {}
+
+parallel for it in items
+  for round in 1..40                                  // plenty of garbage, so collections happen mid-loop
+    junk = Text.Repeat("z", 3000 + it.Value mod 97)
+  end
+  it.Label = "item {it.Value} " + Text.Repeat("y", it.Value mod 50)
+  for k in 1..5
+    it.Parts.Add("{it.Value}-{k}")
+  end
+  shared.Add(it.Value)
+  counts[it.Value] = it.Value * 2
+end
+
+parallel for i in 1..4                                // nested: inner workers join while collections run
+  parallel for j in 1..50
+    junk = Text.Repeat("q", 5000)
+  end
+end
+
+bad = 0
+for it in items
+  if it.Label <> "item {it.Value} " + Text.Repeat("y", it.Value mod 50)
+    bad = bad + 1
+  end
+  if it.Parts.Count <> 5 or it.Parts[4] <> "{it.Value}-5"
+    bad = bad + 1
+  end
+  if counts[it.Value] <> it.Value * 2
+    bad = bad + 1
+  end
+end
+total = 0
+for v in shared
+  total = total + v
+end
+print("{items.Count} items, {bad} damaged, {shared.Count} shared, total {total}, {counts.Count} counted")
+// out: 2000 items, 0 damaged, 2000 shared, total 2001000, 2000 counted

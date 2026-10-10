@@ -17,6 +17,7 @@
 #include <shellapi.h>
 #else
 #include <pthread.h>
+#include <sched.h>
 #include <unistd.h>
 #endif
 
@@ -54,7 +55,79 @@ static int hs_par_depth;                                      /* > 0 while a par
 static char hs_lock;
 static _Thread_local hs_str hs_error = "";
 static _Thread_local hs_str hs_len_last, hs_cur_s;            /* text caches; reset when blocks are freed */
+static unsigned hs_gc_gen;                                    /* collections so far: thread caches compare it */
+static _Thread_local unsigned hs_len_gen, hs_cur_gen;
 static void hs_gc_collect(void);
+
+/* While a parallel for runs, adding to a list and changing a dictionary take this lock, so iterations that
+   share one never corrupt it. Outside parallel for it costs one check. (Allocation has its own lock.) */
+static char hs_shared_lock;
+static inline void hs_safepoint(void);
+static inline int hs_lock_shared(void) {
+    if (!__atomic_load_n(&hs_par_depth, __ATOMIC_ACQUIRE)) return 0;
+    while (__atomic_test_and_set(&hs_shared_lock, __ATOMIC_ACQUIRE)) hs_safepoint();
+    return 1;
+}
+static inline void hs_unlock_shared(int locked) { if (locked) __atomic_clear(&hs_shared_lock, __ATOMIC_RELEASE); }
+
+/* ---- collecting while a parallel for runs ----
+   Every thread of a parallel for registers itself. A thread that finds memory is due to be collected sets
+   hs_gc_request; the others stop at their next safe point (an allocation, the end of an iteration, waiting
+   for a lock or for workers to finish), with their registers saved on their stack. The collector then scans
+   every registered thread's stack, frees what nobody can reach, and lets them all carry on. */
+typedef struct { char *base, *lo; hs_str err; } hs_thr;
+#define HS_MAXTHR 4096
+static hs_thr *hs_thrs[HS_MAXTHR];
+static int hs_nthr, hs_gc_request, hs_nparked;
+static char hs_thr_lock;
+static _Thread_local hs_thr hs_me;
+static _Thread_local int hs_me_in;                            /* registered (counts nested parallel for) */
+static _Thread_local char *hs_my_base;                        /* where this thread's stack starts */
+static void hs_yield(void) {
+#ifdef _WIN32
+    SwitchToThread();
+#else
+    sched_yield();
+#endif
+}
+static void hs_thr_lock_take(void) { while (__atomic_test_and_set(&hs_thr_lock, __ATOMIC_ACQUIRE)) hs_yield(); }
+static void hs_thr_lock_give(void) { __atomic_clear(&hs_thr_lock, __ATOMIC_RELEASE); }
+/* Stop until the collection is over. noinline and setjmp: this thread's registers end up on its stack. */
+static __attribute__((noinline)) void hs_stop(void (*wait)(void *), void *arg) {
+    jmp_buf regs;
+    setjmp(regs);
+    volatile char here = 0;
+    hs_me.lo = (char *)&here < (char *)&regs ? (char *)&here : (char *)&regs;
+    hs_me.err = hs_error;
+    __atomic_add_fetch(&hs_nparked, 1, __ATOMIC_ACQ_REL);
+    if (wait) wait(arg);                                      /* e.g. joining workers: counts as stopped */
+    while (__atomic_load_n(&hs_gc_request, __ATOMIC_ACQUIRE)) hs_yield();
+    __atomic_sub_fetch(&hs_nparked, 1, __ATOMIC_ACQ_REL);
+}
+static inline void hs_safepoint(void) {
+    if (hs_me_in && __atomic_load_n(&hs_gc_request, __ATOMIC_ACQUIRE)) hs_stop(NULL, NULL);
+}
+static void hs_register(void) {
+    if (hs_me_in++) return;
+    hs_me.base = hs_my_base;
+    for (;;) {                                                /* never join while a collection is running */
+        hs_thr_lock_take();
+        if (!__atomic_load_n(&hs_gc_request, __ATOMIC_ACQUIRE)) {
+            if (hs_nthr == HS_MAXTHR) { fputs("too many threads\n", stderr); exit(2); }
+            hs_thrs[hs_nthr++] = &hs_me;
+            hs_thr_lock_give();
+            return;
+        }
+        hs_thr_lock_give();
+        hs_yield();
+    }
+}
+static void hs_unregister(void) {
+    if (--hs_me_in) return;
+    hs_thr_lock_take();
+    for (int i = 0; i < hs_nthr; i++) if (hs_thrs[i] == &hs_me) { hs_thrs[i] = hs_thrs[--hs_nthr]; break; }
+    hs_thr_lock_give();
+}
 
 static void hs_oom(void) { fputs("out of memory\n", stderr); exit(2); }
 static void hs_span(uintptr_t a, uintptr_t b) { if (a < hs_lo) hs_lo = a; if (b > hs_hi) hs_hi = b; }
@@ -88,10 +161,15 @@ static void hs_new_page(size_t c) {
     }
 }
 
+static void hs_gc_parallel(void);
 static void *hs_alloc_kind(size_t n, int atomic) {
-    if (hs_since > hs_limit && hs_stack_base && !__atomic_load_n(&hs_par_depth, __ATOMIC_ACQUIRE)) hs_gc_collect();
+    hs_safepoint();
+    if (hs_since > hs_limit && hs_stack_base) {
+        if (!__atomic_load_n(&hs_par_depth, __ATOMIC_ACQUIRE)) hs_gc_collect();
+        else hs_gc_parallel();
+    }
     bool par = __atomic_load_n(&hs_par_depth, __ATOMIC_ACQUIRE) > 0;
-    if (par) while (__atomic_test_and_set(&hs_lock, __ATOMIC_ACQUIRE)) {}
+    if (par) while (__atomic_test_and_set(&hs_lock, __ATOMIC_ACQUIRE)) hs_safepoint();
     void *p;
     if (n <= HS_SMALL) {
         size_t c = 0;
@@ -187,10 +265,17 @@ static void hs_gc_scan(const char *b, const char *e) {
         hs_gc_consider(p);
     }
 }
-/* Called after setjmp has copied the registers into the caller's frame, so they are on the stack too. */
+/* Called after setjmp has copied the registers into the caller's frame, so they are on the stack too.
+   During a parallel for the other threads are stopped, and their stacks (down to where they stopped) count. */
 static __attribute__((noinline)) void hs_gc_scan_stack(void) {
     volatile char here = 0;
-    hs_gc_scan((const char *)&here, hs_stack_base);
+    hs_gc_scan((const char *)&here, hs_my_base ? hs_my_base : hs_stack_base);
+    for (int i = 0; i < hs_nthr; i++) {
+        hs_thr *t = hs_thrs[i];
+        if (t == &hs_me) continue;
+        hs_gc_scan(t->lo, t->base);
+        hs_gc_consider((uintptr_t)t->err);
+    }
 }
 static __attribute__((noinline)) void hs_gc_collect(void) {
     qsort(hs_bigs, hs_nbigs, sizeof *hs_bigs, hs_big_cmp);
@@ -228,6 +313,25 @@ static __attribute__((noinline)) void hs_gc_collect(void) {
     hs_since = 0;
     hs_limit = live > HS_GC_MIN ? live : HS_GC_MIN;           /* the heap stays under about twice what is live */
     hs_len_last = NULL; hs_cur_s = NULL;
+    __atomic_add_fetch(&hs_gc_gen, 1, __ATOMIC_RELEASE);      /* other threads' text caches are stale too */
+}
+/* A collection while a parallel for runs: stop the other threads first (or stop, if one is already
+   collecting), and only collect if it is still due. */
+static void hs_gc_parallel(void) {
+    if (!hs_me_in) return;
+    hs_thr_lock_take();
+    if (__atomic_load_n(&hs_gc_request, __ATOMIC_ACQUIRE)) { hs_thr_lock_give(); hs_safepoint(); return; }
+    __atomic_store_n(&hs_gc_request, 1, __ATOMIC_RELEASE);
+    hs_thr_lock_give();
+    for (;;) {
+        hs_thr_lock_take();
+        int others = hs_nthr - 1;
+        hs_thr_lock_give();
+        if (__atomic_load_n(&hs_nparked, __ATOMIC_ACQUIRE) >= others) break;
+        hs_yield();
+    }
+    if (hs_since > hs_limit) hs_gc_collect();
+    __atomic_store_n(&hs_gc_request, 0, __ATOMIC_RELEASE);
 }
 
 static hs_str hs_fmt(const char *fmt, ...) {
@@ -485,7 +589,9 @@ static long long hs_u8code(const unsigned char *p, int n) {
     return c;
 }
 static void hs_measure(hs_str s) {
-    if (s == hs_len_last) return;
+    unsigned gen = __atomic_load_n(&hs_gc_gen, __ATOMIC_ACQUIRE);
+    if (s == hs_len_last && hs_len_gen == gen) return;
+    hs_len_gen = gen;
     const unsigned char *p = (const unsigned char *)s;
     size_t chars = 0, b = 0;
     while (p[b]) { b += p[b] < 0x80 ? 1 : (size_t)hs_u8len(p + b); chars++; }
@@ -496,7 +602,8 @@ static size_t hs_len(hs_str s) { hs_measure(s); return hs_len_chars; }
 static size_t hs_offset(hs_str s, size_t i) {               /* byte where character i starts (i <= length) */
     hs_measure(s);
     if (hs_len_bytes == hs_len_chars) return i;               /* ASCII */
-    if (s != hs_cur_s || i < hs_cur_i) { hs_cur_s = s; hs_cur_i = 0; hs_cur_b = 0; }
+    unsigned gen = __atomic_load_n(&hs_gc_gen, __ATOMIC_ACQUIRE);
+    if (s != hs_cur_s || i < hs_cur_i || hs_cur_gen != gen) { hs_cur_s = s; hs_cur_i = 0; hs_cur_b = 0; hs_cur_gen = gen; }
     const unsigned char *p = (const unsigned char *)s;
     while (hs_cur_i < i) { hs_cur_b += (size_t)hs_u8len(p + hs_cur_b); hs_cur_i++; }
     return hs_cur_b;
@@ -547,20 +654,36 @@ typedef struct { void (*fn)(void *, long long); void *ctx; long long n, next; } 
 
 static void hs_work(hs_job *j) {
     long long i;
-    while ((i = __atomic_fetch_add(&j->next, 1, __ATOMIC_RELAXED)) < j->n) j->fn(j->ctx, i);
+    while ((i = __atomic_fetch_add(&j->next, 1, __ATOMIC_RELAXED)) < j->n) { j->fn(j->ctx, i); hs_safepoint(); }
 }
 #define HS_STACK (256LL * 1024 * 1024)        /* the program's stack: reserved, only used as it is needed */
 #define HS_WORKER_STACK (64LL * 1024 * 1024)  /* each parallel for worker's */
 #define HS_GUARD (1024 * 1024)                /* kept free so the error itself has room to run */
 static void hs_guard(size_t size) { hs_stack_lo = (char *)__builtin_frame_address(0) - size + HS_GUARD; }
 #ifdef _WIN32
-static DWORD WINAPI hs_thread(LPVOID p) { hs_guard(HS_WORKER_STACK); hs_work(p); return 0; }
+static DWORD WINAPI hs_thread(LPVOID p) {
+    volatile char base = 0; hs_my_base = (char *)&base;
+    hs_guard(HS_WORKER_STACK); hs_register(); hs_work(p); hs_unregister(); return 0;
+}
 static int hs_cores(void) { SYSTEM_INFO si; GetSystemInfo(&si); return (int)si.dwNumberOfProcessors; }
 #else
-static void *hs_thread(void *p) { hs_guard(HS_WORKER_STACK); hs_work(p); return NULL; }
+static void *hs_thread(void *p) {
+    volatile char base = 0; hs_my_base = (char *)&base;
+    hs_guard(HS_WORKER_STACK); hs_register(); hs_work(p); hs_unregister(); return NULL;
+}
 static int hs_cores(void) { return (int)sysconf(_SC_NPROCESSORS_ONLN); }
 #endif
 
+#ifdef _WIN32
+typedef struct { int t; HANDLE th[64]; } hs_joins;
+static void hs_join_all(void *p) {
+    hs_joins *w = p;
+    for (int k = 1; k < w->t; k++) { WaitForSingleObject(w->th[k], INFINITE); CloseHandle(w->th[k]); }
+}
+#else
+typedef struct { int t; pthread_t th[64]; } hs_joins;
+static void hs_join_all(void *p) { hs_joins *w = p; for (int k = 1; k < w->t; k++) pthread_join(w->th[k], NULL); }
+#endif
 static void hs_parallel(long long n, void (*fn)(void *, long long), void *ctx) {
     hs_job j = { fn, ctx, n, 0 };
     __atomic_add_fetch(&hs_par_depth, 1, __ATOMIC_RELEASE);      /* no collecting while workers run */
@@ -568,20 +691,19 @@ static void hs_parallel(long long n, void (*fn)(void *, long long), void *ctx) {
     if (t > 64) t = 64;
     if (t > n) t = (int)n;
     if (t < 1) t = 1;
+    hs_register();
+    hs_joins w = { t };
 #ifdef _WIN32
-    HANDLE th[64];
     for (int k = 1; k < t; k++)
-        th[k] = CreateThread(NULL, HS_WORKER_STACK, hs_thread, &j, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
-    hs_work(&j);
-    for (int k = 1; k < t; k++) { WaitForSingleObject(th[k], INFINITE); CloseHandle(th[k]); }
+        w.th[k] = CreateThread(NULL, HS_WORKER_STACK, hs_thread, &j, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 #else
-    pthread_t th[64];
     pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setstacksize(&at, HS_WORKER_STACK);
-    for (int k = 1; k < t; k++) pthread_create(&th[k], &at, hs_thread, &j);
+    for (int k = 1; k < t; k++) pthread_create(&w.th[k], &at, hs_thread, &j);
     pthread_attr_destroy(&at);
-    hs_work(&j);
-    for (int k = 1; k < t; k++) pthread_join(th[k], NULL);
 #endif
+    hs_work(&j);
+    hs_stop(hs_join_all, &w);                 /* waiting for the workers counts as stopped */
+    hs_unregister();
     __atomic_sub_fetch(&hs_par_depth, 1, __ATOMIC_RELEASE);
 }
 
@@ -589,7 +711,7 @@ static void hs_parallel(long long n, void (*fn)(void *, long long), void *ctx) {
 typedef struct { int argc; char **argv; int (*prog)(int, char **); int rc; } hs_start;
 static __attribute__((noinline)) void hs_run(hs_start *s, size_t stack) {
     volatile char base = 0;
-    hs_stack_base = (char *)&base;           /* the collector scans the stack from here down */
+    hs_stack_base = hs_my_base = (char *)&base;   /* the collector scans the stack from here down */
     if (stack) hs_guard(stack);
     s->rc = s->prog(s->argc, s->argv);
 }

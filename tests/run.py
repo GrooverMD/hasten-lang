@@ -81,7 +81,7 @@ def diff(want, got):
 def main(argv):
     pattern = argv[0] if argv else ''
     tests = sorted(os.path.join(d, f) for d, dirs, files in os.walk(HERE)
-                   for f in files if f.endswith('.haste') and pattern in os.path.join(d, f)
+                   for f in files if f.endswith('.haste') and pattern in os.path.relpath(os.path.join(d, f), HERE)
                    if not (set(os.path.relpath(d, HERE).split(os.sep)) & SKIP))
     if not tests:
         print('no tests match', repr(pattern)); return 1

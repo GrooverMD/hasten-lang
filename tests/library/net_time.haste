@@ -1,0 +1,10 @@
+// the Net and Time modules
+print(Net.Url("Example.COM", "a/b"))
+print(Net.IsSecure("https://x"))
+print(Net.IsSecure("http://x"))
+start = Time.Elapsed()
+print(Time.Elapsed() - start >= 0)
+// out: https://example.com/a/b
+// out: true
+// out: false
+// out: true

@@ -1,0 +1,4 @@
+// an error inside a type-free function says where it was called from
+fn Add(a, b) = a + b
+print(Add(1, "x"))
+// error: called from called_from.haste:3

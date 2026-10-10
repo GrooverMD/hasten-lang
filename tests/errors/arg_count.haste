@@ -1,0 +1,4 @@
+// the wrong number of arguments
+fn F(a) = a
+print(F(1, 2))
+// error: arg_count.haste:3: F expects 1 argument(s), got 2

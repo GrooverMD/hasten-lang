@@ -1,0 +1,10 @@
+// in a write block, it is the incoming value
+class N
+  V = "?"
+    write
+      it = "x"
+    end
+end
+n = N()
+n.V = "a"
+// error: it_assign.haste:5: it is the incoming value and cannot be changed; set field instead

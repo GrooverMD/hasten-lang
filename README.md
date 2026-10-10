@@ -225,6 +225,17 @@ end
 | `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |
 | `System.WriteText(path, text)`, `System.AppendText(path, text)`, `System.FileExists(path)` | Write and check files |
 
+## Tests
+
+```
+python tests/run.py           run every test (about 3 seconds)
+python tests/run.py dict      run only the tests whose path contains "dict"
+```
+
+Each test is an ordinary Haste program in `tests/` whose comments say what must happen: `// out:` lines it
+must print, `// error:` text the build or the run must fail with, and `// args:` switches to run it with.
+Run the tests after every change to the compiler or the runtime.
+
 ## How it works
 
 `haste.py` parses Haste, infers types and generates C for only the code your program reaches. The C is then
@@ -244,7 +255,7 @@ haste.py          the compiler
 runtime.h         the runtime included in every program
 lib/              standard library modules (System, Text, Math, Time, Net)
 examples/         example programs
-tests/            stress tests (memory, parallel for)
+tests/            the test suite: language, library, error messages, stress
 ide/              Hasten, the Haste IDE (Delphi, SynEdit)
 assets/           logo and icons
 ```

@@ -1,0 +1,3 @@
+// a string must end on its line
+print("abc)
+// error: unterminated.haste:2: unterminated string

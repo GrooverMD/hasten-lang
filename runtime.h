@@ -431,6 +431,11 @@ static void hs_switch_usage(const char *prog, hs_switch *s, int n) {
     }
     exit(0);
 }
+static bool hs_bool_word(const char *v) {
+    static const char *words[] = { "true", "false", "yes", "no", "on", "off", "1", "0" };
+    for (int k = 0; k < 8; k++) if (hs_same(v, words[k], strlen(words[k]))) return true;
+    return false;
+}
 static void hs_switches(int argc, char **argv, hs_switch *s, int n) {
     const char *prog = argv[0];
     for (const char *p = argv[0]; *p; p++) if (*p == '/' || *p == '\\') prog = p + 1;
@@ -447,7 +452,9 @@ static void hs_switches(int argc, char **argv, hs_switch *s, int n) {
         for (int k = 0; k < n; k++) if (hs_same(s[k].name, name, len)) w = &s[k];
         if (!w) { fprintf(stderr, "unknown switch '%s'; run with --help to see the switches\n", a); exit(1); }
         if (!value) {
-            if (w->kind == 3) value = "true";
+            /* An on/off switch alone means on; a following true/false/yes/no/on/off/1/0 is its value
+               (there are no plain arguments, so that word can mean nothing else). */
+            if (w->kind == 3) value = (i + 1 < argc && hs_bool_word(argv[i + 1])) ? argv[++i] : "true";
             else if (i + 1 < argc) value = argv[++i];
             else { fprintf(stderr, "--%s needs a value\n", hs_lowered(w->name)); exit(1); }
         }

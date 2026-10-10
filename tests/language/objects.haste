@@ -1,0 +1,27 @@
+// objects hold other objects and lists of objects; objects are shared, not copied
+class Point
+  X = 0
+  Y = 0
+  Sum => X + Y
+end
+class Shape
+  Name = "shape"
+  Points: [Point] = []
+  fn Total()
+    t = 0
+    for p in Points
+      t = t + p.Sum
+    end
+    return t
+  end
+end
+s = Shape(Name: "tri")
+s.Points.Add(Point(X: 1, Y: 2))
+s.Points.Add(Point(X: 3, Y: 4))
+s.Points.Add(Point(X: 5))
+print("{s.Name} has {s.Points.Count} points, total {s.Total()}")
+p = s.Points[0]
+p.X = 100
+print(s.Points[0].X)
+// out: tri has 3 points, total 15
+// out: 100

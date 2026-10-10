@@ -1,0 +1,54 @@
+// properties: defaults, where rules, computed (=>), write blocks, methods
+class Account
+  Owner = "Unknown" where it <> ""
+  Balance = 0.0 where it >= 0
+  Tier => if Balance >= 1000 then "Gold" else "Standard"
+  fn Deposit(amount)
+    Balance = Balance + amount
+  end
+end
+
+a = Account(Owner: "Mark", Balance: 1500)
+print("{a.Owner} {a.Balance:2} {a.Tier}")
+b = Account()
+print("{b.Owner} {b.Balance:2} {b.Tier}")
+b.Deposit(250)
+print(b.Balance)
+try
+  b.Balance = -1
+catch e
+  print(e)
+end
+print(b.Balance)
+
+class Temperature
+  Celsius = 0.0
+  Fahrenheit => Celsius * 9 / 5 + 32
+    write
+      Celsius = (it - 32) * 5 / 9
+    end
+end
+t = Temperature()
+t.Fahrenheit = 212
+print(t.Celsius)
+print(t.Fahrenheit)
+
+class Name
+  Value = "?"
+    write
+      field = Text.Trim(it)
+    end
+end
+n = Name(Value: "  spaced  ")
+print("[{n.Value}]")
+n.Value = "  again "
+print("[{n.Value}]")
+// out: Mark 1500.00 Gold
+// out: Unknown 0.00 Standard
+// out: 250
+// out: Account.Balance cannot be -1 (requires it >= 0)
+// out: 250
+// out: 100
+// out: 212
+// out: [spaced]
+// out: [again]

@@ -1,0 +1,7 @@
+// asking an object for a property it does not have
+class P
+  X = 0
+end
+p = P()
+print(p.Y)
+// error: unknown_property.haste:6: P has no property Y

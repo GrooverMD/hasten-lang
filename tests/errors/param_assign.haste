@@ -1,0 +1,7 @@
+// parameters are read-only
+fn F(x)
+  x = 1
+  return x
+end
+print(F(2))
+// error: param_assign.haste:3: x is a parameter and cannot be changed

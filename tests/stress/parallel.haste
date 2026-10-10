@@ -24,3 +24,4 @@ for it in items
   end
 end
 print("{items.Count} items, {bad} damaged")
+// out: 20000 items, 0 damaged

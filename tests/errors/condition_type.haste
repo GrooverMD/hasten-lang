@@ -1,0 +1,5 @@
+// conditions must be true or false
+if 1
+  print(1)
+end
+// error: condition_type.haste:2: a condition must be true or false, got int

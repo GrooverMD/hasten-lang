@@ -1,0 +1,9 @@
+// a function returns one type
+fn F(x)
+  if x > 0
+    return 1
+  end
+  return "a"
+end
+print(F(1))
+// error: F returns different types: int, string

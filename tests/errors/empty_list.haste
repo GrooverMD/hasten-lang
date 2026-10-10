@@ -1,0 +1,4 @@
+// an empty list that never gets anything cannot be given a type
+x = []
+print(x.Count)
+// error: x never has anything added to it

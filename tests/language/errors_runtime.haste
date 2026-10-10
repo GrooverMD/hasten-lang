@@ -1,0 +1,27 @@
+// try/catch catches errors from where rules, the library and the runtime, and the program carries on
+fn Check(x)
+  try
+    v = Text.ToInt(x)
+    print("ok {v}")
+  catch e
+    print("caught: {e}")
+  end
+end
+Check("12")
+Check("twelve")
+try
+  print(10 div 0)
+catch e
+  print(e)
+end
+try
+  s = Text.Sub("abc", 2, 5)
+catch e
+  print(e)
+end
+print("still running")
+// out: ok 12
+// out: caught: "twelve" is not a whole number
+// out: division by zero
+// out: substring is outside the string
+// out: still running

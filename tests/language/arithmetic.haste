@@ -1,0 +1,34 @@
+// whole numbers, decimals and the order of operations
+print(2 + 3 * 4)
+print((2 + 3) * 4)
+print(10 - 4 - 3)
+print(7 div 2)
+print(-7 div 2)
+print(7 mod 3)
+print(-7 mod 2)
+print(7 / 2)
+print(1 / 4)
+x = 2.5
+print(x * 2)
+print("{10 / 3:2}")
+print("{2.0:3}")
+print(Int(3.99))
+print(Float(3) / 2)
+print(Str(42) + "!")
+print(9223372036854775807)
+// out: 14
+// out: 20
+// out: 3
+// out: 3
+// out: -3
+// out: 1
+// out: -1
+// out: 3.5
+// out: 0.25
+// out: 5
+// out: 3.33
+// out: 2.000
+// out: 3
+// out: 1.5
+// out: 42!
+// out: 9223372036854775807

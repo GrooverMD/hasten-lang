@@ -1,0 +1,6 @@
+// where rules apply in the constructor too
+class A
+  N = 1 where it > 0
+end
+x = A(N: 0)
+// error: A.N cannot be 0 (requires it > 0)

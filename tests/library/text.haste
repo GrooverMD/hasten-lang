@@ -1,0 +1,43 @@
+// the Text module
+print(Text.Upper("abc") + Text.Lower("AbC"))
+print(Text.PadRight("ab", 5) + "|")
+print("[" + Text.Repeat("ab", 3) + "][" + Text.Repeat("x", 0) + "]")
+print(Text.Code("A", 0))
+print(Text.Sub("hello", 1, 3))
+print(Text.Find("hello", 108, 0))
+print(Text.Find("hello", 122, 0))
+print(Text.IndexOf("hello world", "o", 5))
+print(Text.IndexOf("abc", "z", 0))
+print(Text.Contains("hello", "ell"))
+parts = Text.Split("a,b,,c", ",")
+print("{parts.Count} [{parts[2]}] {parts[3]}")
+print(Text.Join(["x", "y", "z"], "+"))
+print("[" + Text.Trim("  pad  ") + "]")
+print(Text.Replace("a-b-c", "-", "+"))
+print(Text.Replace("aaa", "a", "bb"))
+print(Text.ToInt(" 42 ") + 1)
+print(Text.ToFloat("2.5") * 2)
+print(Text.Banner("hi"))
+print(Text.Line(3))
+word = "hello"
+print(word.Length)
+// out: ABCabc
+// out: ab   |
+// out: [ababab][]
+// out: 65
+// out: ell
+// out: 2
+// out: 5
+// out: 7
+// out: 3
+// out: true
+// out: 4 [] c
+// out: x+y+z
+// out: [pad]
+// out: a+b+c
+// out: bbbbbb
+// out: 43
+// out: 5
+// out: == HI ==
+// out: ---
+// out: 5

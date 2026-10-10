@@ -1,0 +1,27 @@
+// the System module: text files and bitmaps (files go in build, which is not kept)
+System.WriteText("build/sys.txt", "a\r\nb\n")
+System.AppendText("build/sys.txt", "c\n")
+lines = System.ReadLines("build/sys.txt")
+print("{lines.Count} {Text.Join(lines, "|")}")
+print(System.FileExists("build/sys.txt"))
+print(System.FileExists("build/no such file.txt"))
+print(System.Rgb(1, 2, 3))
+img = System.Bitmap(Width: 2, Height: 2)
+img.SetPixel(1, 1, System.Rgb(255, 0, 0))
+print("{img.Pixel(1, 1)} {img.Pixel(0, 0)}")
+img.Save("build/sys.bmp")
+print(System.FileExists("build/sys.bmp"))
+System.Write(12)
+try
+  t = System.ReadText("build/no such file.txt")
+catch e
+  print(e)
+end
+// out: 3 a|b|c
+// out: true
+// out: false
+// out: 66051
+// out: 16711680 0
+// out: true
+// out: 12
+// out: cannot read build/no such file.txt

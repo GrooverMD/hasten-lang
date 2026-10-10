@@ -1,0 +1,40 @@
+// if / elif / else, while, for over a range and a list
+fn Grade(n)
+  if n >= 90
+    return "A"
+  elif n >= 75
+    return "B"
+  else
+    return "C"
+  end
+end
+print(Grade(95) + Grade(80) + Grade(10))
+
+n = 0
+while n < 5
+  n = n + 2
+end
+print(n)
+
+total = 0
+for i in 1..4
+  total = total + i
+end
+print(total)
+
+for i in 3..1
+  print("never")
+end
+
+words = ["a", "b", "c"]
+line = ""
+for w in words
+  line = line + w
+end
+print(line)
+print(if total > 5 then "big" else "small")
+// out: ABC
+// out: 6
+// out: 10
+// out: abc
+// out: big

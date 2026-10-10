@@ -1,0 +1,9 @@
+// alias gives anything a short name, in any order, and aliases may name aliases
+print(Up(Shout("hey")))
+alias Up = Upper
+alias Upper = Text.Upper
+fn Shout(s) = s + "!"
+alias Root = Math.Sqrt
+print(Root(81.0))
+// out: HEY!
+// out: 9

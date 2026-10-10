@@ -1,0 +1,8 @@
+// falling off the end of a function that returns a value is an error, not a random value
+fn F(x)
+  if x > 0
+    return 1
+  end
+end
+print(F(-1))
+// error: F ended without returning a value

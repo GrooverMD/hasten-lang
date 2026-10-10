@@ -1,0 +1,4 @@
+// reading past the end of a list
+l = [1, 2]
+print(l[2])
+// error: index 2 is outside 0..1

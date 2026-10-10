@@ -1,0 +1,4 @@
+// a variable keeps the type it started with
+v = 1
+v = "s"
+// error: keeps_type.haste:3: expected int, got string

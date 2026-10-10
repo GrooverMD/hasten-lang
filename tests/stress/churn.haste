@@ -50,3 +50,5 @@ end
 
 print("kept {keep.Kids.Count} kids, checksum {Sum(keep)} = {expected}")
 print("{names.Count} names, last {names["round 0"]}")
+// out: kept 1000 kids, checksum 607500 = 607500
+// out: 10 names, last the-quick-brown-fox-jumps-over-the-lazy-dog

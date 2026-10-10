@@ -1,0 +1,8 @@
+// command-line switches: --name value, --name=value, -name value; defaults when not given
+switch Width = 100 where it > 0     // width
+switch Title = "untitled"           // title
+switch Scale = 1.5                  // scale
+switch Quiet = false                // quiet
+print("{Width} {Title} {Scale} {Quiet}")
+// args: --width 640 -title=Report --quiet true
+// out: 640 Report 1.5 true

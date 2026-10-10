@@ -1,0 +1,15 @@
+// the Math module
+print(Math.Sqrt(2.0))
+print(Math.Pow(2.0, 10.0))
+print(Math.Floor(2.7))
+print(Math.Max(3, 7))
+print(Math.Min(3, 7))
+print(Math.Clamp(15, 0, 10))
+print(Math.Round(3.14159, 2))
+// out: 1.41421
+// out: 1024
+// out: 2
+// out: 7
+// out: 3
+// out: 10
+// out: 3.14

@@ -1,0 +1,3 @@
+// numbers and text cannot be added
+x = 1 + "a"
+// error: type_mix.haste:2: '+' needs numbers, got int and string

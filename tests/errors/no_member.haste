@@ -1,0 +1,3 @@
+// a module that lacks the name asked for
+print(Text.Nope("a"))
+// error: no_member.haste:2: module Text has no Nope

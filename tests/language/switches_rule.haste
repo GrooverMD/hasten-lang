@@ -1,0 +1,5 @@
+// a switch that breaks its where rule stops the program before it starts
+switch Width = 100 where it > 0     // width
+print("ran")
+// args: --width -5
+// error: requires it > 0

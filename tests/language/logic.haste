@@ -1,0 +1,29 @@
+// comparisons, and/or/not on true/false, and the same words as bit operations on whole numbers
+a = 5
+b = 8
+print(a < b)
+print(a >= b)
+print(a = 5 and b = 8)
+print(a = 4 or b = 8)
+print(not (a < b))
+print(a <> b)
+print("ab" < "b")
+print(12 and 10)
+print(12 or 10)
+print(12 xor 10)
+print(1 shl 10)
+print(1024 shr 3)
+print(not 0)
+// out: true
+// out: false
+// out: true
+// out: true
+// out: false
+// out: true
+// out: true
+// out: 8
+// out: 14
+// out: 6
+// out: 1024
+// out: 128
+// out: -1

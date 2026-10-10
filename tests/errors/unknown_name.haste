@@ -1,0 +1,3 @@
+// using a name that was never made
+print(x)
+// error: unknown_name.haste:2: unknown name x

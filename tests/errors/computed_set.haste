@@ -1,0 +1,8 @@
+// computed properties without a write block are read-only
+class P
+  X = 1
+  D => X * 2
+end
+p = P()
+p.D = 4
+// error: computed_set.haste:7: P.D is computed and read-only

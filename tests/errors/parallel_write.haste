@@ -1,0 +1,6 @@
+// a parallel for must not change outer variables
+n = 0
+parallel for i in 1..10
+  n = n + i
+end
+// error: parallel_write.haste:4: n cannot be changed inside parallel for

@@ -1,0 +1,5 @@
+// an incomplete expression
+if 1 <
+  print(1)
+end
+// error: syntax.haste:2: expected an expression

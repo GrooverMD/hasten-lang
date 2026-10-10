@@ -1,0 +1,28 @@
+// functions without types are made once for each combination of argument types they are called with
+fn Twice(x) = x * 2
+fn Join(a, b) = "{a}-{b}"
+fn Fact(n)
+  if n <= 1
+    return 1
+  end
+  return n * Fact(n - 1)
+end
+fn Hello(who)
+  print("hello {who}")
+end
+print(Twice(21))
+print(Twice(1.25))
+print(Join(1, "x"))
+print(Join("y", 2.5))
+print(Fact(20))
+Hello("there")
+// order of declarations does not matter
+print(Later(3))
+fn Later(x) = x + 100
+// out: 42
+// out: 2.5
+// out: 1-x
+// out: y-2.5
+// out: 2432902008176640000
+// out: hello there
+// out: 103

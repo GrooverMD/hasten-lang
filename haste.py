@@ -448,6 +448,7 @@ def find_module(name, registry, search):
 class Env:
     def __init__(e, mod, cls=None, parent=None):
         e.vars, e.mod, e.cls, e.parent = {}, mod, cls, parent
+        e.params = set()                                # names in vars that are function parameters
         e.spec = parent.spec if parent else None        # function being generated
         e.in_try = parent.in_try if parent else 0
         e.writing = parent.writing if parent else None   # (class, property) whose write block this is
@@ -457,6 +458,17 @@ class Env:
             if n in e.vars: return e.vars[n]
             e = e.parent
         return None
+
+    def fixed_reason(e, n):
+        """Why n cannot be assigned to, for the error message."""
+        while e:
+            if n in e.vars:
+                if n in e.params: return f'{n} is a parameter and cannot be changed; copy it into a variable first'
+                break
+            e = e.parent
+        if n == 'it': return 'it is the incoming value and cannot be changed; set field instead'
+        if n == 'self': return 'self cannot be changed'
+        return f'{n} is declared with let; use var to change it'
 
     def child(e, in_try=None):
         c = Env(e.mod, e.cls, e)
@@ -627,11 +639,13 @@ static {name} *{name}_of(int n, ...) {{
 }}''')
         return name
 
-    def dict_type(g, k, v):
+    def dict_type(g, k, v, node=None):
         key = '{' + k + ':' + v + '}'
         if key in g.list_types: return g.list_types[key]
         if k not in ('int', 'string', 'bool'):
-            raise HasteError(f'dictionary keys must be whole numbers, text or true/false, not {k}')
+            msg = f'dictionary keys must be whole numbers, text or true/false, not {k}'
+            if node is not None: g.err(node, msg)
+            raise HasteError(msg)
         kt, vt = g.ctype(k), g.ctype(v)
         name = 'D_' + mangle(key)[1:]
         g.list_types[key] = name
@@ -871,7 +885,7 @@ static {name} *{name}_of(int n, ...) {{
         env = Env(mod, cls); env.spec = s
         if cls: env.vars['self'] = (cls.qname, False, 'self')
         for (pn, _), t in zip(f.params, types):
-            env.vars[pn] = (t, False, 'v_' + pn)
+            env.vars[pn] = (t, False, 'v_' + pn); env.params.add(pn)
         try:
             if f.expr:
                 c, t = g.expr(f.expr, env, s.ret)
@@ -880,12 +894,12 @@ static {name} *{name}_of(int n, ...) {{
             else:
                 body = g.block(f.body, env, 1)
                 ret = s.ret or g.unify(s.rets, f)
+                if ret != 'void':            # falling off the end must not return whatever is lying around
+                    body.append(f'    hs_raise("{f.name} ended without returning a value"); return 0;')
         except HasteError as ex:             # a type-free function failed for these argument types: say who called it
             if generic and getattr(node, 'file', None):
                 raise HasteError(f'{ex}\n  in {s.label}, called from {node.file}:{node.line}')
             raise
-            if ret != 'void':
-                body.append(f'    hs_raise("{f.name} ended without returning a value"); return 0;')
         s.ret = ret
         params = ([f'C_{cls.cname} *self'] if cls else []) + \
                  [f'{g.ctype(t)} v_{pn}' for (pn, _), t in zip(f.params, types)]
@@ -1040,7 +1054,7 @@ static {name} *{name}_of(int n, ...) {{
                 if mutable is None:
                     g.err(st, f'{tg.name} cannot be changed inside parallel for: '
                               'iterations run at the same time, so each must only change its own data')
-                if not mutable: g.err(st, f'{tg.name} is declared with let; use var to change it')
+                if not mutable: g.err(st, env.fixed_reason(tg.name))
                 c, ct = g.expr(st.value, env, t)
                 return f'{cname} = {g.coerce(c, ct, t, st)}'
             if env.cls and tg.name in env.cls.props:
@@ -1066,12 +1080,12 @@ static {name} *{name}_of(int n, ...) {{
                 oc, now = g.expr(tg.obj, env)            # the value may have settled it, e.g. d.Get(k, 0) + 1
                 if now[1:2] != '?':
                     k, v = kv(now)
-                    return f'{g.dict_type(k, v)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
+                    return f'{g.dict_type(k, v, st)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
                 g.settle(ot, '{' + g.known(kt, st) + ':' + g.known(vt, st) + '}')
-                return f'{g.dict_type(kt, vt)}_set({oc}, {kc}, {vc})'
+                return f'{g.dict_type(kt, vt, st)}_set({oc}, {kc}, {vc})'
             k, v = kv(ot)
             kc, kt = g.expr(tg.idx, env, k); vc, vt = g.expr(st.value, env, v)
-            return f'{g.dict_type(k, v)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
+            return f'{g.dict_type(k, v, st)}_set({oc}, {g.coerce(kc, kt, k, st)}, {g.coerce(vc, vt, v, st)})'
         if tg.kind == 'index':
             oc, ot = g.expr(tg.obj, env)
             if not ot.startswith('['): g.err(st, f'cannot index {ot}')
@@ -1150,7 +1164,7 @@ static {name} *{name}_of(int n, ...) {{
             codes = []
             for (kc, kt2), (vc, vt2), (a, b) in zip(keys, vals, e.pairs):
                 codes += [g.coerce(kc, kt2, kt, a), g.coerce(vc, vt2, vt, b)]
-            return f'{g.dict_type(kt, vt)}_of({len(e.pairs)}, {", ".join(codes)})', '{' + kt + ':' + vt + '}'
+            return f'{g.dict_type(kt, vt, e)}_of({len(e.pairs)}, {", ".join(codes)})', '{' + kt + ':' + vt + '}'
         if k == 'ifx':
             c = g.cond(e.cond, env)
             a, at = g.expr(e.a, env, want)

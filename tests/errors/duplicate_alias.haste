@@ -1,0 +1,4 @@
+// an alias and a function cannot share a name
+alias Inc = Text.Upper
+fn Inc(x) = x + 1
+// error: duplicate_alias.haste:3: Inc is already an alias on line 2

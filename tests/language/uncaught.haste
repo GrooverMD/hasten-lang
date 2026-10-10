@@ -1,0 +1,6 @@
+// an error nobody catches ends the program with a message and a failure exit code
+print("before")
+x = Text.ToInt("nope")
+print("after")
+// out: before
+// error: Unhandled error: "nope" is not a whole number

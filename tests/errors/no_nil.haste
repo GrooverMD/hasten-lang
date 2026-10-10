@@ -1,0 +1,9 @@
+// a property holding an object needs a default object
+class P
+  X = 0
+end
+class Q
+  Pt: P
+end
+q = Q()
+// error: Q.Pt needs a default object (Haste has no nil)

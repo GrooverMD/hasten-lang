@@ -1,0 +1,12 @@
+// let is fixed, var can change; plain assignment also makes a variable that can change
+let pi = 3.14159
+var count = 0
+count = count + 1
+total = 10
+total = total + count
+print("{pi:2} {count} {total}")
+let words: [string] = []
+words.Add("typed")
+print(words[0])
+// out: 3.14 1 11
+// out: typed

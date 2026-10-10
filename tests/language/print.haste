@@ -1,0 +1,19 @@
+// print, escapes and interpolation
+print("Hello World")
+print("tab:\tend")
+print("quote: \"hi\" and backslash \\")
+print("braces: \{not interpolated\}")
+print("")
+name = "Ada"
+age = 36
+print("{name} is {age}")
+print("{name}{age}")
+print("sum {1 + 2}, nested {Text.Upper("ok")}")
+// out: Hello World
+// out: tab:	end
+// out: quote: "hi" and backslash \
+// out: braces: {not interpolated}
+// out:
+// out: Ada is 36
+// out: Ada36
+// out: sum 3, nested OK

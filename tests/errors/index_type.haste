@@ -1,0 +1,4 @@
+// list indexes are whole numbers
+l = [1]
+print(l["a"])
+// error: index_type.haste:3: an index must be a whole number

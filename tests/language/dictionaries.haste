@@ -1,0 +1,36 @@
+// dictionaries: literals, set, get, Has, Remove, Count, Get with a default, keys in the order added
+ages = {"Mark": 50, "Ada": 36}
+ages["Lin"] = 41
+ages["Ada"] = 37
+print(ages.Count)
+print(ages["Ada"])
+print(ages.Has("Lin"))
+ages.Remove("Mark")
+print(ages.Has("Mark"))
+for k in ages
+  print("{k}={ages[k]}")
+end
+counts = {}
+for w in Text.Split("to be or not to be", " ")
+  counts[w] = counts.Get(w, 0) + 1
+end
+print("{counts["to"]} {counts["be"]} {counts["or"]} {counts.Count}")
+squares = {}
+for i in 1..3
+  squares[i] = i * i
+end
+print(squares[3])
+try
+  print(ages["Nobody"])
+catch e
+  print(e)
+end
+// out: 3
+// out: 37
+// out: true
+// out: false
+// out: Ada=37
+// out: Lin=41
+// out: 2 2 1 4
+// out: 9
+// out: key "Nobody" is not in the dictionary

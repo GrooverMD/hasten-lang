@@ -1,0 +1,4 @@
+// a name can be declared once
+fn Inc(x) = x + 1
+fn Inc(x) = x + 2
+// error: duplicate_fn.haste:3: Inc is already a function on line 2

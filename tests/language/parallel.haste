@@ -1,0 +1,18 @@
+// parallel for: each iteration on whichever core is free; results land in place
+class Cell
+  N = 0
+  Square = 0
+end
+cells = []
+for i in 1..1000
+  cells.Add(Cell(N: i))
+end
+parallel for c in cells
+  c.Square = c.N * c.N
+end
+total = 0
+for c in cells
+  total = total + c.Square
+end
+print(total)
+// out: 333833500

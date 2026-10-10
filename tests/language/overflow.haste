@@ -1,0 +1,39 @@
+// whole numbers that go past 64 bits are an error you can catch, never a silent wrap
+let big = 9223372036854775807
+let small = -9223372036854775807 - 1
+fn Try(what, f) = f
+try
+  print(big + 1)
+catch e
+  print("+ {e}")
+end
+try
+  print(small - 1)
+catch e
+  print("- {e}")
+end
+try
+  print(big * 2)
+catch e
+  print("* {e}")
+end
+try
+  print(-small)
+catch e
+  print("negate {e}")
+end
+let m = -1
+try
+  print(small div m)
+catch e
+  print("div {e}")
+end
+print(small mod m)
+print(big - 1 + 1)
+// out: + whole number overflow
+// out: - whole number overflow
+// out: * whole number overflow
+// out: negate whole number overflow
+// out: div whole number overflow
+// out: 0
+// out: 9223372036854775807

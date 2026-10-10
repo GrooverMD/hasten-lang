@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -250,10 +251,31 @@ static void hs_try_push(jmp_buf *jb) {
 }
 static void hs_try_pop(void) { hs_try_depth--; }
 
+/* Where the program is, for an unhandled error: hs_at is the statement running ("file.haste:12"), and
+   hs_calls the statement each enclosing call was made from. Thread-local, so parallel for is fine. */
+#define HS_TRACE 64
+static _Thread_local const char *hs_at = "";
+static _Thread_local const char *hs_calls[HS_TRACE];
+static _Thread_local int hs_depth = 0;
+static inline void hs_enter(void) { if (hs_depth < HS_TRACE) hs_calls[hs_depth] = hs_at; hs_depth++; }
+static inline void hs_leave(void) { if (--hs_depth < HS_TRACE) hs_at = hs_calls[hs_depth]; }
+
 static void hs_raise(hs_str msg) {
     hs_error = msg;
     if (hs_try_depth > 0) longjmp(*hs_try_stack[--hs_try_depth], 1);
     fprintf(stderr, "Unhandled error: %s\n", msg);
+    if (*hs_at) fprintf(stderr, "  in %s\n", hs_at);
+    int top = hs_depth < HS_TRACE ? hs_depth : HS_TRACE, lines = 0;
+    if (hs_depth > HS_TRACE) fprintf(stderr, "  (%d deeper calls not recorded)\n", hs_depth - HS_TRACE);
+    for (int d = top - 1; d >= 0 && lines < 10; d--) {      /* a recursion's repeats are shown once */
+        if (!*hs_calls[d]) continue;
+        int same = 0;
+        while (d > 0 && hs_calls[d - 1] == hs_calls[d]) { d--; same++; }
+        if (same) fprintf(stderr, "  called from %s (%d more times)\n", hs_calls[d], same);
+        else fprintf(stderr, "  called from %s\n", hs_calls[d]);
+        lines++;
+        if (lines == 10 && d > 0) fprintf(stderr, "  ...\n");
+    }
     exit(1);
 }
 
@@ -268,11 +290,63 @@ static bool hs_eq(hs_str a, hs_str b) { return strcmp(a, b) == 0; }
 
 static long long hs_idiv(long long a, long long b) {
     if (b == 0) hs_raise("division by zero");
+    if (b == -1) { if (a == LLONG_MIN) hs_raise("whole number overflow"); return -a; }   /* LLONG_MIN / -1 traps */
     return a / b;
 }
 static long long hs_imod(long long a, long long b) {
     if (b == 0) hs_raise("division by zero");
-    return a % b;
+    return b == -1 ? 0 : a % b;                  /* LLONG_MIN % -1 traps on x86 */
+}
+
+/* Whole-number arithmetic: going past the 64-bit range is an error, never a silent wrap (which C does not
+   even promise: signed overflow is undefined, so the optimiser may assume it never happens). */
+static inline long long hs_iadd(long long a, long long b) {
+    long long r; if (__builtin_add_overflow(a, b, &r)) hs_raise("whole number overflow"); return r;
+}
+static inline long long hs_isub(long long a, long long b) {
+    long long r; if (__builtin_sub_overflow(a, b, &r)) hs_raise("whole number overflow"); return r;
+}
+static inline long long hs_imul(long long a, long long b) {
+    long long r; if (__builtin_mul_overflow(a, b, &r)) hs_raise("whole number overflow"); return r;
+}
+static inline long long hs_ineg(long long a) {
+    if (a == LLONG_MIN) hs_raise("whole number overflow"); return -a;
+}
+/* Shifts work on the bits: bits shifted out are gone, and shr keeps the sign. The amount must be 0..63. */
+static inline long long hs_shl(long long a, long long n) {
+    if (n < 0 || n > 63) hs_raise(hs_fmt("shift amount %lld is outside 0..63", n));
+    return (long long)((unsigned long long)a << n);
+}
+static inline long long hs_shr(long long a, long long n) {
+    if (n < 0 || n > 63) hs_raise(hs_fmt("shift amount %lld is outside 0..63", n));
+    return a >> n;
+}
+static long long hs_int(double x) {
+    if (!(x > -9223372036854775808.0 && x < 9223372036854775808.0) && x != -9223372036854775808.0)
+        hs_raise(hs_fmt("%g cannot be a whole number", x));
+    return (long long)x;                         /* towards zero */
+}
+static long long hs_range_count(long long a, long long b) {   /* how many in a..b, for parallel for */
+    long long n;
+    if (b < a) return 0;
+    if (__builtin_sub_overflow(b, a, &n) || n == LLONG_MAX) hs_raise("the range is too large");
+    return n + 1;
+}
+/* A decimal as text: the shortest form, up to 15 significant digits, that reads back as the same number
+   (as Delphi's FloatToStr): 1234567.5, 0.3 for 0.1 + 0.2, 9 for 9.0, 1e+20. */
+static hs_str hs_ftoa(double x) {
+    char buf[40];
+    if (x != x) return "nan";
+    if (x == 1.0 / 0.0) return "inf";
+    if (x == -1.0 / 0.0) return "-inf";
+    int p = 1, whole = 0;                        /* digits before the point; no exponent for up to 15 */
+    for (double a = x < 0 ? -x : x; a >= 1 && whole < 16; a /= 10) whole++;
+    for (; p < 15; p++) {
+        snprintf(buf, sizeof buf, "%.*g", p, x);
+        if (strtod(buf, NULL) == x) break;
+    }
+    if (whole <= 15 && p < whole) p = whole;
+    return hs_fmt("%.*g", p, x);
 }
 
 /* ---- helpers the standard library binds to with `extern fn` ---- */
@@ -416,7 +490,7 @@ static bool hs_same(const char *a, const char *b, size_t n) {      /* case-insen
 static hs_str hs_lowered(const char *s) { return hs_lower(s); }
 
 static void hs_switch_fail(hs_switch *s) {
-    hs_str v = s->kind == 0 ? hs_fmt("%lld", *(long long *)s->ptr) : s->kind == 1 ? hs_fmt("%g", *(double *)s->ptr)
+    hs_str v = s->kind == 0 ? hs_fmt("%lld", *(long long *)s->ptr) : s->kind == 1 ? hs_ftoa(*(double *)s->ptr)
              : s->kind == 2 ? hs_fmt("\"%s\"", *(hs_str *)s->ptr) : (*(bool *)s->ptr ? "true" : "false");
     fprintf(stderr, "--%s cannot be %s (requires %s)\n", hs_lowered(s->name), v, s->rule);
     exit(1);

@@ -1,0 +1,12 @@
+// a range can run right up to the largest whole number; an empty range runs no times
+var n = 0
+for i in 9223372036854775805..9223372036854775807
+  n = n + 1
+end
+print(n)
+for i in 5..1
+  print("never")
+end
+print("done")
+// out: 3
+// out: done

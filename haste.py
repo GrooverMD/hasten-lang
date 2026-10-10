@@ -939,7 +939,7 @@ static {name} *{name}_of(int n, ...) {{
             c, ct = g.expr(p.where, env)
             if ct != 'bool': g.err(p, 'a where clause must be true or false')
             show = {'string': 'hs_fmt("\\"%s\\"", it)', 'int': 'hs_fmt("%lld", it)',
-                    'float': 'hs_fmt("%g", it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
+                    'float': 'hs_ftoa(it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
             body.append(f'    if (!({c})) hs_require_fail("{qname}.{pname}", {show}, {cstr(p.wtext)});')
         if p.write:                              # it = incoming value, field = the stored value
             wenv = env.child()
@@ -995,7 +995,9 @@ static {name} *{name}_of(int n, ...) {{
             call = f'{f.cname}({", ".join(codes)})'
             return (f'(({g.ctype(ret)}){call})' if ret[:1] in '[{' else call), ret
         cname, ret = g.specialize(mod, f, cls, tuple(types), node)
-        return f'{cname}({", ".join(codes)})', ret
+        call = f'{cname}({", ".join(codes)})'
+        if ret == 'void': return f'({{ hs_enter(); {call}; hs_leave(); }})', ret      # remember where we came from
+        return f'({{ hs_enter(); {g.ctype(ret)} _r = {call}; hs_leave(); _r; }})', ret
 
     def specialize(g, mod, f, cls, types, node):
         key = (mod.name, cls and cls.qname, f.name, types)
@@ -1022,6 +1024,7 @@ static {name} *{name}_of(int n, ...) {{
                 c, t = g.expr(f.expr, env, s.ret)
                 ret = s.ret or t
                 body = [f'    {c};'] if ret == 'void' else [f'    return {g.coerce(c, t, ret, f.expr)};']
+                body.insert(0, f'    hs_at = {g.at(f)};')
             else:
                 body = g.block(f.body, env, 1)
                 ret = s.ret or g.unify(s.rets, f)
@@ -1049,8 +1052,12 @@ static {name} *{name}_of(int n, ...) {{
     def block(g, stmts, env, depth):
         out = []
         for st in stmts:
+            out.append('    ' * depth + f'hs_at = {g.at(st)};')        # where an unhandled error happened
             out += g.stmt(st, env, depth)
         return out
+
+    def at(g, node):
+        return cstr(f'{node.file}:{node.line}')
 
     def stmt(g, st, env, d):
         pad = '    ' * d
@@ -1090,7 +1097,8 @@ static {name} *{name}_of(int n, ...) {{
                 end = g.fresh()
                 inner.vars[st.var] = ('int', False, 'v_' + st.var)
                 head = f'{pad}for (long long v_{st.var} = {a}, {end} = {b}; v_{st.var} <= {end}; v_{st.var}++) {{'
-                return [head] + g.block(st.body, inner, d + 1) + [pad + '}']
+                last = f'{pad}    if (v_{st.var} == {end}) break;'      # so b can be the largest whole number
+                return [head] + g.block(st.body, inner, d + 1) + [last, pad + '}']
             c, t = g.expr(st.a, env)
             if not t[:1] in '[{': g.err(st, f'cannot loop over {t}')
             g.known(t, st)
@@ -1126,10 +1134,11 @@ static {name} *{name}_of(int n, ...) {{
             jb = g.fresh()
             handler = env.child()
             handler.vars[st.var] = ('string', False, 'v_' + st.var)
-            return [f'{pad}{{', f'{pad}    jmp_buf {jb}; hs_try_push(&{jb});',
+            return [f'{pad}{{', f'{pad}    jmp_buf {jb}; hs_try_push(&{jb}); int {jb}_d = hs_depth;',
                     f'{pad}    if (setjmp({jb}) == 0) {{'] + \
                 g.block(st.body, env.child(in_try=env.in_try + 1), d + 2) + \
                 [f'{pad}        hs_try_pop();', f'{pad}    }} else {{',
+                 f'{pad}        hs_depth = {jb}_d;',             # calls the error left are over
                  f'{pad}        hs_str v_{st.var} = hs_error;'] + \
                 g.block(st.handler, handler, d + 2) + [f'{pad}    }}', f'{pad}}}']
         g.err(st, f'unknown statement {k}')
@@ -1149,7 +1158,7 @@ static {name} *{name}_of(int n, ...) {{
         if st.b is not None:
             a, at = g.expr(st.a, env); b, bt = g.expr(st.b, env)
             if at != 'int' or bt != 'int': g.err(st, 'a range needs whole numbers')
-            src, count, item = ('long long', a), f'({b}) - _c.src + 1', 'ctx->src + i'
+            src, count, item = ('long long', a), f'hs_range_count(_c.src, {b})', 'ctx->src + i'
             inner.vars[st.var] = ('int', False, 'v_' + st.var)
             et = 'int'
         else:
@@ -1277,7 +1286,7 @@ static {name} *{name}_of(int n, ...) {{
                 elif t == 'bool': fmt += '%s'; args.append(f'({c} ? "true" : "false")')
                 elif is_num(t) and spec is not None: fmt += f'%.{spec}f'; args.append(f'(double)({c})')
                 elif t == 'int': fmt += '%lld'; args.append(c)
-                elif t == 'float': fmt += '%g'; args.append(c)
+                elif t == 'float': fmt += '%s'; args.append(f'hs_ftoa({c})')
                 else: g.err(x, f'cannot put a {t} in a string')
             return f'hs_fmt({", ".join([cstr(fmt)] + args)})', 'string'
         if k == 'name':
@@ -1325,7 +1334,7 @@ static {name} *{name}_of(int n, ...) {{
                 if t != 'bool': g.err(e, 'not needs true or false, or a whole number')
                 return f'(!{c})', 'bool'
             if not is_num(t): g.err(e, f'cannot negate {t}')
-            return f'(-{c})', t
+            return (f'hs_ineg({c})' if t == 'int' else f'(-{c})'), t
         if k == 'bin': return g.binop(e, env)
         if k == 'member':
             parts = dotted(e)
@@ -1475,7 +1484,9 @@ static {name} *{name}_of(int n, ...) {{
         (l, lt), (r, rt) = g.expr(e.l, env), g.expr(e.r, env)
         op = e.op
         if op in BITS:                       # Pascal style: on whole numbers they work on bits
-            if lt == rt == 'int': return f'({l} {BITS[op]} {r})', 'int'
+            if lt == rt == 'int':
+                if op in ('shl', 'shr'): return f'hs_{op}({l}, {r})', 'int'
+                return f'({l} {BITS[op]} {r})', 'int'
             if lt == rt == 'bool' and op in LOGIC: return f'({l} {LOGIC[op]} {r})', 'bool'
             g.err(e, f'{op} needs two whole numbers' + (' or two true/false values' if op in LOGIC else '')
                   + f', got {lt} and {rt}')
@@ -1492,14 +1503,16 @@ static {name} *{name}_of(int n, ...) {{
             if lt == rt == 'int': return f'hs_i{op}({l}, {r})', 'int'
             if op == 'mod': return f'fmod({l}, {r})', 'float'
             g.err(e, 'div needs whole numbers')
-        return f'({l} {op} {r})', 'float' if 'float' in (lt, rt) else 'int'
+        if lt == rt == 'int': return f'hs_i{ {"+": "add", "-": "sub", "*": "mul"}[op] }({l}, {r})', 'int'
+        return f'({l} {op} {r})', 'float'
 
     def builtin(g, n, e, env):
         if len(e.args) != 1: g.err(e, f'{n} takes one value')
         c, t = g.expr(e.args[0][1], env)
-        text = {'string': c, 'int': f'hs_fmt("%lld", {c})', 'float': f'hs_fmt("%g", {c})',
+        text = {'string': c, 'int': f'hs_fmt("%lld", {c})', 'float': f'hs_ftoa({c})',
                 'bool': f'({c} ? "true" : "false")'}
-        if n == 'Int' and is_num(t): return f'((long long)({c}))', 'int'
+        if n == 'Int' and t == 'int': return c, 'int'
+        if n == 'Int' and t == 'float': return f'hs_int({c})', 'int'
         if n == 'Float' and is_num(t): return f'((double)({c}))', 'float'
         if n in ('Str', 'print') and t in text:
             return (f'hs_print({text[t]})', 'void') if n == 'print' else (text[t], 'string')

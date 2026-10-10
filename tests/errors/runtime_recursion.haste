@@ -1,0 +1,4 @@
+// a recursion in the call chain is shown once, with how many more times it repeats
+fn Down(n) = if n = 0 then 1 div 0 else Down(n - 1)
+print(Down(10))
+// error: called from runtime_recursion.haste:2 (9 more times)

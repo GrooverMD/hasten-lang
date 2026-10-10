@@ -1,0 +1,16 @@
+// shl and shr work on bits; the amount must be 0..63
+print(1 shl 63)
+print(-16 shr 2)
+print(255 shr 4)
+print(3 shl 62)
+let n = 64
+try
+  print(1 shl n)
+catch e
+  print(e)
+end
+// out: -9223372036854775808
+// out: -4
+// out: 15
+// out: -4611686018427387904
+// out: shift amount 64 is outside 0..63

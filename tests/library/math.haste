@@ -6,7 +6,7 @@ print(Math.Max(3, 7))
 print(Math.Min(3, 7))
 print(Math.Clamp(15, 0, 10))
 print(Math.Round(3.14159, 2))
-// out: 1.41421
+// out: 1.4142135623731
 // out: 1024
 // out: 2
 // out: 7

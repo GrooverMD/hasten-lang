@@ -204,7 +204,7 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Include a whole module | `need Module` (rarely needed) |
 | Long lines | A line continues while a `(`, `[` or `{` is open |
 
-There is no `nil`: every property always has a value. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
+There is no `nil`: every property always has a value. Whole numbers are 64-bit, and going past that is an error you can `catch`, never a silent wrap; `shl` and `shr` take amounts from 0 to 63. An unhandled error names the line it happened on and the lines each call came from. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
 
 ```haste
 class Temperature

@@ -69,6 +69,7 @@ type
     function CloseTab(Tab: TEditorTab): Boolean;
     function SaveAllForRun: Boolean;
     function LocateHastePy(Ask: Boolean = True): Boolean;
+    function PythonCommand: string;
     procedure RefreshWords;
     procedure WatchFolders;
     procedure WordsTimerFire(Sender: TObject);
@@ -733,6 +734,25 @@ begin
   Result := FileExists(FHastePy);
 end;
 
+{ The Python to run haste.py with: the setting (normally "python") if Windows can find it, otherwise "py",
+  the launcher the python.org installer puts in the Windows folder, which every program can find even
+  when it was started before Python was installed and so has an old PATH. }
+function TMainForm.PythonCommand: string;
+
+  function Found(const Name: string): Boolean;
+  var
+    Buffer: array[0..MAX_PATH] of Char;
+    FilePart: PChar;
+  begin
+    Result := FileExists(Name) or (SearchPath(nil, PChar(Name), '.exe', MAX_PATH, Buffer, FilePart) > 0);
+  end;
+
+begin
+  Result := FPython;
+  if not Found(Result) and Found('py') then
+    Result := 'py';
+end;
+
 { Asks haste.py which built-ins, members and modules exist, so the highlighter colours a new module in lib
   (or next to the program) without the .msg being regenerated. Runs in the background; a request made
   while one is running is remembered and run straight after. }
@@ -748,7 +768,7 @@ begin
     FWordsAgain := True;
     Exit;
   end;
-  Cmd := Quote(FPython) + ' ' + Quote(FHastePy) + ' words';
+  Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' words';
   Tab := ActiveTab;
   if (Tab <> nil) and (Tab.FileName <> '') then
     Cmd := Cmd + ' ' + Quote(Tab.FileName);    // modules next to the program count too
@@ -812,7 +832,7 @@ var
 begin
   Tab := ActiveTab;
   if Running or (Tab = nil) or not SaveAllForRun or not LocateHastePy then Exit;
-  Cmd := Quote(FPython) + ' ' + Quote(FHastePy) + ' ' + Verb + ' ' + Quote(Tab.FileName);
+  Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' ' + Verb + ' ' + Quote(Tab.FileName);
   if (Verb = 'build') and (FTarget.ItemIndex > 0) then
     Cmd := Cmd + ' --target ' + FTarget.Text;
   if (Verb = 'run') and (Trim(FArgs.Text) <> '') then
@@ -828,6 +848,9 @@ end;
 procedure TMainForm.RunnerLine(const Line: string);
 begin
   FOutput.Lines.Add(Line);
+  if Line.StartsWith('Cannot start: ') then
+    FOutput.Lines.Add('Python could not be started. Check that "python --version" works in a new command ' +
+      'prompt; if Python was installed while Hasten was open, restart Hasten so it sees the new PATH.');
   if not FJumped and Line.StartsWith('error:') then
     FJumped := JumpToError(Line);               // go straight to the first compiler error
 end;
@@ -1099,7 +1122,7 @@ begin
     if Tab.Modified and (Tab.FileName <> '') then
       SaveTab(Tab, False);
   end;
-  Cmd := Quote(FPython) + ' ' + Quote(Tests);
+  Cmd := Quote(PythonCommand) + ' ' + Quote(Tests);
   FRunFolder := ExtractFileDir(Tests);
   FJumped := True;                              // a failing test should not pull the editor away
   FOutput.Clear;

@@ -1477,7 +1477,19 @@ def setup():
     return 0
 
 
+def toolchain():
+    """Which Python and which Zig are doing the work, for the top of every build: when something breaks,
+    this is the first thing to know."""
+    import platform
+    z = zig()
+    where = z[0] if len(z) == 1 else 'ziglang package (' + os.path.dirname(__import__('ziglang').__file__) + ')'
+    r = subprocess.run(z + ['version'], capture_output=True, text=True)
+    ver = r.stdout.strip() or 'unknown version'
+    return f'  Python  {platform.python_version()}  {sys.executable}\n  Zig     {ver}  {where}'
+
+
 def build(path, targets):
+    print(toolchain())
     c_src, report = compile_to_c(path)
     out_dir = os.path.join(os.path.dirname(os.path.abspath(path)), 'build')
     os.makedirs(out_dir, exist_ok=True)

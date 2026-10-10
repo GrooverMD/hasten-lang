@@ -36,5 +36,6 @@ there. Settings and the files you had open are kept in `%APPDATA%\Hasten\Hasten.
 |---|---|
 | `Hasten.dpr` | The program |
 | `Hasten.Main.pas` | The main window, built entirely in code (no .dfm) |
+| `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |
 | `SynHighlighterHaste.msg` | SynGen description of Haste's syntax; colours designed with [SynEdit Msg Designer](https://groovermd.github.io/SynEditMsgDesigner/) |

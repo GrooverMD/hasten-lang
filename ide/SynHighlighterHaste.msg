@@ -1,5 +1,7 @@
 TSynHasteSyn    {first identifier is the class name}
 tk              {second identifier is the token prefix}
+{ Built-ins, members and module names are not listed here: Hasten asks haste.py for them ("haste.py words")
+  and colours them in Hasten.Highlighter, so new modules in lib are coloured without regenerating this. }
 { Colours from Haste.msg (SynEdit Msg Designer), for a dark background. RGB(r,g,b) is written as $00BBGGRR,
   because the unit SynGen writes uses only Graphics, which has no RGB function. }
 Sensitive
@@ -56,10 +58,6 @@ write
 xor
 |><|
 
-KEYS Builtin
-print
-|><|
-
 KEYS Type
 int
 float
@@ -81,20 +79,6 @@ BeginProc
   Inc(Run, fStringLen);
   while IsIdentChar(fLine[Run]) do
     Inc(Run);
-  // Capitalised words are coloured here, not in KEYS: SynGen's case-sensitive hash table is wrong for
-  // keywords with capitals (it hashes them lowercased in InitIdent but as written in KeyIndices), which
-  // leaves nil entries in fIdentFuncTable and crashes on the first identifier that lands on one.
-  if fTokenID = tkIdentifier then
-  begin
-    var S: string;
-    SetString(S, fLine + fTokenPos, Run - fTokenPos);
-    if (S = 'Str') or (S = 'Int') or (S = 'Float') then
-      fTokenID := tkBuiltin
-    else if (S = 'Add') or (S = 'Count') or (S = 'Length') or (S = 'Has') or (S = 'Remove') or (S = 'Get') then
-      fTokenID := tkMember
-    else if (S = 'System') or (S = 'Text') or (S = 'Math') or (S = 'Time') or (S = 'Net') then
-      fTokenID := tkModule;
-  end;
 EndProc
 
 '0'..'9':: Number

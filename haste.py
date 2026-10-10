@@ -4,6 +4,7 @@
     python haste.py run   examples/bank.haste [program switches...]
     python haste.py build examples/bank.haste --target windows,macos,linux
     python haste.py c     examples/bank.haste          (print generated C)
+    python haste.py words [examples/bank.haste]         (names an editor should colour)
 """
 import os, re, sys, shutil, subprocess
 
@@ -1430,7 +1431,32 @@ def host_target():
     return {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
 
 
+MEMBERS = ('Add', 'Count', 'Length', 'Has', 'Remove', 'Get')    # members of lists, dictionaries and text
+
+
+def words(path=None):
+    """Print the names an editor should colour, one kind per line ("module Math System Text ..."), so the
+    IDE never keeps lists of its own. Modules are found the way the compiler finds them: next to the
+    program, then in lib. A folder of .haste files is a module too (System/Drawing.haste is System.Drawing)."""
+    dirs = ([os.path.dirname(os.path.abspath(path))] if path else []) + [os.path.join(HERE, 'lib')]
+    mods = set()
+    for d in dirs:
+        for e in (os.listdir(d) if os.path.isdir(d) else []):
+            full, stem = os.path.join(d, e), os.path.splitext(e)[0]
+            if e.endswith('.haste') and not (path and os.path.abspath(path) == full):
+                mods.add(stem)
+            elif os.path.isdir(full) and any(f.endswith('.haste') for f in os.listdir(full)):
+                mods.add(e)
+    print('keyword', *sorted(KEYWORDS))
+    print('builtin', *BUILTINS)
+    print('member', *MEMBERS)
+    print('module', *sorted(m for m in mods if re.fullmatch(r'[A-Za-z_]\w*', m)))
+    return 0
+
+
 def main(argv):
+    if argv[:1] == ['words']:
+        return words(argv[1] if len(argv) > 1 else None)
     if len(argv) < 2 or argv[0] not in ('build', 'run', 'c'):
         print(__doc__); return 2
     cmd, path = argv[0], argv[1]

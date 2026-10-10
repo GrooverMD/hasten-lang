@@ -27,9 +27,11 @@ You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.c
 | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+W | New, open, save, close tab |
 | Ctrl+F, F3 | Find, find next |
 | Ctrl+G | Go to line |
+| View > Font... | Choose the editor font (only monospaced fonts are listed) and size |
+| Ctrl+mouse wheel, Ctrl+NumPad + / - / 0 | Make the text bigger, smaller, or back to 11 pt, in every tab |
 
 A compiler error takes you straight to its line. Double-click any `file.haste:12` in the output to go
-there. Settings and the files you had open are kept in `%APPDATA%\Hasten\Hasten.ini`.
+there. Settings, the editor font and the files you had open are kept in `%APPDATA%\Hasten\Hasten.ini`.
 
 ## Files
 

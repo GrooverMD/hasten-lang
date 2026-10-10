@@ -1,0 +1,14 @@
+// PadRight never shortens; Repeat of zero or less is empty; absurd sizes are an error
+need Text
+print("[" + Text.PadRight("ab", -3) + "]")
+print("[" + Text.PadRight("ab", 4) + "]")
+print("[" + Text.Repeat("ab", -2) + "]")
+try
+  print(Text.Repeat("ab", 9223372036854775807))
+catch e
+  print(e)
+end
+// out: [ab]
+// out: [ab  ]
+// out: []
+// out: text too long

@@ -14,6 +14,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <shellapi.h>
 #else
 #include <pthread.h>
 #include <unistd.h>
@@ -52,7 +53,7 @@ static char *hs_stack_base;                                   /* set in main */
 static int hs_par_depth;                                      /* > 0 while a parallel for runs */
 static char hs_lock;
 static _Thread_local hs_str hs_error = "";
-static _Thread_local hs_str hs_len_last;                      /* hs_len's cache; reset when blocks are freed */
+static _Thread_local hs_str hs_len_last, hs_cur_s;            /* text caches; reset when blocks are freed */
 static void hs_gc_collect(void);
 
 static void hs_oom(void) { fputs("out of memory\n", stderr); exit(2); }
@@ -226,7 +227,7 @@ static __attribute__((noinline)) void hs_gc_collect(void) {
     hs_nbigs = kept;
     hs_since = 0;
     hs_limit = live > HS_GC_MIN ? live : HS_GC_MIN;           /* the heap stays under about twice what is live */
-    hs_len_last = NULL;
+    hs_len_last = NULL; hs_cur_s = NULL;
 }
 
 static hs_str hs_fmt(const char *fmt, ...) {
@@ -356,31 +357,81 @@ static hs_str hs_ftoa(double x) {
 }
 
 /* ---- helpers the standard library binds to with `extern fn` ---- */
-static hs_str hs_upper(hs_str s) {
-    char *r = (char *)hs_fmt("%s", s);
-    for (char *p = r; *p; p++) *p = (char)toupper((unsigned char)*p);
-    return r;
+/* Upper and lower case for ASCII, accented Latin letters (à..þ), Greek and Cyrillic. */
+static long long hs_case(long long c, int up) {
+    if (up) {
+        if ((c >= 'a' && c <= 'z') || (c >= 0xE0 && c <= 0xFE && c != 0xF7) || (c >= 0x3B1 && c <= 0x3C9 && c != 0x3C2)
+            || (c >= 0x430 && c <= 0x44F)) return c - 32;
+        if (c == 0x3C2) return 0x3A3;                             /* final sigma */
+        if (c >= 0x450 && c <= 0x45F) return c - 80;
+    } else {
+        if ((c >= 'A' && c <= 'Z') || (c >= 0xC0 && c <= 0xDE && c != 0xD7) || (c >= 0x391 && c <= 0x3A9 && c != 0x3A2)
+            || (c >= 0x410 && c <= 0x42F)) return c + 32;
+        if (c >= 0x400 && c <= 0x40F) return c + 80;
+    }
+    return c;
 }
-static hs_str hs_lower(hs_str s) {
-    char *r = (char *)hs_fmt("%s", s);
-    for (char *p = r; *p; p++) *p = (char)tolower((unsigned char)*p);
-    return r;
-}
-static hs_str hs_pad_right(hs_str s, long long width) { return hs_fmt("%-*s", (int)width, s); }
-static hs_str hs_repeat(hs_str s, long long count) {
+static hs_str hs_encode(long long code);
+static int hs_u8len(const unsigned char *p);
+static long long hs_u8code(const unsigned char *p, int n);
+static hs_str hs_recase(hs_str s, int up) {
     size_t n = strlen(s);
-    char *r = hs_alloc_atomic(n * (size_t)(count > 0 ? count : 0) + 1);
+    char *r = hs_alloc_atomic(n + 1), *w = r;                 /* these letters keep their UTF-8 length */
+    for (const unsigned char *p = (const unsigned char *)s; *p;) {
+        int k = hs_u8len(p);
+        if (k == 1) { *w++ = (char)(*p < 0x80 ? hs_case(*p, up) : *p); p++; continue; }
+        long long c = hs_case(hs_u8code(p, k), up);
+        hs_str e = hs_encode(c);
+        size_t m = strlen(e);
+        if ((int)m == k) memcpy(w, e, m); else memcpy(w, p, (size_t)k);
+        w += k; p += k;
+    }
+    return r;
+}
+static hs_str hs_upper(hs_str s) { return hs_recase(s, 1); }
+static hs_str hs_lower(hs_str s) { return hs_recase(s, 0); }
+static size_t hs_len(hs_str s);
+static size_t hs_bytes(hs_str s);
+static size_t hs_size(long long a, long long b) {             /* a * b bytes, or an error if that is absurd */
+    long long r;
+    if (a < 0 || b < 0 || __builtin_mul_overflow(a, b, &r) || r > ((long long)1 << 40)) hs_raise("text too long");
+    return (size_t)r;
+}
+static hs_str hs_pad_right(hs_str s, long long width) {     /* spaces after s until it is width characters */
+    long long have = (long long)hs_len(s), n = (long long)hs_bytes(s);
+    if (width <= have) return s;
+    size_t pad = hs_size(width - have, 1);
+    char *r = hs_alloc_atomic((size_t)n + pad + 1);
+    memcpy(r, s, (size_t)n); memset(r + n, ' ', pad);
+    return r;
+}
+static hs_str hs_repeat(hs_str s, long long count) {
+    if (count <= 0) return "";
+    size_t n = strlen(s), total = hs_size((long long)n, count);
+    char *r = hs_alloc_atomic(total + 1);
     for (long long i = 0; i < count; i++) memcpy(r + n * (size_t)i, s, n);
     return r;
 }
 static bool hs_starts_with(hs_str s, hs_str prefix) { return strncmp(s, prefix, strlen(prefix)) == 0; }
+
+/* ---- files: names are UTF-8 everywhere; Windows needs them as UTF-16 ---- */
+static FILE *hs_fopen(hs_str path, const char *mode) {
+#ifdef _WIN32
+    wchar_t wp[1024], wm[8];
+    if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wp, 1024) || !MultiByteToWideChar(CP_UTF8, 0, mode, -1, wm, 8))
+        return NULL;
+    return _wfopen(wp, wm);
+#else
+    return fopen(path, mode);
+#endif
+}
 
 /* ---- files and time (used by System and Time) ---- */
 static FILE *hs_files[16];
 static long long hs_file_open(hs_str path) {
     for (int i = 0; i < 16; i++)
         if (!hs_files[i]) {
-            if (!(hs_files[i] = fopen(path, "wb"))) hs_raise(hs_fmt("cannot write %s", path));
+            if (!(hs_files[i] = hs_fopen(path, "wb"))) hs_raise(hs_fmt("cannot write %s", path));
             return i;
         }
     hs_raise("too many open files");
@@ -404,7 +455,7 @@ static double hs_elapsed(void) {
 
 /* ---- reading files and characters (used by System.ReadText and Text) ---- */
 static hs_str hs_read_file(hs_str path) {
-    FILE *f = fopen(path, "rb");
+    FILE *f = hs_fopen(path, "rb");
     if (!f) hs_raise(hs_fmt("cannot read %s", path));
     fseek(f, 0, SEEK_END);
     long n = ftell(f);
@@ -415,31 +466,80 @@ static hs_str hs_read_file(hs_str path) {
     fclose(f);
     return s;
 }
-/* Strings are immutable, so the length of the last string seen can be cached
+/* ---- characters: text is UTF-8, and positions and lengths count characters, not bytes ("café" has 4).
+   A byte that is not valid UTF-8 counts as one character with that byte's value. Text that is all ASCII
+   is indexed directly; other text is walked, from the last position used when going forward, so a loop
+   through a string stays fast. Strings are immutable, so what is known about the last one is cached
    (the collector resets the cache, because a freed string's address can be reused). */
-static size_t hs_len(hs_str s) {
-    static _Thread_local size_t len;
-    if (s != hs_len_last) { hs_len_last = s; len = strlen(s); }
-    return len;
+static _Thread_local size_t hs_len_bytes, hs_len_chars;
+static _Thread_local size_t hs_cur_i, hs_cur_b;               /* the walk: character hs_cur_i is at byte hs_cur_b */
+static int hs_u8len(const unsigned char *p) {                /* bytes in the character at p (1 if invalid) */
+    int n = *p < 0x80 ? 1 : (*p >> 5) == 6 ? 2 : (*p >> 4) == 14 ? 3 : (*p >> 3) == 30 ? 4 : 1;
+    for (int k = 1; k < n; k++) if ((p[k] & 0xC0) != 0x80) return 1;
+    return n;
+}
+static long long hs_u8code(const unsigned char *p, int n) {
+    if (n == 1) return *p;
+    long long c = *p & (0x7F >> n);
+    for (int k = 1; k < n; k++) c = (c << 6) | (p[k] & 0x3F);
+    return c;
+}
+static void hs_measure(hs_str s) {
+    if (s == hs_len_last) return;
+    const unsigned char *p = (const unsigned char *)s;
+    size_t chars = 0, b = 0;
+    while (p[b]) { b += p[b] < 0x80 ? 1 : (size_t)hs_u8len(p + b); chars++; }
+    hs_len_last = s; hs_len_bytes = b; hs_len_chars = chars;
+}
+static size_t hs_bytes(hs_str s) { hs_measure(s); return hs_len_bytes; }
+static size_t hs_len(hs_str s) { hs_measure(s); return hs_len_chars; }
+static size_t hs_offset(hs_str s, size_t i) {               /* byte where character i starts (i <= length) */
+    hs_measure(s);
+    if (hs_len_bytes == hs_len_chars) return i;               /* ASCII */
+    if (s != hs_cur_s || i < hs_cur_i) { hs_cur_s = s; hs_cur_i = 0; hs_cur_b = 0; }
+    const unsigned char *p = (const unsigned char *)s;
+    while (hs_cur_i < i) { hs_cur_b += (size_t)hs_u8len(p + hs_cur_b); hs_cur_i++; }
+    return hs_cur_b;
+}
+static long long hs_chars_before(hs_str s, const char *at) {  /* character index of the byte at `at` */
+    hs_measure(s);
+    if (hs_len_bytes == hs_len_chars) return at - s;
+    long long i = 0;
+    for (const unsigned char *p = (const unsigned char *)s; p < (const unsigned char *)at; i++) p += hs_u8len(p);
+    return i;
+}
+static hs_str hs_encode(long long code) {                      /* one character as text */
+    char *r = hs_alloc_atomic(5);
+    if (code < 0 || code > 0x10FFFF) hs_raise(hs_fmt("%lld is not a character code", code));
+    if (code < 0x80) r[0] = (char)code;
+    else if (code < 0x800) { r[0] = (char)(0xC0 | code >> 6); r[1] = (char)(0x80 | (code & 0x3F)); }
+    else if (code < 0x10000) { r[0] = (char)(0xE0 | code >> 12); r[1] = (char)(0x80 | (code >> 6 & 0x3F)); r[2] = (char)(0x80 | (code & 0x3F)); }
+    else { r[0] = (char)(0xF0 | code >> 18); r[1] = (char)(0x80 | (code >> 12 & 0x3F)); r[2] = (char)(0x80 | (code >> 6 & 0x3F)); r[3] = (char)(0x80 | (code & 0x3F)); }
+    return r;
 }
 static long long hs_code(hs_str s, long long i) {
     if (i < 0 || (size_t)i >= hs_len(s)) hs_raise(hs_fmt("character %lld is outside the string", i));
-    return (unsigned char)s[i];
+    const unsigned char *p = (const unsigned char *)s + hs_offset(s, (size_t)i);
+    return hs_u8code(p, hs_u8len(p));
 }
 static hs_str hs_sub(hs_str s, long long start, long long count) {
     size_t n = hs_len(s);
-    if (start < 0 || count < 0 || (size_t)(start + count) > n) hs_raise("substring is outside the string");
-    char *r = hs_alloc_atomic((size_t)count + 1);
-    memcpy(r, s + start, (size_t)count);
+    if (start < 0 || count < 0 || (size_t)start > n || (size_t)count > n - (size_t)start)
+        hs_raise("substring is outside the string");
+    size_t b = hs_offset(s, (size_t)start), e = hs_offset(s, (size_t)(start + count));
+    char *r = hs_alloc_atomic(e - b + 1);
+    memcpy(r, s + b, e - b);
     return r;
 }
 /* Index of the next character with this code at or after `from`, or the length if there is none. */
+static const char *hs_memfind(const char *b, const char *e, const char *pat, size_t m);
 static long long hs_find(hs_str s, long long code, long long from) {
     size_t n = hs_len(s);
     if (from < 0) from = 0;
     if ((size_t)from >= n) return (long long)n;
-    const char *p = memchr(s + from, (int)code, n - (size_t)from);
-    return p ? (long long)(p - s) : (long long)n;
+    hs_str c = hs_encode(code);
+    const char *p = hs_memfind(s + hs_offset(s, (size_t)from), s + hs_bytes(s), c, strlen(c));
+    return p ? hs_chars_before(s, p) : (long long)n;
 }
 
 /* ---- parallel for: worker threads take iterations from a shared counter ---- */
@@ -499,6 +599,20 @@ static DWORD WINAPI hs_main_thread(LPVOID p) { hs_run(p, HS_STACK); return 0; }
 static void *hs_main_thread(void *p) { hs_run(p, HS_STACK); return NULL; }
 #endif
 static int hs_main(int argc, char **argv, int (*prog)(int, char **)) {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);             /* print UTF-8 text as it is */
+    int wargc; wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+    if (wargv) {                              /* switches arrive as UTF-16; the program works in UTF-8 */
+        argv = hs_alloc(sizeof(char *) * (size_t)(wargc + 1));
+        for (int i = 0; i < wargc; i++) {
+            int n = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+            argv[i] = hs_alloc_atomic((size_t)n);
+            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, argv[i], n, NULL, NULL);
+        }
+        argc = wargc;
+        LocalFree(wargv);
+    }
+#endif
     hs_start s = { argc, argv, prog, 0 };
 #ifdef _WIN32
     HANDLE t = CreateThread(NULL, HS_STACK, hs_main_thread, &s, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
@@ -625,8 +739,8 @@ static long long hs_find_text(hs_str s, hs_str part, long long from) {
     size_t n = hs_len(s);
     if (from < 0) from = 0;
     if ((size_t)from > n) return (long long)n;
-    const char *p = hs_memfind(s + from, s + n, part, strlen(part));
-    return p ? (long long)(p - s) : (long long)n;
+    const char *p = hs_memfind(s + hs_offset(s, (size_t)from), s + hs_bytes(s), part, strlen(part));
+    return p ? hs_chars_before(s, p) : (long long)n;
 }
 static bool hs_contains(hs_str s, hs_str part) { return hs_memfind(s, s + strlen(s), part, strlen(part)) != NULL; }
 
@@ -701,7 +815,7 @@ static void *hs_read_lines(hs_str path) {
     return l;
 }
 static void hs_write_file(hs_str path, hs_str text, const char *mode) {
-    FILE *f = fopen(path, mode);
+    FILE *f = hs_fopen(path, mode);
     if (!f) hs_raise(hs_fmt("cannot write %s", path));
     size_t n = strlen(text);
     if (fwrite(text, 1, n, f) != n) { fclose(f); hs_raise(hs_fmt("cannot write %s", path)); }
@@ -710,7 +824,7 @@ static void hs_write_file(hs_str path, hs_str text, const char *mode) {
 static void hs_write_text(hs_str path, hs_str text) { hs_write_file(path, text, "wb"); }
 static void hs_append_text(hs_str path, hs_str text) { hs_write_file(path, text, "ab"); }
 static bool hs_file_exists(hs_str path) {
-    FILE *f = fopen(path, "rb");
+    FILE *f = hs_fopen(path, "rb");
     if (f) fclose(f);
     return f != NULL;
 }

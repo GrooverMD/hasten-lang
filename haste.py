@@ -771,6 +771,41 @@ static {name} *{name}_of(int n, ...) {{
 }}''')
         return name
 
+    def eq_fn(g, t):
+        """C function comparing two lists or dictionaries of type t by contents (objects inside compare as
+        the same object, as = does on objects)."""
+        name = 'EQ_' + mangle(t).strip('_')
+        if name in g.list_types: return name
+        g.list_types[name] = name
+
+        def same(a, b, et):
+            if et == 'string': return f'strcmp({a}, {b}) == 0'
+            if et[:1] in '[{': return f'{g.eq_fn(et)}({a}, {b})'
+            return f'{a} == {b}'
+        if t.startswith('['):
+            et, lt = t[1:-1], g.list_type(t[1:-1])
+            test = same('a->items[i]', 'b->items[i]', et)
+            g.lists.append(f'''static bool {name}({lt} *a, {lt} *b) {{
+    if (a == b) return true;
+    if (a->count != b->count) return false;
+    for (long long i = 0; i < a->count; i++) if (!({test})) return false;
+    return true;
+}}''')
+        else:
+            k, v = kv(t); dt = g.dict_type(k, v)
+            test = same('a->vals[i]', 'b->vals[j]', v)
+            g.lists.append(f'''static bool {name}({dt} *a, {dt} *b) {{
+    if (a == b) return true;
+    if (a->count != b->count) return false;
+    for (long long i = 0; i < a->used; i++) {{
+        if (a->dead[i]) continue;
+        long long j = {dt}_find(b, a->keys[i]);
+        if (j < 0 || !({test})) return false;
+    }}
+    return true;
+}}''')
+        return name
+
     def dict_type(g, k, v, node=None):
         key = '{' + k + ':' + v + '}'
         if key in g.list_types: return g.list_types[key]
@@ -789,14 +824,17 @@ static {name} *{name}_of(int n, ...) {{
         else:
             hash_ = 'unsigned long long x = (unsigned long long)k; x ^= x >> 33; x *= 0xff51afd7ed558ccdULL; x ^= x >> 33; return x;'
             eq, show = 'a == b', 'hs_fmt("%lld", (long long)k)'
-        g.lists.append(f'''typedef struct {{ {kt} *keys; {vt} *vals; long long count, cap, *slots, nslots; }} {name};
+        # Entries stay in the order they were added. Remove only marks an entry dead (lookups skip it), so it
+        # costs no more than a lookup, and a loop over the keys is not thrown out by removing as it goes. The
+        # arrays are compacted when they are full and at least half dead. count = live entries, used = all.
+        g.lists.append(f'''typedef struct {{ {kt} *keys; {vt} *vals; char *dead; long long count, used, cap, *slots, nslots; }} {name};
 static {name} *{name}_new(void) {{ return hs_alloc(sizeof({name})); }}
 static unsigned long long {name}_hash({kt} k) {{ {hash_} }}
 static bool {name}_eq({kt} a, {kt} b) {{ return {eq}; }}
 static long long {name}_find({name} *d, {kt} k) {{
     if (!d->nslots) return -1;
     unsigned long long m = (unsigned long long)d->nslots - 1, h = {name}_hash(k) & m;
-    while (d->slots[h]) {{ long long i = d->slots[h] - 1; if ({name}_eq(d->keys[i], k)) return i; h = (h + 1) & m; }}
+    while (d->slots[h]) {{ long long i = d->slots[h] - 1; if (!d->dead[i] && {name}_eq(d->keys[i], k)) return i; h = (h + 1) & m; }}
     return -1;
 }}
 static void {name}_slot({name} *d, long long i) {{
@@ -806,20 +844,34 @@ static void {name}_slot({name} *d, long long i) {{
 }}
 static void {name}_index({name} *d) {{
     long long n = 16;
-    while (n < 2 * d->count + 2) n *= 2;
+    while (n < 2 * d->used + 2) n *= 2;
     d->nslots = n; d->slots = hs_alloc_atomic(sizeof(long long) * (size_t)n);
-    for (long long i = 0; i < d->count; i++) {name}_slot(d, i);
+    for (long long i = 0; i < d->used; i++) if (!d->dead[i]) {name}_slot(d, i);
+}}
+static void {name}_compact({name} *d) {{
+    long long j = 0;
+    for (long long i = 0; i < d->used; i++)
+        if (!d->dead[i]) {{ d->keys[j] = d->keys[i]; d->vals[j] = d->vals[i]; d->dead[j] = 0; j++; }}
+    memset(d->dead + j, 0, (size_t)(d->used - j));
+    memset(d->keys + j, 0, sizeof({kt}) * (size_t)(d->used - j)); memset(d->vals + j, 0, sizeof({vt}) * (size_t)(d->used - j));
+    d->used = j;
+    {name}_index(d);
 }}
 static void {name}_set({name} *d, {kt} k, {vt} v) {{
     long long i = {name}_find(d, k);
     if (i >= 0) {{ d->vals[i] = v; return; }}
-    if (d->count == d->cap) {{
-        d->cap = d->cap ? d->cap * 2 : 8;
-        d->keys = hs_grow(d->keys, sizeof({kt}) * (size_t)d->count, sizeof({kt}) * (size_t)d->cap, {ka});
-        d->vals = hs_grow(d->vals, sizeof({vt}) * (size_t)d->count, sizeof({vt}) * (size_t)d->cap, {va});
+    if (d->used == d->cap) {{
+        if (d->used && 2 * d->count <= d->used) {name}_compact(d);
+        else {{
+            long long cap = d->cap ? d->cap * 2 : 8;
+            d->keys = hs_grow(d->keys, sizeof({kt}) * (size_t)d->cap, sizeof({kt}) * (size_t)cap, {ka});
+            d->vals = hs_grow(d->vals, sizeof({vt}) * (size_t)d->cap, sizeof({vt}) * (size_t)cap, {va});
+            d->dead = hs_grow(d->dead, (size_t)d->cap, (size_t)cap, 1);
+            d->cap = cap;
+        }}
     }}
-    d->keys[d->count] = k; d->vals[d->count] = v; d->count++;
-    if (2 * d->count + 2 > d->nslots) {name}_index(d); else {name}_slot(d, d->count - 1);
+    d->keys[d->used] = k; d->vals[d->used] = v; d->dead[d->used] = 0; d->used++; d->count++;
+    if (2 * d->used + 2 > d->nslots) {name}_index(d); else {name}_slot(d, d->used - 1);
 }}
 static {vt} {name}_get({name} *d, {kt} k) {{
     long long i = {name}_find(d, k);
@@ -834,10 +886,8 @@ static {vt} {name}_get_or({name} *d, {kt} k, {vt} fallback) {{
 static void {name}_remove({name} *d, {kt} k) {{
     long long i = {name}_find(d, k);
     if (i < 0) return;
-    memmove(d->keys + i, d->keys + i + 1, sizeof({kt}) * (size_t)(d->count - i - 1));
-    memmove(d->vals + i, d->vals + i + 1, sizeof({vt}) * (size_t)(d->count - i - 1));
-    d->count--;
-    {name}_index(d);
+    d->dead[i] = 1; d->count--;
+    memset(&d->keys[i], 0, sizeof({kt})); memset(&d->vals[i], 0, sizeof({vt}));   /* let the collector free them */
 }}
 static {name} *{name}_of(int n, ...) {{
     {name} *d = {name}_new(); va_list ap; va_start(ap, n);
@@ -1131,7 +1181,8 @@ static {name} *{name}_of(int n, ...) {{
                 k, _ = kv(t); dt = g.dict_type(*kv(t)); dv, i = g.fresh(), g.fresh()
                 inner.vars[st.var] = (k, False, 'v_' + st.var)
                 return [f'{pad}{{', f'{pad}    {dt} *{dv} = {c};',
-                        f'{pad}    for (long long {i} = 0; {i} < {dv}->count; {i}++) {{',
+                        f'{pad}    for (long long {i} = 0; {i} < {dv}->used; {i}++) {{',
+                        f'{pad}        if ({dv}->dead[{i}]) continue;',
                         f'{pad}        {g.ctype(k)} v_{st.var} = {dv}->keys[{i}];'] + \
                     g.block(st.body, inner, d + 2) + [f'{pad}    }}', f'{pad}}}']
             et = t[1:-1]; lt = g.list_type(et); l, i = g.fresh(), g.fresh()
@@ -1519,6 +1570,8 @@ static {name} *{name}_of(int n, ...) {{
         if op in CMP:
             if lt == rt == 'string':
                 return f'(strcmp({l}, {r}) {CMP[op]} 0)', 'bool'
+            if lt == rt and lt[:1] in '[{' and op in ('=', '<>'):      # lists and dictionaries: by contents
+                return f'({"!" if op == "<>" else ""}{g.eq_fn(lt)}({l}, {r}))', 'bool'
             if (is_num(lt) and is_num(rt)) or (lt == rt and op in ('=', '<>')):
                 return f'({l} {CMP[op]} {r})', 'bool'
             g.err(e, f'cannot compare {lt} with {rt}')
@@ -1727,7 +1780,7 @@ def deep(path, work):
 
 TARGETS = {
     'linux':     ('x86_64-linux-musl',  '-linux', ['-static', '-s', '-lm']),
-    'windows':   ('x86_64-windows-gnu', '.exe',   ['-s']),
+    'windows':   ('x86_64-windows-gnu', '.exe',   ['-s', '-lshell32']),
     'macos':     ('aarch64-macos',      '-macos', []),
     'macos-x64': ('x86_64-macos',       '-macos-x64', []),
 }
@@ -1999,4 +2052,6 @@ def main(argv):
 
 
 if __name__ == '__main__':
+    for stream in (sys.stdout, sys.stderr):     # Hasten reads UTF-8, whatever the Windows code page
+        stream.reconfigure(encoding='utf-8', errors='replace')
     sys.exit(main(sys.argv[1:]))

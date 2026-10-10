@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 HASTE = os.path.join(os.path.dirname(HERE), 'haste.py')
 SKIP = {'build'}
+UTF8 = dict(text=True, encoding='utf-8', errors='replace')   # programs print UTF-8, on Windows too
 
 
 def spec(path):
@@ -42,7 +43,7 @@ def run(path):
     want, errors, args = spec(path)
     error = errors[0] if errors else None
     folder = os.path.dirname(path)
-    b = subprocess.run([sys.executable, HASTE, 'build', path], cwd=folder, capture_output=True, text=True)
+    b = subprocess.run([sys.executable, HASTE, 'build', path], cwd=folder, capture_output=True, **UTF8)
     if b.returncode != 0:
         msg = (b.stdout + b.stderr).strip()
         if errors and all(x in msg for x in errors): return path, None, time.time() - start
@@ -51,7 +52,7 @@ def run(path):
     built = re.search(r'built (\S+)', b.stdout)
     exe = os.path.join(folder, built.group(1))
     try:
-        r = subprocess.run([exe] + args, cwd=folder, capture_output=True, text=True, timeout=60)
+        r = subprocess.run([exe] + args, cwd=folder, capture_output=True, timeout=60, **UTF8)
     except subprocess.TimeoutExpired:
         return path, 'did not finish within 60 seconds', time.time() - start
     got = [l.rstrip() for l in r.stdout.splitlines()]
@@ -110,4 +111,5 @@ def main(argv):
 
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.exit(main(sys.argv[1:]))

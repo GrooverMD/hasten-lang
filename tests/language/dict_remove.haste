@@ -1,0 +1,39 @@
+// removing from a dictionary is quick, keeps the order, and is safe inside a loop over it
+let d = {}
+for i in 1..10
+  d[i] = i * i
+end
+for k in d
+  if k mod 2 = 0 then
+    d.Remove(k)
+  end
+end
+var s = ""
+for k in d
+  s = s + Str(k) + " "
+end
+print(s)
+print(d.Count)
+let big = {}
+for i in 1..200000
+  big[Str(i)] = i
+end
+for i in 1..100000
+  big.Remove(Str(i))
+end
+print(big.Count)
+print(big["150000"])
+print(big.Has("5"))
+let o = {"x": 1, "y": 2}
+o.Remove("x")
+o["x"] = 3
+for k in o
+  print(k)
+end
+// out: 1 3 5 7 9
+// out: 5
+// out: 100000
+// out: 150000
+// out: false
+// out: y
+// out: x

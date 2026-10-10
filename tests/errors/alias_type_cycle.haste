@@ -1,0 +1,5 @@
+// type aliases that point at each other
+alias A = [B]
+alias B = [A]
+let x: A = []
+// error: alias_type_cycle.haste:4: alias A -> B -> A goes round in a circle

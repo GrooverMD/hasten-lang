@@ -1,0 +1,38 @@
+// alias names a module, a class, a function or a type, and an alias can be used as a type
+alias T = Text
+alias Bmp = System.Bitmap
+alias Up = T.Upper
+alias Grid = [[int]]
+alias Stock = {string: int}
+alias Score = int
+alias Table = Grid
+
+class Board
+  Cells: Grid = []
+  Counts: Stock = {}
+  Best: Score = 0
+end
+
+fn Area(img: Bmp) = img.Width * img.Height
+fn Total(g: Table)
+  t = 0
+  for row in g
+    for c in row
+      t = t + c
+    end
+  end
+  return t
+end
+
+print(T.Lower("MODULE") + " " + Up("function"))
+print(Area(Bmp(Width: 4, Height: 5)))
+b = Board()
+b.Cells.Add([1, 2])
+b.Cells.Add([3, 4, 5])
+b.Counts["apples"] = 7
+b.Best = 9
+let empty: Grid = []
+print("{Total(b.Cells)} {b.Cells[1].Count} {b.Counts["apples"]} {b.Best} {empty.Count}")
+// out: module FUNCTION
+// out: 20
+// out: 15 3 7 9 0

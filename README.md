@@ -199,6 +199,8 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Errors | `try ... catch e ... end` |
 | String interpolation | `"{value}"`, `"{price:2}"` for 2 decimals |
 | Calling C | `extern fn Sqrt(x: float): float = "sqrt"` |
+| Short names | `alias T = Text`, `alias Bmp = System.Bitmap`, `alias Up = Text.Upper` |
+| Type names | `alias Grid = [[int]]`, `alias Stock = {string: int}`, then `Cells: Grid = []` |
 | Include a whole module | `need Module` (rarely needed) |
 
 There is no `nil`: every property always has a value.

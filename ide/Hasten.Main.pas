@@ -42,6 +42,8 @@ type
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
     FEditorMenu: TPopupMenu;                    // right-click menu shared by every editor tab
+    FFontName: string;                          // the editor font, kept in Hasten.ini
+    FFontSize: Integer;
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
     FFinished: TRunner;                         // the last run, freed once its thread is long gone
@@ -85,6 +87,14 @@ type
     procedure OutputDblClick(Sender: TObject);
     procedure FindNext(Sender: TObject);
     procedure BuildEditorMenu;
+    procedure ApplyFont;
+    procedure SetFontSize(Size: Integer);
+    procedure EditorMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
+      MousePos: TPoint; var Handled: Boolean);
+    procedure DoFont(Sender: TObject);
+    procedure DoZoomIn(Sender: TObject);
+    procedure DoZoomOut(Sender: TObject);
+    procedure DoZoomReset(Sender: TObject);
     procedure AddEditItems(Parent: TMenuItem; WithFind: Boolean);
     procedure UpdateEditItems(Parent: TMenuItem);
     procedure EditorMenuPopup(Sender: TObject);
@@ -181,6 +191,8 @@ var
   I: Integer;
 begin
   inherited CreateNew(AOwner);                  // no .dfm: everything is built in BuildUi
+  FFontName := 'Consolas';
+  FFontSize := 11;
   FHighlighter := THasteHighlighter.Create(Self);
   FWordLines := TStringList.Create;
   FWordsTimer := TTimer.Create(Self);
@@ -271,7 +283,8 @@ var
   end;
 
 var
-  FileMenu, EditMenu, RunMenu: TMenuItem;
+  FileMenu, EditMenu, ViewMenu, RunMenu: TMenuItem;
+  Zoom: TAction;
 begin
   Caption := 'Hasten';
   Width := 1100;
@@ -301,6 +314,19 @@ begin
   Item(EditMenu, AddAction('&Find...', 'Ctrl+F', DoFind));
   Item(EditMenu, AddAction('Find &Next', 'F3', DoFindNext));
   Item(EditMenu, AddAction('&Go to Line...', 'Ctrl+G', DoGoToLine));
+
+  ViewMenu := Head('&View');
+  Item(ViewMenu, AddAction('&Font...', '', DoFont));
+  Item(ViewMenu, nil);
+  Zoom := AddAction('Zoom &In', '', DoZoomIn);          // Ctrl + NumPad +, -, 0; Ctrl+wheel also zooms
+  Zoom.ShortCut := Vcl.Menus.ShortCut(VK_ADD, [ssCtrl]);
+  Item(ViewMenu, Zoom);
+  Zoom := AddAction('Zoom &Out', '', DoZoomOut);
+  Zoom.ShortCut := Vcl.Menus.ShortCut(VK_SUBTRACT, [ssCtrl]);
+  Item(ViewMenu, Zoom);
+  Zoom := AddAction('&Reset Zoom', '', DoZoomReset);
+  Zoom.ShortCut := Vcl.Menus.ShortCut(VK_NUMPAD0, [ssCtrl]);
+  Item(ViewMenu, Zoom);
 
   RunMenu := Head('&Run');
   FRunAction := AddAction('&Run', 'F9', DoRun);
@@ -535,6 +561,85 @@ begin
   end;
 end;
 
+{ ---- the editor font: one font and size for every tab, chosen under View or with Ctrl+mouse wheel ---- }
+
+const
+  DefaultFontSize = 11;
+
+procedure TMainForm.ApplyFont;
+var
+  I: Integer;
+  E: TSynEdit;
+begin
+  for I := 0 to FPages.PageCount - 1 do
+  begin
+    E := TEditorTab(FPages.Pages[I]).Editor;
+    E.Font.Name := FFontName;
+    E.Font.Size := FFontSize;
+    E.Gutter.Font.Name := FFontName;
+    E.Gutter.Font.Size := FFontSize;
+  end;
+  FOutput.Font.Name := FFontName;              // the output panel keeps its own, smaller size
+end;
+
+procedure TMainForm.SetFontSize(Size: Integer);
+begin
+  if Size < 6 then Size := 6;
+  if Size > 48 then Size := 48;
+  if Size = FFontSize then Exit;
+  FFontSize := Size;
+  ApplyFont;
+  FStatus.Panels[2].Text := Format('Font: %s, %d pt', [FFontName, FFontSize]);
+end;
+
+{ Ctrl+wheel zooms every tab at once and is remembered; SynEdit's own wheel zoom would change only the
+  editor under the mouse, and only until Hasten closes. }
+procedure TMainForm.EditorMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
+  MousePos: TPoint; var Handled: Boolean);
+begin
+  if Shift * [ssCtrl, ssShift, ssAlt] = [ssCtrl] then
+  begin
+    if WheelDelta > 0 then SetFontSize(FFontSize + 1) else SetFontSize(FFontSize - 1);
+    Handled := True;
+  end;
+end;
+
+procedure TMainForm.DoZoomIn(Sender: TObject);
+begin
+  SetFontSize(FFontSize + 1);
+end;
+
+procedure TMainForm.DoZoomOut(Sender: TObject);
+begin
+  SetFontSize(FFontSize - 1);
+end;
+
+procedure TMainForm.DoZoomReset(Sender: TObject);
+begin
+  SetFontSize(DefaultFontSize);
+end;
+
+{ The font dialog lists only fixed-pitch fonts: code needs columns that line up. }
+procedure TMainForm.DoFont(Sender: TObject);
+var
+  Dialog: TFontDialog;
+begin
+  Dialog := TFontDialog.Create(nil);
+  try
+    Dialog.Options := [fdFixedPitchOnly, fdForceFontExist, fdNoStyleSel];
+    Dialog.Font.Name := FFontName;
+    Dialog.Font.Size := FFontSize;
+    if Dialog.Execute then
+    begin
+      FFontName := Dialog.Font.Name;
+      FFontSize := Dialog.Font.Size;
+      ApplyFont;
+    end;
+  finally
+    Dialog.Free;
+  end;
+end;
+
 { ---- settings: %APPDATA%\Hasten\Hasten.ini ---- }
 
 procedure TMainForm.LoadSettings;
@@ -548,6 +653,9 @@ begin
   try
     FHastePy := Ini.ReadString('Haste', 'HastePy', '');
     FPython := Ini.ReadString('Haste', 'Python', 'python');
+    FFontName := Ini.ReadString('Editor', 'FontName', FFontName);
+    FFontSize := Ini.ReadInteger('Editor', 'FontSize', FFontSize);
+    ApplyFont;
     FArgs.Text := Ini.ReadString('Run', 'Switches', '');
     FTarget.ItemIndex := FTarget.Items.IndexOf(Ini.ReadString('Run', 'Target', 'this system'));
     if FTarget.ItemIndex < 0 then FTarget.ItemIndex := 0;
@@ -571,6 +679,8 @@ begin
   try
     Ini.WriteString('Haste', 'HastePy', FHastePy);
     Ini.WriteString('Haste', 'Python', FPython);
+    Ini.WriteString('Editor', 'FontName', FFontName);
+    Ini.WriteInteger('Editor', 'FontSize', FFontSize);
     Ini.WriteString('Run', 'Switches', FArgs.Text);
     Ini.WriteString('Run', 'Target', FTarget.Text);
     Ini.EraseSection('Open');
@@ -607,6 +717,11 @@ begin
   Result.Editor.SearchEngine := FSearch;
   Result.Editor.OnStatusChange := EditorStatus;
   Result.Editor.PopupMenu := FEditorMenu;
+  Result.Editor.OnMouseWheel := EditorMouseWheel;
+  Result.Editor.Font.Name := FFontName;
+  Result.Editor.Font.Size := FFontSize;
+  Result.Editor.Gutter.Font.Name := FFontName;
+  Result.Editor.Gutter.Font.Size := FFontSize;
   if AFileName = '' then
   begin
     Inc(FUntitled);

@@ -1,0 +1,5 @@
+// recursion that never ends stops with an error that says where
+fn Forever(n): int = Forever(n + 1) + 1
+print(Forever(0))
+// error: recursion too deep
+// error: in recursion_too_deep.haste:2

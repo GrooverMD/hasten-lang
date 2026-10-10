@@ -1,0 +1,26 @@
+// a catch sees the latest values of variables the try changed
+fn F(k)
+  var n = 0
+  var total = 0
+  try
+    for i in 1..k
+      n = n + 1
+      total = total + i
+    end
+    let bad = [1][n]
+  catch e
+    print("n={n} total={total}")
+  end
+end
+F(10)
+var m = 0
+try
+  for i in 1..50
+    m = m + i
+  end
+  print([0][m])
+catch e
+  print("m={m}")
+end
+// out: n=10 total=55
+// out: m=1275

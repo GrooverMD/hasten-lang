@@ -1,0 +1,62 @@
+// return works inside try, from loops and nested try, with or without a value
+fn Find(x)
+  for i in 1..1000
+    try
+      if i = x then
+        return i
+      end
+    catch e
+      return 0
+    end
+  end
+  return -1
+end
+fn Say(x)
+  try
+    if x > 1 then
+      print("big")
+      return
+    end
+    print("small")
+  catch e
+    print(e)
+  end
+end
+fn Nested()
+  try
+    try
+      return 7
+    catch e
+      return 1
+    end
+  catch f
+    return 2
+  end
+end
+fn Fails(l) 
+  try
+    return l[5]
+  catch e
+    return -1
+  end
+end
+var s = 0
+for k in 1..100
+  s = s + Find(5)
+end
+print(s)
+Say(1)
+Say(2)
+print(Nested())
+print(Fails([1]))
+try
+  print([0][9])
+catch e
+  print("still caught: {e}")
+end
+// out: 500
+// out: small
+// out: big
+// out: 7
+// out: -1
+// out: still caught: index 9 is outside 0..0

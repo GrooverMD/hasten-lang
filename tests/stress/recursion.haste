@@ -1,0 +1,10 @@
+// deep recursion works; recursion that never ends is an error you can catch
+fn Depth(n) = if n = 0 then 0 else 1 + Depth(n - 1)
+print(Depth(1000000))
+try
+  print(Depth(1000000000))
+catch e
+  print(e)
+end
+// out: 1000000
+// out: recursion too deep

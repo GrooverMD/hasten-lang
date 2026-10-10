@@ -1,0 +1,13 @@
+// a recursive function can use try at every level: the deepest call fails and is caught, the rest add 1
+fn F(n)
+  try
+    if n = 0 then
+      return 1 div 0
+    end
+    return F(n - 1) + 1
+  catch e
+    return 0
+  end
+end
+print(F(10000))
+// out: 10000

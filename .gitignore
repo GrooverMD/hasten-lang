@@ -85,3 +85,4 @@ __pycache__/
 
 # Zig downloaded by "haste.py setup"
 tools/
+*.zip

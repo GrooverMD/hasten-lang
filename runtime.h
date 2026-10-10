@@ -241,15 +241,13 @@ static hs_str hs_fmt(const char *fmt, ...) {
     return s;
 }
 
-/* ---- errors: try/catch is a stack of jump buffers ---- */
-static _Thread_local jmp_buf *hs_try_stack[64];
-static _Thread_local int hs_try_depth = 0;
+/* ---- errors: each try puts a frame on the C stack and links it to the one before, so a recursive
+   function can nest try as deeply as it recurses ---- */
+typedef struct hs_try { jmp_buf jb; struct hs_try *prev; } hs_try;
+static _Thread_local hs_try *hs_try_top = NULL;
 
-static void hs_try_push(jmp_buf *jb) {
-    if (hs_try_depth == 64) { fputs("try nested too deeply\n", stderr); exit(2); }
-    hs_try_stack[hs_try_depth++] = jb;
-}
-static void hs_try_pop(void) { hs_try_depth--; }
+static inline void hs_try_push(hs_try *t) { t->prev = hs_try_top; hs_try_top = t; }
+static inline void hs_try_pop(void) { hs_try_top = hs_try_top->prev; }
 
 /* Where the program is, for an unhandled error: hs_at is the statement running ("file.haste:12"), and
    hs_calls the statement each enclosing call was made from. Thread-local, so parallel for is fine. */
@@ -257,12 +255,20 @@ static void hs_try_pop(void) { hs_try_depth--; }
 static _Thread_local const char *hs_at = "";
 static _Thread_local const char *hs_calls[HS_TRACE];
 static _Thread_local int hs_depth = 0;
-static inline void hs_enter(void) { if (hs_depth < HS_TRACE) hs_calls[hs_depth] = hs_at; hs_depth++; }
+/* Recursion: the program runs on a thread with a large stack, and a call that would go below hs_stack_lo
+   raises "recursion too deep" (an error that can be caught) instead of crashing with no message. */
+static _Thread_local char *hs_stack_lo;
+static void hs_raise(hs_str msg);
+static inline void hs_enter(void) {
+    if ((char *)__builtin_frame_address(0) < hs_stack_lo) hs_raise("recursion too deep");
+    if (hs_depth < HS_TRACE) hs_calls[hs_depth] = hs_at;
+    hs_depth++;
+}
 static inline void hs_leave(void) { if (--hs_depth < HS_TRACE) hs_at = hs_calls[hs_depth]; }
 
 static void hs_raise(hs_str msg) {
     hs_error = msg;
-    if (hs_try_depth > 0) longjmp(*hs_try_stack[--hs_try_depth], 1);
+    if (hs_try_top) { hs_try *t = hs_try_top; hs_try_top = t->prev; longjmp(t->jb, 1); }
     fprintf(stderr, "Unhandled error: %s\n", msg);
     if (*hs_at) fprintf(stderr, "  in %s\n", hs_at);
     int top = hs_depth < HS_TRACE ? hs_depth : HS_TRACE, lines = 0;
@@ -443,11 +449,15 @@ static void hs_work(hs_job *j) {
     long long i;
     while ((i = __atomic_fetch_add(&j->next, 1, __ATOMIC_RELAXED)) < j->n) j->fn(j->ctx, i);
 }
+#define HS_STACK (256LL * 1024 * 1024)        /* the program's stack: reserved, only used as it is needed */
+#define HS_WORKER_STACK (64LL * 1024 * 1024)  /* each parallel for worker's */
+#define HS_GUARD (1024 * 1024)                /* kept free so the error itself has room to run */
+static void hs_guard(size_t size) { hs_stack_lo = (char *)__builtin_frame_address(0) - size + HS_GUARD; }
 #ifdef _WIN32
-static DWORD WINAPI hs_thread(LPVOID p) { hs_work(p); return 0; }
+static DWORD WINAPI hs_thread(LPVOID p) { hs_guard(HS_WORKER_STACK); hs_work(p); return 0; }
 static int hs_cores(void) { SYSTEM_INFO si; GetSystemInfo(&si); return (int)si.dwNumberOfProcessors; }
 #else
-static void *hs_thread(void *p) { hs_work(p); return NULL; }
+static void *hs_thread(void *p) { hs_guard(HS_WORKER_STACK); hs_work(p); return NULL; }
 static int hs_cores(void) { return (int)sysconf(_SC_NPROCESSORS_ONLN); }
 #endif
 
@@ -460,16 +470,48 @@ static void hs_parallel(long long n, void (*fn)(void *, long long), void *ctx) {
     if (t < 1) t = 1;
 #ifdef _WIN32
     HANDLE th[64];
-    for (int k = 1; k < t; k++) th[k] = CreateThread(NULL, 0, hs_thread, &j, 0, NULL);
+    for (int k = 1; k < t; k++)
+        th[k] = CreateThread(NULL, HS_WORKER_STACK, hs_thread, &j, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     hs_work(&j);
     for (int k = 1; k < t; k++) { WaitForSingleObject(th[k], INFINITE); CloseHandle(th[k]); }
 #else
     pthread_t th[64];
-    for (int k = 1; k < t; k++) pthread_create(&th[k], NULL, hs_thread, &j);
+    pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setstacksize(&at, HS_WORKER_STACK);
+    for (int k = 1; k < t; k++) pthread_create(&th[k], &at, hs_thread, &j);
+    pthread_attr_destroy(&at);
     hs_work(&j);
     for (int k = 1; k < t; k++) pthread_join(th[k], NULL);
 #endif
     __atomic_sub_fetch(&hs_par_depth, 1, __ATOMIC_RELEASE);
+}
+
+/* ---- the program runs on its own thread, with a stack deep enough for deep recursion ---- */
+typedef struct { int argc; char **argv; int (*prog)(int, char **); int rc; } hs_start;
+static __attribute__((noinline)) void hs_run(hs_start *s, size_t stack) {
+    volatile char base = 0;
+    hs_stack_base = (char *)&base;           /* the collector scans the stack from here down */
+    if (stack) hs_guard(stack);
+    s->rc = s->prog(s->argc, s->argv);
+}
+#ifdef _WIN32
+static DWORD WINAPI hs_main_thread(LPVOID p) { hs_run(p, HS_STACK); return 0; }
+#else
+static void *hs_main_thread(void *p) { hs_run(p, HS_STACK); return NULL; }
+#endif
+static int hs_main(int argc, char **argv, int (*prog)(int, char **)) {
+    hs_start s = { argc, argv, prog, 0 };
+#ifdef _WIN32
+    HANDLE t = CreateThread(NULL, HS_STACK, hs_main_thread, &s, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
+    if (t) { WaitForSingleObject(t, INFINITE); CloseHandle(t); return s.rc; }
+#else
+    pthread_attr_t a; pthread_t t;
+    pthread_attr_init(&a); pthread_attr_setstacksize(&a, HS_STACK);
+    int failed = pthread_create(&t, &a, hs_main_thread, &s);
+    pthread_attr_destroy(&a);
+    if (!failed) { pthread_join(t, NULL); return s.rc; }
+#endif
+    hs_run(&s, 0);                           /* no thread: run here, with the system's stack and no check */
+    return s.rc;
 }
 
 /* ---- command-line switches:  --width 640  (also --width=640, -width 640; /width:640 on Windows only,

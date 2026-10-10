@@ -656,6 +656,7 @@ class Gen:
     def __init__(g, main, registry, search):
         g.main, g.reg, g.search = main, registry, search
         g.depth = 0                          # how deeply the expression being generated is nested
+        g.try_names = {}                     # module -> names assigned inside a try (made volatile)
         g.classes = {}
         for m in list(registry.values()): g.register(m)
         g.fwd, g.lists, g.structs, g.protos, g.funcs = [], [], [], [], []
@@ -1056,6 +1057,30 @@ static {name} *{name}_of(int n, ...) {{
             out += g.stmt(st, env, depth)
         return out
 
+    def vol(g, env, name):
+        """' volatile' for a variable some try in this module assigns to: after an error jumps (longjmp) to
+        the catch, C only promises the latest value of a variable that is volatile."""
+        m = env.mod
+        if m.name not in g.try_names:
+            names = set()
+
+            def scan(stmts, inside):
+                for st in stmts or []:
+                    if st.kind == 'assign' and inside and st.target.kind == 'name': names.add(st.target.name)
+                    if st.kind == 'try': scan(st.body, True); scan(st.handler, inside)
+                    for arm in getattr(st, 'arms', None) or []: scan(arm[1], inside)
+                    for sub in ('els', 'body'):
+                        if st.kind != 'try' and isinstance(getattr(st, sub, None), list): scan(getattr(st, sub), inside)
+            p = m.prog
+            scan(p.stmts, False)
+            for blk in p.inits: scan(blk, False)
+            for f in list(p.funcs.values()) + [f for c in p.classes.values() for f in c.methods.values()]:
+                scan(f.body, False)
+            for c in p.classes.values():
+                for pr in c.props.values(): scan(pr.write, False)
+            g.try_names[m.name] = names
+        return ' volatile' if name in g.try_names[m.name] else ''
+
     def at(g, node):
         return cstr(f'{node.file}:{node.line}')
 
@@ -1070,7 +1095,7 @@ static {name} *{name}_of(int n, ...) {{
             if t == 'void': g.err(st, 'that expression has no value')
             env.vars[st.name] = (t, st.mutable, 'v_' + st.name)
             g.track(env, st.name, t, st)
-            return [f'{pad}{g.ctype(t)} v_{st.name} = {c};']
+            return [f'{pad}{g.ctype(t)}{g.vol(env, st.name)} v_{st.name} = {c};']
         if k == 'assign':
             return [pad + g.assign(st, env) + ';']
         if k == 'exprstmt':
@@ -1118,24 +1143,25 @@ static {name} *{name}_of(int n, ...) {{
         if k == 'return':
             s = env.spec
             if not s: g.err(st, 'return is only allowed inside a function')
-            if env.in_try: g.err(st, 'return inside try is not supported yet')
             declared = s.f.ret is not None
             if st.value is None:
                 if declared and s.ret != 'void': g.err(st, f'must return a {s.ret}')
                 s.rets.append('void')
-                return [pad + 'return;']
+                return [pad + 'hs_try_pop();' * env.in_try + 'return;']
             c, t = g.expr(st.value, env, s.ret if declared else None)
             if declared:
                 c = g.coerce(c, t, s.ret, st)
             else:
                 s.rets.append(t); s.hint = s.hint or t
+            if env.in_try:                       # the value may itself raise, so work it out first
+                return [f'{pad}{{ __auto_type _r = {c}; ' + 'hs_try_pop(); ' * env.in_try + 'return _r; }']
             return [f'{pad}return {c};']
         if k == 'try':
             jb = g.fresh()
             handler = env.child()
             handler.vars[st.var] = ('string', False, 'v_' + st.var)
-            return [f'{pad}{{', f'{pad}    jmp_buf {jb}; hs_try_push(&{jb}); int {jb}_d = hs_depth;',
-                    f'{pad}    if (setjmp({jb}) == 0) {{'] + \
+            return [f'{pad}{{', f'{pad}    hs_try {jb}; hs_try_push(&{jb}); int {jb}_d = hs_depth;',
+                    f'{pad}    if (setjmp({jb}.jb) == 0) {{'] + \
                 g.block(st.body, env.child(in_try=env.in_try + 1), d + 2) + \
                 [f'{pad}        hs_try_pop();', f'{pad}    }} else {{',
                  f'{pad}        hs_depth = {jb}_d;',             # calls the error left are over
@@ -1206,7 +1232,7 @@ static {name} *{name}_of(int n, ...) {{
             if t == 'void': g.err(st, 'that expression has no value')
             env.vars[tg.name] = (t, True, 'v_' + tg.name)
             g.track(env, tg.name, t, st)
-            return f'{g.ctype(t)} v_{tg.name} = {c}'
+            return f'{g.ctype(t)}{g.vol(env, tg.name)} v_{tg.name} = {c}'
         if tg.kind == 'member':
             oc, ot = g.expr(tg.obj, env)
             if ot in g.classes and tg.name in g.classes[ot].props:
@@ -1636,8 +1662,7 @@ static {name} *{name}_of(int n, ...) {{
         # The program runs in its own function, so every frame the collector must scan is below main's.
         main = ('static __attribute__((noinline)) int hs_program(int argc, char **argv) {\n' +
                 '\n'.join(switches + inits + body) + '\n    return 0;\n}\n\n' +
-                'int main(int argc, char **argv) {\n    volatile char base = 0;\n    hs_stack_base = (char *)&base;\n'
-                '    return hs_program(argc, argv);\n}')
+                'int main(int argc, char **argv) {\n    return hs_main(argc, argv, hs_program);\n}')
         out = '\n\n'.join(p for p in parts if p) + '\n\n' + main + '\n'
         for n, name in names.items():
             out = out.replace(f'@@P{n}@@', name)

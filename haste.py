@@ -5,6 +5,7 @@
     python haste.py build examples/bank.haste --target windows,macos,linux
     python haste.py c     examples/bank.haste          (print generated C)
     python haste.py words [examples/bank.haste]         (names an editor should colour)
+    python haste.py setup                               (download Zig, the C compiler, into tools/zig)
 """
 import os, re, sys, shutil, subprocess
 
@@ -1409,13 +1410,71 @@ TARGETS = {
 }
 
 
+ZIG_VERSION = '0.16.0'                          # the version the test suite passes with
+TOOLS = os.path.join(HERE, 'tools')
+ZIG_EXE = 'zig.exe' if sys.platform == 'win32' else 'zig'
+
+
 def zig():
+    """Zig, the C compiler: Haste's own copy in tools/zig first (put there by "haste.py setup", and
+    inside the Haste folder so one antivirus exclusion covers it), then one on the PATH, then the
+    ziglang pip package, but only if its zig is really there (antivirus programs have removed it)."""
+    local = os.path.join(TOOLS, 'zig', ZIG_EXE)
+    if os.path.exists(local): return [local]
     if shutil.which('zig'): return ['zig']
     try:
-        import ziglang  # noqa: F401  (pip install ziglang)
-        return [sys.executable, '-m', 'ziglang']
+        import ziglang
+        if os.path.exists(os.path.join(os.path.dirname(ziglang.__file__), ZIG_EXE)):
+            return [sys.executable, '-m', 'ziglang']
+        missing = 'The ziglang package is installed but its zig is missing (an antivirus may have removed it).'
     except ImportError:
-        raise HasteError('zig not found: install it with  pip install ziglang')
+        missing = 'Zig, the C compiler Haste uses, is not installed.'
+    raise HasteError(f'{missing}\n  Run:  python haste.py setup\n'
+                     f'  It downloads Zig {ZIG_VERSION} into {os.path.join(TOOLS, "zig")}.')
+
+
+def setup():
+    """Download Zig from ziglang.org into tools/zig, checking it against the published SHA-256."""
+    import hashlib, io, json, platform, tarfile, urllib.request, zipfile
+    arch = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'aarch64', 'aarch64': 'aarch64'}.get(
+        platform.machine().lower(), platform.machine().lower())
+    system = {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
+    key = f'{arch}-{system}'
+    print(f'Finding Zig {ZIG_VERSION} for {key}...')
+    with urllib.request.urlopen('https://ziglang.org/download/index.json') as r:
+        index = json.load(r)
+    entry = index.get(ZIG_VERSION, {}).get(key)
+    if not entry:
+        raise HasteError(f'ziglang.org has no Zig {ZIG_VERSION} for {key}')
+    url, want = entry['tarball'], entry['shasum']
+    print(f'Downloading {url} ({int(entry.get("size", 0)) // (1 << 20)} MB)...')
+    data, n = bytearray(), 0
+    with urllib.request.urlopen(url) as r:
+        while chunk := r.read(1 << 20):
+            data += chunk
+            n += 1
+            if n % 10 == 0: print(f'  {len(data) >> 20} MB', flush=True)
+    if hashlib.sha256(data).hexdigest() != want:
+        raise HasteError('the download does not match its published checksum; nothing was installed')
+    os.makedirs(TOOLS, exist_ok=True)
+    unpack = os.path.join(TOOLS, 'zig-unpacking')
+    shutil.rmtree(unpack, ignore_errors=True)
+    if url.endswith('.zip'):
+        zipfile.ZipFile(io.BytesIO(bytes(data))).extractall(unpack)
+    else:
+        tarfile.open(fileobj=io.BytesIO(bytes(data))).extractall(unpack)
+    top = [os.path.join(unpack, d) for d in os.listdir(unpack)]
+    src = top[0] if len(top) == 1 and os.path.isdir(top[0]) else unpack    # the archive's one top folder
+    dest = os.path.join(TOOLS, 'zig')
+    shutil.rmtree(dest, ignore_errors=True)
+    os.replace(src, dest)
+    shutil.rmtree(unpack, ignore_errors=True)
+    if not os.path.exists(os.path.join(dest, ZIG_EXE)):
+        raise HasteError(f'the download did not contain {ZIG_EXE}')
+    if sys.platform != 'win32': os.chmod(os.path.join(dest, ZIG_EXE), 0o755)
+    ver = subprocess.run([os.path.join(dest, ZIG_EXE), 'version'], capture_output=True, text=True).stdout.strip()
+    print(f'Zig {ver} installed in {dest}')
+    return 0
 
 
 def build(path, targets):
@@ -1471,6 +1530,12 @@ def words(path=None):
 def main(argv):
     if argv[:1] == ['words']:
         return words(argv[1] if len(argv) > 1 else None)
+    if argv[:1] == ['setup']:
+        try:
+            return setup()
+        except HasteError as ex:
+            print(f'error: {ex}', file=sys.stderr)
+            return 1
     if len(argv) < 2 or argv[0] not in ('build', 'run', 'c'):
         print(__doc__); return 2
     cmd, path = argv[0], argv[1]

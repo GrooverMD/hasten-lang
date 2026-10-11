@@ -1,0 +1,5 @@
+// a module with a class of the same name as one in the program that uses it
+class Point
+  X = 1
+end
+fn Make() = Point(X: 5)

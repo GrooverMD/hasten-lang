@@ -531,9 +531,10 @@ def load(path, registry, search, name, is_main=False):
         raise HasteError(f'cannot read {path}')
     prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()
     mod = N('module', name=name, path=os.path.abspath(path), prog=prog, imports={}, needed=False, is_main=is_main,
-            cprefix='f' if is_main else name.replace('.', '_'))
+            cprefix='f' if is_main else 'm_' + name.replace('.', '__'))
     if not is_main and prog.stmts:
-        raise HasteError(f'{path}: a module may only contain classes, functions and init blocks')
+        raise HasteError(f'{os.path.basename(path)}:{prog.stmts[0].line}: a module may only contain classes, functions, '
+                         'aliases and init blocks; put this statement in an init block or a function')
     registry[name] = mod
     for kind, iname, line in prog.imports:
         dep = find_module(iname, registry, search)
@@ -682,7 +683,7 @@ class Gen:
         for c in mod.prog.classes.values():
             c.mod = mod
             c.qname = c.name if mod.is_main else f'{mod.name}.{c.name}'
-            c.cname = c.qname.replace('.', '_')
+            c.cname = 'K_' + c.qname.replace('.', '__')     # its own prefix: never meets L_i, hs_..., m_...
             g.classes[c.qname] = c
 
     def mark(g, mod, name):
@@ -1634,7 +1635,7 @@ static {name} *{name}_of(int n, ...) {{
                 if k == 'member': g.check(e.obj, m, c, scopes)
                 return
             if len(parts) == 1 and head in BUILTINS: return
-            if not g.resolve(parts, Env(m), e): g.err(e, f'unknown name {".".join(parts)}')
+            if not g.resolve(parts, Env(m), e): g.err(e, f'unknown name {".".join(parts)}' + g.case_hint(parts))
         elif k == 'call':
             g.check(e.fn, m, c, scopes)
             for _, a in e.args: g.check(a, m, c, scopes)
@@ -1648,10 +1649,22 @@ static {name} *{name}_of(int n, ...) {{
                 sub = getattr(e, name, None)
                 if isinstance(sub, N): g.check(sub, m, c, scopes)
 
+    def case_hint(g, parts):
+        """' (there is lower.haste: ...)' when a module file matches the name except for upper and lower case."""
+        for d in g.search:
+            try:
+                names = os.listdir(d)
+            except OSError:
+                continue
+            for f in names:
+                if f.lower() == parts[0].lower() + '.haste' and f != parts[0] + '.haste':
+                    return f' (there is {f}: a module name must match its file name exactly)'
+        return ''
+
     def not_a_value(g, parts, env, e):
         name = '.'.join(parts)
         r = g.resolve(parts, env, e)
-        if not r: g.err(e, f'unknown name {name}')
+        if not r: g.err(e, f'unknown name {name}' + g.case_hint(parts))
         what = {'module': 'a module', 'class': 'a class; create one with ' + name + '(...)',
                 'fn': 'a function; call it with ()'}[r[0]]
         g.err(e, f'{name} is {what}')
@@ -1705,7 +1718,7 @@ static {name} *{name}_of(int n, ...) {{
         parts = dotted(f)
         if g.is_path(parts, env):
             r = g.resolve(parts, env, e)
-            if not r: g.err(e, f'unknown function {".".join(parts)}')
+            if not r: g.err(e, f'unknown function {".".join(parts)}' + g.case_hint(parts))
             if r[0] == 'class': return g.construct(r[1], e, env)
             if r[0] == 'fn':
                 g.mark(r[1], r[2].name)

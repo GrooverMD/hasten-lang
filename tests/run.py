@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HASTE = os.path.join(os.path.dirname(HERE), 'haste.py')
-SKIP = {'build'}
+SKIP = {'build', 'mods'}                     # mods: modules the tests use, not tests themselves
 UTF8 = dict(text=True, encoding='utf-8', errors='replace')   # programs print UTF-8, on Windows too
 
 

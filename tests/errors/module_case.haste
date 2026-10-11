@@ -1,0 +1,3 @@
+// a module name must match its file name exactly, on Windows too
+print(mods.Lowered.Hidden())
+// error: unknown function mods.Lowered.Hidden

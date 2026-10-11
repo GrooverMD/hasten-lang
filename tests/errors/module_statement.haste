@@ -1,0 +1,3 @@
+// a module holds classes, functions, aliases and init blocks, not statements
+print(mods.Bad.Ok())
+// error: Bad.haste:2: a module may only contain classes, functions, aliases and init blocks

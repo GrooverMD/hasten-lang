@@ -1,0 +1,4 @@
+init
+  print("Ini starts once")
+end
+fn V() = 3

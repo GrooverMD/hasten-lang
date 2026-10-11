@@ -1,0 +1,20 @@
+// modules in a folder; the same names in a module and the program; modules using each other; init once
+class Point
+  X = 2
+end
+fn X() = "main"
+class L_i
+  N = 1
+end
+alias Geo = mods.Geo
+print(Point().X + Geo.Make().X + Geo.Point(X: 9).X)
+print(X() + " " + mods.f.X())
+print(mods.A.CallB())
+print(mods.Ini.V() + mods.Ini.V())
+print(L_i().N + [1, 2].Count)
+// out: Ini starts once
+// out: 16
+// out: main module f
+// out: ab
+// out: 6
+// out: 3

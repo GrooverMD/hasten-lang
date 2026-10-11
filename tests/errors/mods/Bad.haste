@@ -1,0 +1,2 @@
+fn Ok() = 1
+print("top")

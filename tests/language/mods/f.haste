@@ -1,0 +1,2 @@
+// a module named f: its functions must not meet the program's own in C
+fn X() = "module f"

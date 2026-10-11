@@ -1,0 +1,3 @@
+// two modules that use each other
+fn FromA() = "a"
+fn CallB() = mods.B.FromB()

@@ -785,7 +785,8 @@ begin
     E := TEditorTab(FPages.Pages[I]).Editor;
     ApplyEditor(E);
   end;
-  FOutput.Font.Name := FFontName;              // the output panel keeps its own, smaller size
+  FOutput.Font.Name := FFontName;              // the output panel follows, a point smaller
+  if FFontSize > 7 then FOutput.Font.Size := FFontSize - 1 else FOutput.Font.Size := FFontSize;
 end;
 
 procedure TMainForm.SetFontSize(Size: Integer);

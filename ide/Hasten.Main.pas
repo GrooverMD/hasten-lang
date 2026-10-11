@@ -168,6 +168,7 @@ begin
   FEditor := TSynEdit.Create(Self);
   FEditor.Parent := Self;
   FEditor.Align := alClient;
+  FEditor.BorderStyle := bsNone;                // the tab sheet already frames it
   FEditor.Font.Name := 'Consolas';
   FEditor.Font.Size := 11;
   FEditor.Color := $001E1E1E;                    // dark, for the colours in SynHighlighterHaste.msg
@@ -400,8 +401,9 @@ begin
   FOutputHighlighter := TSynHasteOutputSyn.Create(Self);
   FOutput := TSynEdit.Create(Self);
   FOutput.Parent := Self;
-  FOutput.Align := alBottom;
   FOutput.Height := 180;
+  FOutput.Align := alBottom;
+  FOutput.BorderStyle := bsNone;
   FOutput.ReadOnly := True;
   FOutput.Highlighter := FOutputHighlighter;
   FOutput.Font.Name := 'Consolas';
@@ -417,12 +419,13 @@ begin
   Split.Align := alBottom;
   Split.MinSize := 40;
 
-  { Bottom-aligned controls stack by their Top, and the splitter resizes whichever control is just below
-    it. So place them explicitly, bottom up: status bar, output, splitter. Otherwise the status bar can end
-    up under the splitter, and dragging resizes it instead of the output. }
-  FStatus.Top := ClientHeight;
-  FOutput.Top := FStatus.Top - 1;
-  Split.Top := FOutput.Top - 1;
+  { VCL stacks bottom-aligned controls by their bottom edge (Top + Height): the lowest edge goes lowest.
+    The splitter resizes whichever control is just below it, so the order must be, bottom up: status bar,
+    output, splitter. Set it outright; leaving it to creation order once put the 180-high output's edge
+    below the status bar's, and dragging resized the status bar. }
+  FStatus.Top := 100000;
+  FOutput.Top := 10;                            // bottom edge 190: above the status bar
+  Split.Top := 0;                               // bottom edge 3: above the output
 
   FPages := TPageControl.Create(Self);
   FPages.Parent := Self;

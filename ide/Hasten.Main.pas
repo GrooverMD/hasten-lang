@@ -722,7 +722,7 @@ begin
     Dialog.TabWidth := FTabWidth;
     Dialog.RightEdge := FRightEdge;
     Dialog.LineNumbers := FLineNumbers;
-    Dialog.StyleName := TStyleManager.ActiveStyle.Name;
+    Dialog.VclStyle := TStyleManager.ActiveStyle.Name;
     Dialog.Python := FPython;
     Dialog.HastePy := FHastePy;
     Dialog.ClearOutput := FClearOutput;
@@ -741,9 +741,9 @@ begin
     end;
     FClearOutput := Dialog.ClearOutput;
     FReopen := Dialog.Reopen;
-    if (Dialog.StyleName <> '') and (Dialog.StyleName <> TStyleManager.ActiveStyle.Name) then
+    if (Dialog.VclStyle <> '') and (Dialog.VclStyle <> TStyleManager.ActiveStyle.Name) then
     begin
-      FStyleName := Dialog.StyleName;
+      FStyleName := Dialog.VclStyle;
       TStyleManager.TrySetStyle(FStyleName);
     end;
     ApplyFont;

@@ -34,8 +34,8 @@ type
     procedure SetRightEdge(Value: Integer);
     function GetLineNumbers: Boolean;
     procedure SetLineNumbers(Value: Boolean);
-    function GetStyleName: string;
-    procedure SetStyleName(const Value: string);
+    function GetVclStyle: string;
+    procedure SetVclStyle(const Value: string);
     function GetPython: string;
     procedure SetPython(const Value: string);
     function GetHastePy: string;
@@ -54,7 +54,7 @@ type
     property TabWidth: Integer read GetTabWidth write SetTabWidth;
     property RightEdge: Integer read GetRightEdge write SetRightEdge;       // 0: no margin line
     property LineNumbers: Boolean read GetLineNumbers write SetLineNumbers;
-    property StyleName: string read GetStyleName write SetStyleName;       // a VCL style linked into Hasten
+    property VclStyle: string read GetVclStyle write SetVclStyle;          // a VCL style linked into Hasten (not StyleName: TControl has one)
     property Python: string read GetPython write SetPython;
     property HastePy: string read GetHastePy write SetHastePy;
     property ClearOutput: Boolean read GetClearOutput write SetClearOutput; // on each Run, Build and Run Tests
@@ -261,12 +261,12 @@ begin
   FLineNumbers.Checked := Value;
 end;
 
-function TSettingsDialog.GetStyleName: string;
+function TSettingsDialog.GetVclStyle: string;
 begin
   Result := FStyle.Text;
 end;
 
-procedure TSettingsDialog.SetStyleName(const Value: string);
+procedure TSettingsDialog.SetVclStyle(const Value: string);
 begin
   FStyle.ItemIndex := FStyle.Items.IndexOf(Value);
 end;

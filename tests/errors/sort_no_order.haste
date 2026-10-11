@@ -1,0 +1,7 @@
+// objects have no natural order: Sort needs a function saying which goes first
+class P
+  X = 1
+end
+let ps = [P()]
+ps.Sort()
+// error: sort_no_order.haste:6: a list of P has no natural order

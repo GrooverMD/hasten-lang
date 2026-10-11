@@ -624,6 +624,10 @@ class Env:
         return c
 
 
+LIST_MEMBERS = {'Insert': (2,), 'RemoveAt': (1,), 'Remove': (1,), 'Has': (1,), 'IndexOf': (1,), 'Clear': (0,),
+                'Reverse': (0,), 'Sort': (0, 1), 'Slice': (2,), 'Copy': (0,)}       # how many values each takes
+LIST_ARGS = {'Insert': ('int', 'item'), 'RemoveAt': ('int',), 'Remove': ('item',), 'Has': ('item',),
+             'IndexOf': ('item',), 'Sort': ('fn',), 'Slice': ('int', 'int')}
 PRIM = {'int': 'long long', 'float': 'double', 'string': 'hs_str', 'bool': 'bool', 'void': 'void'}
 CMP = {'=': '==', '<>': '!=', '<': '<', '>': '>', '<=': '<=', '>=': '>='}
 BUILTINS = ('print', 'Int', 'Float', 'Str')
@@ -855,6 +859,120 @@ static {name} *{name}_of(int n, ...) {{
     hs_strs *parts = hs_alloc(sizeof *parts);
 {parts}
     return hs_fmt("{cls.qname}(%s)", hs_join(parts, ", "));
+}}''')
+        return name
+
+    def same(g, t, a, b):
+        """C test that a and b are equal as = sees them."""
+        if t == 'string': return f'strcmp({a}, {b}) == 0'
+        if t[:1] in '[{': return f'{g.eq_fn(t)}({a}, {b})'
+        return f'{a} == {b}'
+
+    def list_member(g, oc, lt, name, e, env):
+        """Insert, RemoveAt, Remove, Has, IndexOf, Clear, Reverse, Sort, Slice and Copy on a list of type lt."""
+        et, L = lt[1:-1], g.list_type(lt[1:-1])
+        want = LIST_MEMBERS[name]
+        if len(e.args) not in want:
+            g.err(e, f'{name} takes ' + ' or '.join(f'{n} value{"s" * (n != 1)}' for n in want).replace('0 values', 'nothing'))
+        vals = []
+        for (_, a), kind in zip(e.args, LIST_ARGS.get(name, ())):
+            c, t = g.expr(a, env, et if kind == 'item' else None)
+            if kind == 'item': c = g.coerce(c, t, et, a)
+            elif kind == 'int' and t != 'int': g.err(a, f'{name} needs a whole number here, not {t}')
+            vals.append((c, t, a))
+        g.list_ops(lt)
+        args = ', '.join([oc] + [c for c, _, _ in vals])
+        if name == 'Sort':
+            if vals:
+                c, t, a = vals[0]
+                if not t.startswith('function '): g.err(a, 'Sort takes a function that says whether one item goes before another')
+                return f'{g.sort_fn(lt, t, a)}({oc})', 'void'
+            if et not in ('int', 'float', 'string', 'bool'):
+                g.err(e, f'a list of {et} has no natural order; give Sort a function, e.g. Sort(Before) with fn Before(a, b) = ...')
+            return f'{g.sort_fn(lt, None, e)}({oc})', 'void'
+        ret = {'Insert': 'void', 'RemoveAt': et, 'Remove': 'void', 'Has': 'bool', 'IndexOf': 'int', 'Clear': 'void',
+               'Reverse': 'void', 'Slice': lt, 'Copy': lt}[name]
+        return f'{L}_{name.lower()}({args})', ret
+
+    def list_ops(g, lt):
+        """The C functions behind the list members, made once per list type."""
+        name = 'OPS_' + mangle(lt)
+        if name in g.list_types: return
+        g.list_types[name] = name
+        et, L = lt[1:-1], g.list_type(lt[1:-1])
+        T = g.ctype(et)
+        same = g.same(et, 'l->items[i]', 'v')
+        g.funcs.append(f'''static void {L}_insert({L} *l, long long i, {T} v) {{
+    int par = hs_lock_shared();
+    if (i < 0 || i > l->count) {{ hs_unlock_shared(par); hs_raise(hs_fmt("cannot insert at %lld: the list has %lld item%s", i, l->count, l->count == 1 ? "" : "s")); }}
+    if (l->count == l->cap) {{ long long cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({T}) * (size_t)l->count, sizeof({T}) * (size_t)cap, {int(et in ('int', 'float', 'bool'))}); l->cap = cap; }}
+    memmove(l->items + i + 1, l->items + i, sizeof({T}) * (size_t)(l->count - i));
+    l->items[i] = v; l->count++;
+    hs_unlock_shared(par);
+}}
+static {T} {L}_removeat({L} *l, long long i) {{
+    int par = hs_lock_shared();
+    if (i < 0 || i >= l->count) {{ hs_unlock_shared(par); hs_raise(hs_fmt("index %lld is outside 0..%lld", i, l->count - 1)); }}
+    {T} v = l->items[i];
+    memmove(l->items + i, l->items + i + 1, sizeof({T}) * (size_t)(l->count - i - 1));
+    l->count--; memset(&l->items[l->count], 0, sizeof({T}));
+    hs_unlock_shared(par);
+    return v;
+}}
+static long long {L}_indexof({L} *l, {T} v) {{
+    for (long long i = 0; i < l->count; i++) if ({same}) return i;
+    return -1;
+}}
+static bool {L}_has({L} *l, {T} v) {{ return {L}_indexof(l, v) >= 0; }}
+static void {L}_remove({L} *l, {T} v) {{ long long i = {L}_indexof(l, v); if (i >= 0) {L}_removeat(l, i); }}
+static void {L}_clear({L} *l) {{
+    int par = hs_lock_shared();
+    memset(l->items, 0, sizeof({T}) * (size_t)l->count); l->count = 0;
+    hs_unlock_shared(par);
+}}
+static void {L}_reverse({L} *l) {{
+    for (long long i = 0, j = l->count - 1; i < j; i++, j--) {{ {T} t = l->items[i]; l->items[i] = l->items[j]; l->items[j] = t; }}
+}}
+static {L} *{L}_slice({L} *l, long long start, long long count) {{
+    if (start < 0 || count < 0 || start > l->count || count > l->count - start)
+        hs_raise(hs_fmt("cannot take %lld items from %lld: the list has %lld", count, start, l->count));
+    {L} *r = {L}_new();
+    for (long long i = start; i < start + count; i++) {L}_add(r, l->items[i]);
+    return r;
+}}
+static {L} *{L}_copy({L} *l) {{ return {L}_slice(l, 0, l->count); }}''')
+
+    def sort_fn(g, lt, ft, node):
+        """A stable merge sort for lists of type lt, by natural order or by the function of type ft."""
+        et, L = lt[1:-1], g.list_type(lt[1:-1])
+        name = f'{L}_sort' + (f'_{mangle(ft)}' if ft else '')
+        if name in g.list_types: return name
+        g.list_types[name] = name
+        T = g.ctype(et)
+        if ft:
+            mod, fn = g.fnrefs[ft]
+            g.mark(mod, fn.name)
+            if len(fn.params) != 2: g.err(node, f'{fn.name} must take two items to say whether the first goes before the second')
+            cname, ret = g.specialize(mod, fn, None, (et, et), node)
+            if ret != 'bool': g.err(node, f'{fn.name} must give true or false, not {ret}')
+            before = lambda a, b: f'{cname}({a}, {b})'
+        elif et == 'string':
+            before = lambda a, b: f'(strcmp({a}, {b}) < 0)'
+        else:
+            before = lambda a, b: f'({a} < {b})'
+        atomic = int(et in ('int', 'float', 'bool'))
+        g.funcs.append(f'''static void {name}({L} *l) {{
+    long long n = l->count;
+    if (n < 2) return;
+    {T} *tmp = {'hs_alloc_atomic' if atomic else 'hs_alloc'}(sizeof({T}) * (size_t)n);
+    for (long long w = 1; w < n; w *= 2)
+        for (long long lo = 0; lo < n - w; lo += 2 * w) {{
+            long long mid = lo + w, hi = lo + 2 * w < n ? lo + 2 * w : n, i = lo, j = mid, k = lo;
+            while (i < mid && j < hi) tmp[k++] = {before('l->items[j]', 'l->items[i]')} ? l->items[j++] : l->items[i++];
+            while (i < mid) tmp[k++] = l->items[i++];
+            while (j < hi) tmp[k++] = l->items[j++];
+            memcpy(l->items + lo, tmp + lo, sizeof({T}) * (size_t)(hi - lo));
+        }}
 }}''')
         return name
 
@@ -1848,6 +1966,8 @@ static {name} *{name}_of(int n, ...) {{
                 if len(e.args) != 1: g.err(e, 'Add takes one value')
                 c, t = g.expr(e.args[0][1], env, ot[1:-1])
                 return f'{g.list_type(ot[1:-1])}_add({oc}, {g.coerce(c, t, ot[1:-1], e)})', 'void'
+            if ot.startswith('[') and f.name in LIST_MEMBERS:
+                return g.list_member(oc, g.known(ot, e), f.name, e, env)
             if ot in g.classes and f.name in g.classes[ot].methods:
                 cls = g.classes[ot]
                 return g.call_fn(cls.mod, cls.methods[f.name], e.args, e, env, cls, oc)
@@ -2192,7 +2312,8 @@ def host_target():
     return {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
 
 
-MEMBERS = ('Add', 'Count', 'Length', 'Has', 'Remove', 'Get')    # members of lists, dictionaries and text
+MEMBERS = ('Add', 'Count', 'Length', 'Has', 'Remove', 'Get', 'Insert', 'RemoveAt', 'IndexOf', 'Clear', 'Reverse',
+           'Sort', 'Slice', 'Copy')                              # members of lists, dictionaries and text
 
 
 def words(path=None):

@@ -467,8 +467,22 @@ way.
 stops at 3 levels (`[...]`, `Point(...)`), and a list shows its first 100 items then `... N more`, so an object
 that holds itself still prints as one line.
 
-**Members.** Lists: `Add(v)`, `Count`, `[i]`. Dictionaries: `Has(k)`, `Remove(k)`, `Get(k, default)`, `Count`,
-`[k]`. Text: `Length`.
+**Members.** Text: `Length`. Dictionaries: `Has(k)`, `Remove(k)` (nothing happens if `k` is not there),
+`Get(k, default)`, `Count`, `[k]`. Lists:
+
+| Member | Does |
+|---|---|
+| `Add(v)`, `Count`, `[i]` | add at the end, count, read or change an item |
+| `Insert(i, v)` | put `v` at position `i`, from 0 to `Count` |
+| `RemoveAt(i)` | remove the item at `i` and give it back |
+| `Remove(v)` | remove the first item equal to `v`; nothing happens if there is none |
+| `Has(v)`, `IndexOf(v)` | whether `v` is there; its first position, or -1 |
+| `Clear()`, `Reverse()` | empty the list; reverse it in place |
+| `Sort()`, `Sort(Before)` | sort in place, keeping equal items in their order: numbers, text and true/false by their natural order, anything else with a function `Before(a, b)` that says whether `a` goes before `b` |
+| `Slice(start, count)`, `Copy()` | a new list with `count` items from `start`; a new list with all of them |
+
+Equal means equal as `=` sees it (§6.5). A position outside the list is an error. Adding, inserting, removing and
+clearing are locked during `parallel for` (§13); sorting and reversing are not, so sort before or after the loop.
 
 **Files and the outside world** are in `System` (`ReadText`, `ReadLines`, `WriteText`, `AppendText`,
 `FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. File names

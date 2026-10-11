@@ -188,6 +188,7 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 |---|---|
 | Property with a default | `Name = "World"` |
 | Empty list, type from the first `Add` | `names = []` then `names.Add("Ada")` |
+| List members | `Insert(i, v)`, `RemoveAt(i)`, `Remove(v)`, `Has(v)`, `IndexOf(v)`, `Clear()`, `Reverse()`, `Sort()`, `Sort(Before)`, `Slice(start, count)`, `Copy()` |
 | Property with a type | `Items: [Account] = []` |
 | Validated property | `Rate = 0.05 where it >= 0 and it <= 0.2` |
 | Computed, read-only property | `Summary => "{Name}: {Balance:2}"` |

@@ -1,0 +1,949 @@
+// Png: read and write PNG images as System.Bitmap.
+//
+//   img = Png.Load("photo.png")     any PNG: grey, colour or palette, with or without alpha, 1 to 16 bits,
+//                                   interlaced or not
+//   Png.Save(img, "out.png")        8-bit colour; with alpha only when some pixel has it
+//
+// Transparency travels in the colour, as System.Rgba makes it (System.Alpha reads it back); plain System.Rgb
+// colours are opaque. 16-bit samples are rounded to 8 bits. Everything is here in Haste: the chunks and their
+// CRC, zlib (inflate and deflate, with dynamic Huffman codes) and the five row filters.
+
+alias Bitmap = System.Bitmap
+alias Fail = System.Fail
+
+// ---- small helpers ----
+
+fn Zeros(n)
+  var l: [int] = []
+  for i in 1..n
+    l.Add(0)
+  end
+  return l
+end
+
+fn Filled(n, value)
+  var l: [int] = []
+  for i in 1..n
+    l.Add(value)
+  end
+  return l
+end
+
+fn Abs(x) = if x < 0 then -x else x
+
+fn U32(b, i) = b[i] shl 24 or b[i + 1] shl 16 or b[i + 2] shl 8 or b[i + 3]
+
+fn AddU32(out, v)
+  out.Add(v shr 24 and 255)
+  out.Add(v shr 16 and 255)
+  out.Add(v shr 8 and 255)
+  out.Add(v and 255)
+end
+
+// ---- checks: CRC-32 for chunks, Adler-32 for zlib ----
+
+fn CrcTable()
+  var t: [int] = []
+  for n in 0..255
+    c = n
+    for k in 1..8
+      if (c and 1) = 1
+        c = 0xEDB88320 xor (c shr 1)
+      else
+        c = c shr 1
+      end
+    end
+    t.Add(c)
+  end
+  return t
+end
+
+fn Crc(table, b, start, count)
+  c = 0xFFFFFFFF
+  for i in start..start + count - 1
+    c = table[(c xor b[i]) and 255] xor (c shr 8)
+  end
+  return c xor 0xFFFFFFFF
+end
+
+fn Adler(b)
+  s1 = 1
+  s2 = 0
+  for x in b
+    s1 = (s1 + x) mod 65521
+    s2 = (s2 + s1) mod 65521
+  end
+  return s2 shl 16 or s1
+end
+
+// ---- deflate's tables ----
+
+class Tables
+  LenBase: [int] = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258]
+  LenExtra: [int] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0]
+  DistBase: [int] = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]
+  DistExtra: [int] = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
+  Order: [int] = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]   // code length codes
+end
+
+fn FixedLengths()
+  var l: [int] = []
+  for i in 0..287
+    l.Add(if i < 144 then 8 else if i < 256 then 9 else if i < 280 then 7 else 8)
+  end
+  return l
+end
+
+// ---- inflate ----
+
+class Bits                       // reads a zlib stream's bits, lowest first
+  Data: [int] = []
+  Pos = 0
+  Buf = 0
+  Count = 0
+
+  fn Get(n)
+    while Count < n
+      if Pos >= Data.Count
+        Fail("Png: the image data ends too soon")
+      end
+      Buf = Buf or Data[Pos] shl Count
+      Pos = Pos + 1
+      Count = Count + 8
+    end
+    v = Buf and (1 shl n) - 1
+    Buf = Buf shr n
+    Count = Count - n
+    return v
+  end
+
+  fn Align()                     // skip to the next whole byte
+    Get(Count mod 8)
+  end
+end
+
+class Huffman                    // a canonical code: how many codes of each length, and their symbols in order
+  Counts: [int] = []
+  Symbols: [int] = []
+end
+
+fn MakeHuffman(lengths, start, n)
+  counts = Zeros(16)
+  for i in start..start + n - 1
+    counts[lengths[i]] = counts[lengths[i]] + 1
+  end
+  counts[0] = 0
+  offs = Zeros(16)
+  for len in 1..14
+    offs[len + 1] = offs[len] + counts[len]
+  end
+  symbols = Zeros(n)
+  for i in 0..n - 1
+    len = lengths[start + i]
+    if len > 0
+      symbols[offs[len]] = i
+      offs[len] = offs[len] + 1
+    end
+  end
+  return Huffman(Counts: counts, Symbols: symbols)
+end
+
+fn Decode(bits, h)
+  code = 0
+  first = 0
+  index = 0
+  for len in 1..15
+    code = code or bits.Get(1)
+    count = h.Counts[len]
+    if code - count < first
+      return h.Symbols[index + code - first]
+    end
+    index = index + count
+    first = (first + count) shl 1
+    code = code shl 1
+  end
+  Fail("Png: the image data is damaged (a code that means nothing)")
+  return 0
+end
+
+fn Expand(bits, out, lit, dist, t)       // one block's codes, up to its end code 256
+  sym = 0
+  while sym <> 256
+    sym = Decode(bits, lit)
+    if sym < 256
+      out.Add(sym)
+    elif sym > 256
+      s = sym - 257
+      if s >= 29
+        Fail("Png: the image data is damaged (a bad length)")
+      end
+      len = t.LenBase[s] + bits.Get(t.LenExtra[s])
+      d = Decode(bits, dist)
+      if d >= 30
+        Fail("Png: the image data is damaged (a bad distance)")
+      end
+      back = t.DistBase[d] + bits.Get(t.DistExtra[d])
+      if back > out.Count
+        Fail("Png: the image data is damaged (it refers back before its start)")
+      end
+      from = out.Count - back
+      for k in 0..len - 1
+        out.Add(out[from + k])
+      end
+    end
+  end
+end
+
+fn Inflate(data)                          // a zlib stream: header, deflate blocks, Adler-32
+  if data.Count < 6 or (data[0] and 15) <> 8 or (data[0] * 256 + data[1]) mod 31 <> 0 or (data[1] and 32) <> 0
+    Fail("Png: the image data is not zlib data")
+  end
+  t = Tables()
+  bits = Bits(Data: data, Pos: 2)
+  var out: [int] = []
+  last = 0
+  while last = 0
+    last = bits.Get(1)
+    kind = bits.Get(2)
+    if kind = 0
+      bits.Align()
+      n = bits.Get(16)
+      if bits.Get(16) <> (n xor 0xFFFF)
+        Fail("Png: the image data is damaged (a stored block's length)")
+      end
+      for k in 1..n
+        out.Add(bits.Get(8))
+      end
+    elif kind = 1
+      fixed = FixedLengths()
+      Expand(bits, out, MakeHuffman(fixed, 0, 288), MakeHuffman(Filled(30, 5), 0, 30), t)
+    elif kind = 2
+      nlen = bits.Get(5) + 257
+      ndist = bits.Get(5) + 1
+      ncode = bits.Get(4) + 4
+      cl = Zeros(19)
+      for i in 0..ncode - 1
+        cl[t.Order[i]] = bits.Get(3)
+      end
+      lencode = MakeHuffman(cl, 0, 19)
+      lengths = Zeros(nlen + ndist)
+      i = 0
+      while i < nlen + ndist
+        sym = Decode(bits, lencode)
+        if sym < 16
+          lengths[i] = sym
+          i = i + 1
+        else
+          value = 0
+          rep = 0
+          if sym = 16
+            if i = 0
+              Fail("Png: the image data is damaged (a repeat with nothing before it)")
+            end
+            value = lengths[i - 1]
+            rep = 3 + bits.Get(2)
+          elif sym = 17
+            rep = 3 + bits.Get(3)
+          else
+            rep = 11 + bits.Get(7)
+          end
+          if i + rep > nlen + ndist
+            Fail("Png: the image data is damaged (too many code lengths)")
+          end
+          for k in 1..rep
+            lengths[i] = value
+            i = i + 1
+          end
+        end
+      end
+      Expand(bits, out, MakeHuffman(lengths, 0, nlen), MakeHuffman(lengths, nlen, ndist), t)
+    else
+      Fail("Png: the image data is damaged (block type 3)")
+    end
+  end
+  bits.Align()
+  at = bits.Pos - bits.Count div 8
+  if at + 4 > data.Count or U32(data, at) <> Adler(out)
+    Fail("Png: the image data is damaged (its Adler-32 check fails)")
+  end
+  return out
+end
+
+// ---- deflate ----
+
+class BitWriter                  // writes bits, lowest first
+  Out: [int] = []
+  Buf = 0
+  Count = 0
+
+  fn Put(value, n)
+    Buf = Buf or value shl Count
+    Count = Count + n
+    while Count >= 8
+      Out.Add(Buf and 255)
+      Buf = Buf shr 8
+      Count = Count - 8
+    end
+  end
+
+  fn Flush()
+    if Count > 0
+      Out.Add(Buf and 255)
+      Buf = 0
+      Count = 0
+    end
+  end
+end
+
+// Code lengths for these symbol counts, none longer than limit (15 for data, 7 for code length codes).
+// Huffman's tree is built by joining the two lightest nodes until one is left; if it is too deep, the
+// counts are halved (keeping every used symbol) and it is built again.
+fn CodeLengths(freqs, limit)
+  n = freqs.Count
+  f = freqs.Copy()
+  used = 0
+  for x in f
+    if x > 0
+      used = used + 1
+    end
+  end
+  while used < 2                         // a code needs two symbols to be complete
+    k = 0
+    while f[k] > 0
+      k = k + 1
+    end
+    f[k] = 1
+    used = used + 1
+  end
+  lengths = Zeros(n)
+  deep = true
+  while deep
+    var weight: [int] = []
+    var parent: [int] = []
+    var live: [int] = []
+    for i in 0..n - 1
+      weight.Add(f[i])
+      parent.Add(-1)
+      if f[i] > 0
+        live.Add(i)
+      end
+    end
+    while live.Count > 1
+      a = 0                              // the two lightest live nodes: a, then b
+      b = 1
+      if weight[live[b]] < weight[live[a]]
+        a = 1
+        b = 0
+      end
+      for j in 2..live.Count - 1
+        if weight[live[j]] < weight[live[a]]
+          b = a
+          a = j
+        elif weight[live[j]] < weight[live[b]]
+          b = j
+        end
+      end
+      node = weight.Count
+      weight.Add(weight[live[a]] + weight[live[b]])
+      parent.Add(-1)
+      parent[live[a]] = node
+      parent[live[b]] = node
+      hi = if a > b then a else b
+      lo = if a > b then b else a
+      live.RemoveAt(hi)
+      live.RemoveAt(lo)
+      live.Add(node)
+    end
+    deep = false
+    for i in 0..n - 1
+      d = 0
+      if f[i] > 0
+        p = i
+        while parent[p] >= 0
+          p = parent[p]
+          d = d + 1
+        end
+      end
+      lengths[i] = d
+      if d > limit
+        deep = true
+      end
+    end
+    if deep
+      for i in 0..n - 1
+        if f[i] > 0
+          f[i] = (f[i] + 1) div 2
+        end
+      end
+    end
+  end
+  return lengths
+end
+
+// Canonical codes for these lengths, bit-reversed, because deflate sends Huffman codes highest bit first.
+fn CodesFor(lengths)
+  count = Zeros(16)
+  for len in lengths
+    count[len] = count[len] + 1
+  end
+  count[0] = 0
+  next = Zeros(16)
+  code = 0
+  for len in 1..15
+    code = (code + count[len - 1]) shl 1
+    next[len] = code
+  end
+  var codes: [int] = []
+  for len in lengths
+    c = 0
+    if len > 0
+      v = next[len]
+      next[len] = v + 1
+      for k in 1..len
+        c = c shl 1 or v and 1
+        v = v shr 1
+      end
+    end
+    codes.Add(c)
+  end
+  return codes
+end
+
+fn LenCode(t, len)
+  s = 28
+  while t.LenBase[s] > len
+    s = s - 1
+  end
+  return s
+end
+
+fn DistCode(t, d)
+  s = 29
+  while t.DistBase[s] > d
+    s = s - 1
+  end
+  return s
+end
+
+fn Hash(data, i) = (data[i] shl 10 xor data[i + 1] shl 5 xor data[i + 2]) and 32767
+
+// LZ77: each token is a literal (len 0, val the byte) or a match (len 3..258, val the distance). Up to 64
+// earlier places with the same three bytes are tried.
+fn Tokens(data, lens, vals)
+  n = data.Count
+  head = Filled(32768, -1)
+  prev = Zeros(n)
+  i = 0
+  while i < n
+    best = 0
+    dist = 0
+    if i + 2 < n
+      h = Hash(data, i)
+      most = if n - i < 258 then n - i else 258
+      cand = head[h]
+      tries = 0
+      while cand >= 0 and i - cand <= 32768 and tries < 64 and best < most
+        if data[cand + best] = data[i + best]
+          l = 0
+          while l < most and data[cand + l] = data[i + l]
+            l = l + 1
+          end
+          if l > best
+            best = l
+            dist = i - cand
+          end
+        end
+        cand = prev[cand]
+        tries = tries + 1
+      end
+      prev[i] = head[h]
+      head[h] = i
+    end
+    if best >= 3
+      lens.Add(best)
+      vals.Add(dist)
+      for k in i + 1..i + best - 1
+        if k + 2 < n
+          h = Hash(data, k)
+          prev[k] = head[h]
+          head[h] = k
+        end
+      end
+      i = i + best
+    else
+      lens.Add(0)
+      vals.Add(data[i])
+      i = i + 1
+    end
+  end
+end
+
+fn PutTokens(w, t, lens, vals, first, last, litLen, litCode, distLen, distCode)
+  for i in first..last
+    if lens[i] = 0
+      w.Put(litCode[vals[i]], litLen[vals[i]])
+    else
+      s = LenCode(t, lens[i])
+      w.Put(litCode[257 + s], litLen[257 + s])
+      w.Put(lens[i] - t.LenBase[s], t.LenExtra[s])
+      d = DistCode(t, vals[i])
+      w.Put(distCode[d], distLen[d])
+      w.Put(vals[i] - t.DistBase[d], t.DistExtra[d])
+    end
+  end
+  w.Put(litCode[256], litLen[256])
+end
+
+// One block of tokens, with its own Huffman codes, or the fixed ones when they come out shorter.
+fn PutBlock(w, t, lens, vals, first, last, final)
+  litFreq = Zeros(286)
+  distFreq = Zeros(30)
+  for i in first..last
+    if lens[i] = 0
+      litFreq[vals[i]] = litFreq[vals[i]] + 1
+    else
+      s = 257 + LenCode(t, lens[i])
+      litFreq[s] = litFreq[s] + 1
+      d = DistCode(t, vals[i])
+      distFreq[d] = distFreq[d] + 1
+    end
+  end
+  litFreq[256] = 1
+  litLen = CodeLengths(litFreq, 15)
+  distLen = CodeLengths(distFreq, 15)
+
+  nlit = 286
+  while nlit > 257 and litLen[nlit - 1] = 0
+    nlit = nlit - 1
+  end
+  ndist = 30
+  while ndist > 1 and distLen[ndist - 1] = 0
+    ndist = ndist - 1
+  end
+  var all: [int] = []                    // the code lengths, then run-length coded with 16, 17 and 18
+  for i in 0..nlit - 1
+    all.Add(litLen[i])
+  end
+  for i in 0..ndist - 1
+    all.Add(distLen[i])
+  end
+  var rle: [int] = []
+  var extra: [int] = []
+  i = 0
+  while i < all.Count
+    run = 1
+    while i + run < all.Count and all[i + run] = all[i]
+      run = run + 1
+    end
+    if all[i] = 0 and run >= 3
+      r = if run > 138 then 138 else run
+      if r >= 11
+        rle.Add(18)
+        extra.Add(r - 11)
+      else
+        rle.Add(17)
+        extra.Add(r - 3)
+      end
+      i = i + r
+    elif all[i] <> 0 and run >= 4
+      rle.Add(all[i])
+      extra.Add(0)
+      r = run - 1
+      if r > 6
+        r = 6
+      end
+      rle.Add(16)
+      extra.Add(r - 3)
+      i = i + 1 + r
+    else
+      rle.Add(all[i])
+      extra.Add(0)
+      i = i + 1
+    end
+  end
+  clFreq = Zeros(19)
+  for s in rle
+    clFreq[s] = clFreq[s] + 1
+  end
+  clLen = CodeLengths(clFreq, 7)
+  ncl = 19
+  while ncl > 4 and clLen[t.Order[ncl - 1]] = 0
+    ncl = ncl - 1
+  end
+
+  // sizes in bits, leaving out the extra bits, which are the same either way
+  dynamic = 14 + 3 * ncl
+  for k in 0..rle.Count - 1
+    dynamic = dynamic + clLen[rle[k]] + (if rle[k] = 16 then 2 else if rle[k] = 17 then 3 else if rle[k] = 18 then 7 else 0)
+  end
+  fixedLit = FixedLengths()
+  fixed = 0
+  for s in 0..285
+    dynamic = dynamic + litFreq[s] * litLen[s]
+    fixed = fixed + litFreq[s] * fixedLit[s]
+  end
+  for d in 0..29
+    dynamic = dynamic + distFreq[d] * distLen[d]
+    fixed = fixed + distFreq[d] * 5
+  end
+
+  w.Put(if final then 1 else 0, 1)
+  if fixed <= dynamic
+    w.Put(1, 2)
+    fixedDist = Filled(30, 5)
+    PutTokens(w, t, lens, vals, first, last, fixedLit, CodesFor(fixedLit), fixedDist, CodesFor(fixedDist))
+  else
+    w.Put(2, 2)
+    w.Put(nlit - 257, 5)
+    w.Put(ndist - 1, 5)
+    w.Put(ncl - 4, 4)
+    for k in 0..ncl - 1
+      w.Put(clLen[t.Order[k]], 3)
+    end
+    clCode = CodesFor(clLen)
+    for k in 0..rle.Count - 1
+      s = rle[k]
+      w.Put(clCode[s], clLen[s])
+      if s = 16
+        w.Put(extra[k], 2)
+      elif s = 17
+        w.Put(extra[k], 3)
+      elif s = 18
+        w.Put(extra[k], 7)
+      end
+    end
+    PutTokens(w, t, lens, vals, first, last, litLen, CodesFor(litLen), distLen, CodesFor(distLen))
+  end
+end
+
+fn Deflate(data)                          // a zlib stream
+  t = Tables()
+  var lens: [int] = []
+  var vals: [int] = []
+  Tokens(data, lens, vals)
+  w = BitWriter()
+  w.Put(0x78, 8)                         // zlib header: deflate, 32K window
+  w.Put(0x9C, 8)
+  first = 0
+  done = false
+  while not done                         // blocks of up to 32768 tokens; no data still makes one
+    last = first + 32767
+    if last >= lens.Count
+      last = lens.Count - 1
+    end
+    done = last = lens.Count - 1
+    PutBlock(w, t, lens, vals, first, last, done)
+    first = last + 1
+  end
+  w.Flush()
+  AddU32(w.Out, Adler(data))
+  return w.Out
+end
+
+// ---- PNG ----
+
+fn Paeth(a, b, c)
+  p = a + b - c
+  pa = Abs(p - a)
+  pb = Abs(p - b)
+  pc = Abs(p - c)
+  if pa <= pb and pa <= pc
+    return a
+  elif pb <= pc
+    return b
+  end
+  return c
+end
+
+// A sample's value from a row starting at r: depth bits, sample number i.
+fn Sample(raw, r, i, depth)
+  if depth = 8
+    return raw[r + i]
+  elif depth = 16
+    return raw[r + 2 * i] shl 8 or raw[r + 2 * i + 1]
+  end
+  bit = i * depth
+  return raw[r + bit div 8] shr (8 - depth - bit mod 8) and (1 shl depth) - 1
+end
+
+fn To8(v, depth)
+  if depth = 8
+    return v
+  elif depth = 16
+    return (v * 255 + 32767) div 65535
+  end
+  return v * 255 div ((1 shl depth) - 1)
+end
+
+fn U16(b, i) = b[i] shl 8 or b[i + 1]
+
+fn Load(path)
+  b = System.ReadBytes(path)
+  sig = [137, 80, 78, 71, 13, 10, 26, 10]
+  if b.Count < 8
+    Fail("Png: {path} is not a PNG file")
+  end
+  for i in 0..7
+    if b[i] <> sig[i]
+      Fail("Png: {path} is not a PNG file")
+    end
+  end
+  table = CrcTable()
+  width = 0
+  height = 0
+  depth = 0
+  colour = 0
+  interlace = 0
+  var palette: [int] = []
+  var trns: [int] = []
+  var idat: [int] = []
+  pos = 8
+  ended = false
+  while not ended
+    if pos + 12 > b.Count
+      Fail("Png: {path} ends too soon")
+    end
+    n = U32(b, pos)
+    if pos + 12 + n > b.Count
+      Fail("Png: {path} ends too soon")
+    end
+    if Crc(table, b, pos + 4, n + 4) <> U32(b, pos + 8 + n)
+      Fail("Png: {path} is damaged (a chunk's CRC check fails)")
+    end
+    kind = U32(b, pos + 4)
+    d = pos + 8
+    if kind = 0x49484452                 // IHDR
+      width = U32(b, d)
+      height = U32(b, d + 4)
+      depth = b[d + 8]
+      colour = b[d + 9]
+      interlace = b[d + 12]
+      if b[d + 10] <> 0 or b[d + 11] <> 0 or interlace > 1
+        Fail("Png: {path} uses a compression, filter or interlace method that PNG does not define")
+      end
+    elif kind = 0x504C5445               // PLTE
+      for k in 0..n div 3 - 1
+        palette.Add(System.Rgb(b[d + 3 * k], b[d + 3 * k + 1], b[d + 3 * k + 2]))
+      end
+    elif kind = 0x74524E53               // tRNS
+      for k in 0..n - 1
+        trns.Add(b[d + k])
+      end
+    elif kind = 0x49444154               // IDAT
+      for k in 0..n - 1
+        idat.Add(b[d + k])
+      end
+    elif kind = 0x49454E44               // IEND
+      ended = true
+    elif (b[pos + 4] and 32) = 0         // an unknown chunk that must be understood
+      name = Text.Char(b[pos + 4]) + Text.Char(b[pos + 5]) + Text.Char(b[pos + 6]) + Text.Char(b[pos + 7])
+      Fail("Png: {path} needs its {name} chunk understood, which Png does not do")
+    end
+    pos = pos + 12 + n
+  end
+
+  channels = 0
+  if colour = 0 and (depth = 1 or depth = 2 or depth = 4 or depth = 8 or depth = 16)
+    channels = 1
+  elif colour = 2 and (depth = 8 or depth = 16)
+    channels = 3
+  elif colour = 3 and (depth = 1 or depth = 2 or depth = 4 or depth = 8)
+    channels = 1
+  elif colour = 4 and (depth = 8 or depth = 16)
+    channels = 2
+  elif colour = 6 and (depth = 8 or depth = 16)
+    channels = 4
+  end
+  if channels = 0 or width = 0 or height = 0
+    Fail("Png: {path} has no valid IHDR (colour type {colour}, depth {depth}, {width} x {height})")
+  end
+  if colour = 3 and palette.Count = 0
+    Fail("Png: {path} is a palette image without a palette")
+  end
+
+  raw = Inflate(idat)
+  pixels = Zeros(width * height)
+  bpp = channels * depth div 8
+  if bpp = 0
+    bpp = 1
+  end
+  xs = [0, 4, 0, 2, 0, 1, 0]
+  ys = [0, 0, 4, 0, 2, 0, 1]
+  dx = [8, 8, 4, 4, 2, 2, 1]
+  dy = [8, 8, 8, 4, 4, 2, 2]
+  passes = if interlace = 1 then 7 else 1
+  at = 0
+  for p in 0..passes - 1
+    x0 = if interlace = 1 then xs[p] else 0
+    y0 = if interlace = 1 then ys[p] else 0
+    sx = if interlace = 1 then dx[p] else 1
+    sy = if interlace = 1 then dy[p] else 1
+    pw = (width - x0 + sx - 1) div sx
+    ph = (height - y0 + sy - 1) div sy
+    if pw > 0 and ph > 0
+      row = (pw * channels * depth + 7) div 8
+      if at + ph * (row + 1) > raw.Count
+        Fail("Png: {path} has too little image data")
+      end
+      for y in 0..ph - 1
+        f = raw[at]
+        r = at + 1
+        up = r - row - 1                 // the row above, already unfiltered
+        if f > 4
+          Fail("Png: {path} is damaged (row filter {f})")
+        end
+        for i in 0..row - 1
+          a = if i >= bpp then raw[r + i - bpp] else 0
+          above = if y > 0 then raw[up + i] else 0
+          c = if i >= bpp and y > 0 then raw[up + i - bpp] else 0
+          v = raw[r + i]
+          if f = 1
+            v = v + a
+          elif f = 2
+            v = v + above
+          elif f = 3
+            v = v + (a + above) div 2
+          elif f = 4
+            v = v + Paeth(a, above, c)
+          end
+          raw[r + i] = v and 255
+        end
+        for x in 0..pw - 1
+          s = x * channels
+          red = 0
+          green = 0
+          blue = 0
+          alpha = 255
+          if colour = 0 or colour = 4
+            g = Sample(raw, r, s, depth)
+            red = To8(g, depth)
+            green = red
+            blue = red
+            if colour = 4
+              alpha = To8(Sample(raw, r, s + 1, depth), depth)
+            elif trns.Count >= 2 and g = U16(trns, 0)
+              alpha = 0
+            end
+          elif colour = 2 or colour = 6
+            rr = Sample(raw, r, s, depth)
+            gg = Sample(raw, r, s + 1, depth)
+            bb = Sample(raw, r, s + 2, depth)
+            red = To8(rr, depth)
+            green = To8(gg, depth)
+            blue = To8(bb, depth)
+            if colour = 6
+              alpha = To8(Sample(raw, r, s + 3, depth), depth)
+            elif trns.Count >= 6 and rr = U16(trns, 0) and gg = U16(trns, 2) and bb = U16(trns, 4)
+              alpha = 0
+            end
+          else
+            k = Sample(raw, r, s, depth)
+            if k >= palette.Count
+              Fail("Png: {path} uses colour {k} of a {palette.Count}-colour palette")
+            end
+            red = System.Red(palette[k])
+            green = System.Green(palette[k])
+            blue = System.Blue(palette[k])
+            if k < trns.Count
+              alpha = trns[k]
+            end
+          end
+          pixels[(y0 + y * sy) * width + x0 + x * sx] = System.Rgba(red, green, blue, alpha)
+        end
+        at = at + row + 1
+      end
+    end
+  end
+  return Bitmap(Width: width, Height: height, Pixels: pixels)
+end
+
+fn Chunk(out, table, kind, data)
+  AddU32(out, data.Count)
+  start = out.Count
+  AddU32(out, kind)
+  for x in data
+    out.Add(x)
+  end
+  AddU32(out, Crc(table, out, start, data.Count + 4))
+end
+
+// How much a filtered byte costs, as the usual guess: small differences either way compress best.
+fn Cost(v) = if v < 128 then v else 256 - v
+
+fn Filtered(cur, prev, i, bpp, f)
+  a = if i >= bpp then cur[i - bpp] else 0
+  above = prev[i]
+  c = if i >= bpp then prev[i - bpp] else 0
+  v = cur[i]
+  if f = 1
+    v = v - a
+  elif f = 2
+    v = v - above
+  elif f = 3
+    v = v - (a + above) div 2
+  elif f = 4
+    v = v - Paeth(a, above, c)
+  end
+  return v and 255
+end
+
+fn Save(image, path)
+  image.Ready()
+  w = image.Width
+  h = image.Height
+  alpha = false
+  for c in image.Pixels
+    if c >= 16777216
+      alpha = true
+    end
+  end
+  channels = if alpha then 4 else 3
+  row = w * channels
+  var raw: [int] = []
+  prev = Zeros(row)
+  for y in 0..h - 1
+    var cur: [int] = []
+    for x in 0..w - 1
+      c = image.Pixels[y * w + x]
+      cur.Add(System.Red(c))
+      cur.Add(System.Green(c))
+      cur.Add(System.Blue(c))
+      if alpha
+        cur.Add(System.Alpha(c))
+      end
+    end
+    best = 0                             // the filter whose bytes look cheapest
+    bestCost = -1
+    for f in 0..4
+      cost = 0
+      for i in 0..row - 1
+        cost = cost + Cost(Filtered(cur, prev, i, channels, f))
+      end
+      if bestCost < 0 or cost < bestCost
+        best = f
+        bestCost = cost
+      end
+    end
+    raw.Add(best)
+    for i in 0..row - 1
+      raw.Add(Filtered(cur, prev, i, channels, best))
+    end
+    prev = cur
+  end
+
+  table = CrcTable()
+  var out: [int] = [137, 80, 78, 71, 13, 10, 26, 10]
+  var head: [int] = []
+  AddU32(head, w)
+  AddU32(head, h)
+  head.Add(8)                            // 8 bits a sample
+  head.Add(if alpha then 6 else 2)       // RGBA or RGB
+  head.Add(0)
+  head.Add(0)
+  head.Add(0)
+  Chunk(out, table, 0x49484452, head)
+  Chunk(out, table, 0x49444154, Deflate(raw))
+  var none: [int] = []
+  Chunk(out, table, 0x49454E44, none)
+  System.WriteBytes(path, out)
+end

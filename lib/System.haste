@@ -6,6 +6,8 @@ extern fn ReadText(path: string): string = "hs_read_file"
 extern fn ReadLines(path: string): [string] = "hs_read_lines"
 extern fn WriteText(path: string, text: string) = "hs_write_text"
 extern fn AppendText(path: string, text: string) = "hs_append_text"
+extern fn ReadBytes(path: string): [int] = "hs_read_bytes"          // a binary file, one 0..255 per byte
+extern fn WriteBytes(path: string, bytes: [int]) = "hs_write_bytes"
 extern fn FileExists(path: string): bool = "hs_file_exists"
 extern fn Fail(message: string) = "hs_fail"        // raise an error: try ... catch e gets the message
 extern fn Files(folder: string): [string] = "hs_files_in"       // names of the files in a folder, sorted
@@ -19,6 +21,14 @@ extern fn Exit(code: int) = "hs_exit"                           // end the progr
 fn Write(value) = print(Str(value))
 
 fn Rgb(r, g, b) = Int(r) * 65536 + Int(g) * 256 + Int(b)
+
+// A colour may carry transparency above its 24 colour bits, stored as 255 - alpha so that every Rgb colour
+// is opaque: Rgba(r, g, b, 255) = Rgb(r, g, b). Png reads and writes it; Bitmap.Save (BMP) ignores it.
+fn Rgba(r, g, b, a) = (255 - Int(a)) * 16777216 + Rgb(r, g, b)
+fn Red(c) = c div 65536 mod 256
+fn Green(c) = c div 256 mod 256
+fn Blue(c) = c mod 256
+fn Alpha(c) = 255 - c div 16777216 mod 256
 
 fn WriteLE(file, value, count)
   v = value
@@ -79,7 +89,7 @@ class Bitmap
         c = Pixels[y * Width + x]
         FileByte(f, c mod 256)
         FileByte(f, c div 256 mod 256)
-        FileByte(f, c div 65536)
+        FileByte(f, c div 65536 mod 256)
       end
       WriteLE(f, 0, pad)
     end

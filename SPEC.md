@@ -507,12 +507,21 @@ into a time; an impossible one, such as 30 February, is an error rather than bei
 `Time.Elapsed()` measures intervals: subtract two readings.
 
 **Files and the outside world** are in `System` (`ReadText`, `ReadLines`, `WriteText`, `AppendText`,
-`FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. `System.Files(folder)` and `System.Folders(folder)` list a folder's
+`FileExists`, `FileOpen`/`FileByte`/`FileClose`, `ReadBytes`/`WriteBytes`, `Bitmap`, `Fail`), `Text`, `Math`, `Time`,
+`Net` and `Png`. `System.Files(folder)` and `System.Folders(folder)` list a folder's
 files and folders by name, sorted; `System.FolderExists`, `System.MakeFolder` (with any missing folders above it) and
 `System.DeleteFile` manage them. `System.Env(name, default)` reads an environment variable. `System.Exit(code)` ends
 the program at once with that exit code. File names
 are UTF-8 on every system. `FileExists` is false for a folder. Reading a folder, or a file holding a zero byte, as
 text is an error.
+
+**Colours and images.** `System.Rgb(r, g, b)` makes a colour; `System.Rgba(r, g, b, a)` adds transparency, kept
+above the 24 colour bits as `255 - a`, so every `Rgb` colour is opaque. `Red`, `Green`, `Blue` and `Alpha` take a
+colour apart. `Bitmap.Save` writes a BMP, which has no transparency. `Png.Load(path)` reads any PNG (grey, colour
+or palette; 1 to 16 bits; with or without transparency; interlaced or not) into a `Bitmap`, 16-bit samples rounded
+to 8; `Png.Save(bitmap, path)` writes 8-bit RGB, or RGBA when some pixel is not opaque. A damaged PNG is an error.
+`ReadBytes` gives a binary file as a list of numbers 0..255; `WriteBytes` writes one, and any other number in it is
+an error.
 
 ---
 

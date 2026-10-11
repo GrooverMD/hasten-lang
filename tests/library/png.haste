@@ -1,0 +1,49 @@
+// Png: what Save writes, Load reads back exactly, with alpha; bytes files; damaged files are errors
+let path = "build/png_test.png"
+img = System.Bitmap(Width: 23, Height: 9)
+for y in 0..8
+  for x in 0..22
+    img.SetPixel(x, y, System.Rgba(x * 11, y * 28, (x * y) mod 256, if x = 0 then 0 else 255 - y))
+  end
+end
+Png.Save(img, path)
+back = Png.Load(path)
+same = back.Width = 23 and back.Height = 9
+for i in 0..img.Pixels.Count - 1
+  if img.Pixels[i] <> back.Pixels[i]
+    same = false
+  end
+end
+c = back.Pixel(5, 3)
+print("{same} {System.Red(c)} {System.Green(c)} {System.Blue(c)} {System.Alpha(c)} {System.Alpha(back.Pixel(0, 0))}")
+
+opaque = System.Bitmap(Width: 300, Height: 200)       // all opaque: RGB, and a long run compresses well
+for y in 0..199
+  opaque.SetPixel(y, y, System.Rgb(255, 0, 0))
+end
+Png.Save(opaque, path)
+bytes = System.ReadBytes(path)
+print("colour type {bytes[25]}, small {bytes.Count < 2000}, red {Png.Load(path).Pixel(7, 7) = System.Rgb(255, 0, 0)}")
+
+bytes[40] = bytes[40] xor 1                           // damage the image data
+System.WriteBytes(path, bytes)
+try
+  Png.Load(path)
+catch e
+  print(e)
+end
+try
+  Png.Load("png.haste")
+catch e
+  print(e)
+end
+try
+  System.WriteBytes(path, [1, 256])
+catch e
+  print(e)
+end
+// out: true 55 84 15 252 0
+// out: colour type 2, small true, red true
+// out: Png: build/png_test.png is damaged (a chunk's CRC check fails)
+// out: Png: png.haste is not a PNG file
+// out: item 1 is 256: a byte must be 0..255

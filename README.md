@@ -252,6 +252,9 @@ end
 | `System.Fail(message)` | Raise an error; `try ... catch e` receives the message |
 | `System.Files(folder)`, `System.Folders(folder)`, `System.FolderExists`, `System.MakeFolder`, `System.DeleteFile` | Folders and their contents (names sorted) |
 | `System.Env(name, default)`, `System.Exit(code)` | Environment variables; end with an exit code |
+| `System.ReadBytes(path)`, `System.WriteBytes(path, bytes)` | Binary files as lists of bytes (0..255) |
+| `System.Rgb(r, g, b)`, `System.Rgba(r, g, b, a)`, `Red`, `Green`, `Blue`, `Alpha` | Colours for `Bitmap`; a `Rgb` colour is opaque |
+| `Png.Load(path)`, `Png.Save(bitmap, path)` | PNG files, written in Haste itself (zlib, CRC, filters): reads every kind of PNG, saves 8-bit RGB or RGBA |
 | `Math.Max(a, b)`, `Min`, `Abs`, `Sign`, `Clamp` | Whole numbers stay whole: `Math.Max(3, 5)` is `5` |
 | `Math.Sin`, `Cos`, `Tan`, `Atan2`, `Hypot`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round(x, places)`, `Pi()` | Decimals; angles in radians |
 | `Math.Random()`, `Math.RandomInt(lo, hi)`, `Math.Seed(n)` | Random numbers; a seed repeats the sequence |
@@ -286,7 +289,7 @@ allocation or iteration, the collector scans every thread's stack, and they carr
 ```
 haste.py          the compiler
 runtime.h         the runtime included in every program
-lib/              standard library modules (System, Text, Math, Time, Net)
+lib/              standard library modules (System, Text, Math, Time, Net, Png)
 examples/         example programs
 tests/            the test suite: language, library, error messages, stress
 ide/              Hasten, the Haste IDE (Delphi, SynEdit)

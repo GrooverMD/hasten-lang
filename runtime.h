@@ -1134,6 +1134,47 @@ static void hs_write_file(hs_str path, hs_str text, const char *mode) {
 }
 static void hs_write_text(hs_str path, hs_str text) { hs_write_file(path, text, "wb"); }
 static void hs_append_text(hs_str path, hs_str text) { hs_write_file(path, text, "ab"); }
+/* Binary files as lists of bytes ([int], each 0..255): what Png and other file formats are built on. The
+   layout is that of every [int] list the compiler makes. */
+typedef struct { long long *items; long long count, cap; } hs_ints;
+static void *hs_read_bytes(hs_str path) {
+    if (hs_path_kind(path) == 2) hs_raise(hs_fmt("cannot read %s: it is a folder", path));
+    FILE *f = hs_fopen(path, "rb");
+    if (!f) hs_raise(hs_fmt("cannot read %s", path));
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *b = n > 0 ? malloc((size_t)n) : NULL;
+    if (n < 0 || (n > 0 && (!b || fread(b, 1, (size_t)n, f) != (size_t)n))) { free(b); fclose(f); hs_raise(hs_fmt("cannot read %s", path)); }
+    fclose(f);
+    hs_ints *l = hs_alloc(sizeof *l);
+    if (n > 0) {
+        l->items = hs_alloc_atomic(sizeof(long long) * (size_t)n);
+        for (long i = 0; i < n; i++) l->items[i] = b[i];
+        l->count = l->cap = n;
+    }
+    free(b);
+    return l;
+}
+static void hs_write_bytes(hs_str path, void *list) {
+    hs_ints *l = list;
+    if (hs_path_kind(path) == 2) hs_raise(hs_fmt("cannot write %s: it is a folder", path));
+    unsigned char *b = malloc(l->count ? (size_t)l->count : 1);
+    if (!b) hs_raise("out of memory");
+    for (long long i = 0; i < l->count; i++) {
+        if (l->items[i] < 0 || l->items[i] > 255) {
+            long long v = l->items[i]; free(b);
+            hs_raise(hs_fmt("item %lld is %lld: a byte must be 0..255", i, v));
+        }
+        b[i] = (unsigned char)l->items[i];
+    }
+    FILE *f = hs_fopen(path, "wb");
+    if (!f) { free(b); hs_raise(hs_fmt("cannot write %s", path)); }
+    size_t ok = fwrite(b, 1, (size_t)l->count, f);
+    free(b);
+    if (ok != (size_t)l->count) { fclose(f); hs_raise(hs_fmt("cannot write %s: the disk may be full", path)); }
+    if (fclose(f)) hs_raise(hs_fmt("cannot write %s: the disk may be full", path));
+}
 static bool hs_file_exists(hs_str path) { return hs_path_kind(path) == 1; }     /* a folder is not a file */
 static void hs_fail(hs_str message) { hs_raise(message); }
 

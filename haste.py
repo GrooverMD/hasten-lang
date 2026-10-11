@@ -1920,7 +1920,7 @@ static {name} *{name}_of(int n, ...) {{
                 for blk in m.prog.inits:
                     inits += g.block(blk, Env(m), 1)
             g.drain()
-        with open(os.path.join(HERE, 'runtime.h')) as fh:
+        with open(os.path.join(HERE, 'runtime.h'), encoding='utf-8') as fh:
             runtime = fh.read()
         names = {}
         for n, full in g.pending.items():
@@ -2089,7 +2089,7 @@ def windows_resources(out_dir, stem):
     Programs without them look unusual to antivirus heuristics (Norton and Avast's "Evo-gen"); the
     manifest also says the program runs as the user and needs no administrator rights. Adds about 1.5 KB."""
     name = re.sub(r'[^A-Za-z0-9_.-]', '_', stem)
-    with open(os.path.join(out_dir, stem + '.manifest'), 'w') as fh:
+    with open(os.path.join(out_dir, stem + '.manifest'), 'w', encoding='utf-8') as fh:
         fh.write(f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32" name="Haste.{name}" version="1.0.0.0"/>
@@ -2099,8 +2099,9 @@ def windows_resources(out_dir, stem):
 </assembly>
 ''')
     rc = os.path.join(out_dir, stem + '.rc')
-    with open(rc, 'w') as fh:
-        fh.write(f'''#include <winver.h>
+    with open(rc, 'w', encoding='utf-8') as fh:
+        fh.write(f'''#pragma code_page(65001)
+#include <winver.h>
 1 VERSIONINFO
 FILEVERSION 1,0,0,0
 PRODUCTVERSION 1,0,0,0
@@ -2160,7 +2161,7 @@ def build(path, targets):
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(path))[0]
     c_file = os.path.join(out_dir, stem + '.c')
-    with open(c_file, 'w') as fh:
+    with open(c_file, 'w', encoding='utf-8') as fh:
         fh.write(c_src)
     if report: print(report)
     outs = []

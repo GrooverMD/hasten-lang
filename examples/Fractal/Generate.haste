@@ -1,0 +1,40 @@
+// Generate: draws the Mandelbrot set into a bitmap.
+
+alias Bitmap = System.Bitmap
+alias Rgb = System.Rgb
+
+// How many steps the point (cx, cy) takes to leave the circle of radius 2, up to limit
+fn Iterations(cx, cy, limit)
+  x = 0.0
+  y = 0.0
+  n = 0
+  while n < limit and x * x + y * y < 4
+    t = x * x - y * y + cx
+    y = 2 * x * y + cy
+    x = t
+    n = n + 1
+  end
+  return n
+end
+
+// The colour for a point that took n of limit steps: black inside the set, a smooth palette outside
+fn Shade(n, limit)
+  if n = limit
+    return Rgb(0, 0, 0)
+  end
+  t = n / limit
+  return Rgb(9 * (1 - t) * t * t * t * 255, 15 * (1 - t) * (1 - t) * t * t * 255, 8.5 * (1 - t) * (1 - t) * (1 - t) * t * 255)
+end
+
+// The whole picture: width x height pixels, at most limit steps a pixel
+fn Mandelbrot(width, height, limit)
+  img = Bitmap(Width: width, Height: height)
+  for py in 0..height - 1
+    for px in 0..width - 1
+      cx = -2.4 + px * 3.6 / width
+      cy = -1.2 + py * 2.4 / height
+      img.SetPixel(px, py, Shade(Iterations(cx, cy, limit), limit))
+    end
+  end
+  return img
+end

@@ -182,7 +182,7 @@ win: `run Fractal.hproj --width 640`.
 |---|---|
 | [`hello.haste`](examples/hello.haste) | The smallest program, and `alias` |
 | [`bank.haste`](examples/bank.haste) | Classes, validated and computed properties, lists, `try`/`catch` |
-| [`fractal.haste`](examples/fractal.haste) | Type-free functions, `System.Bitmap`, saved as a PNG by `Png`, command-line switches. Try `--width 1920 --height 1080`. |
+| [`Fractal/`](examples/Fractal) | A project: `Fractal.haste` with its switches, the drawing in the module `Generate.haste`, saved as a PNG by `Png`. Run `examples/Fractal/Fractal.hproj`; try `--width 1920 --height 1080`. |
 | [`scores.haste`](examples/scores.haste) | `write` blocks, dictionaries, and reading and writing text files |
 | [`fivewords.haste`](examples/fivewords.haste) | Five words with 25 different letters, found in about 0.02 seconds with bit masks and `parallel for`. Needs the word list [`words_alpha.txt`](https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt) from [dwyl/english-words](https://github.com/dwyl/english-words), saved in `examples/`. |
 

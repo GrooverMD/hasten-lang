@@ -1,2 +1,31 @@
-// Time: wall-clock seconds from a fixed point. Subtract two readings to time something.
-extern fn Elapsed(): float = "hs_elapsed"
+// Time: clocks, dates and waiting. A time is a decimal: seconds since 1 January 1970, UTC.
+// Times are easy to compare and to move: t + 86400 is a day later.
+extern fn Elapsed(): float = "hs_elapsed"    // seconds from a fixed point: take two and subtract to time something
+extern fn Now(): float = "hs_now"            // the current time
+extern fn Sleep(seconds: float) = "hs_sleep"
+extern fn Part(t: float, utc: bool, which: int): int = "hs_time_part"
+extern fn Join(year: int, month: int, day: int, hour: int, minute: int, second: int, utc: bool): float = "hs_make_time"
+
+fn Two(n: int): string = if n < 10 then "0{n}" else "{n}"
+
+class Moment
+  Year = 1970
+  Month = 1                     // 1 to 12
+  Day = 1                       // 1 to 31
+  Hour = 0
+  Minute = 0
+  Second = 0
+  Weekday = 4                   // 1 Monday ... 7 Sunday
+  Text => "{Year}-{Two(Month)}-{Two(Day)} {Two(Hour)}:{Two(Minute)}:{Two(Second)}"
+end
+
+fn Parts(t: float, utc: bool): Moment = Moment(Year: Part(t, utc, 0), Month: Part(t, utc, 1), Day: Part(t, utc, 2),
+  Hour: Part(t, utc, 3), Minute: Part(t, utc, 4), Second: Part(t, utc, 5), Weekday: Part(t, utc, 6))
+fn Local(t: float): Moment = Parts(t, false)     // the date and time here
+fn Utc(t: float): Moment = Parts(t, true)        // the date and time in UTC
+
+// A time from a date and time; an impossible one (30 February) is an error
+fn Make(year: int, month: int, day: int, hour: int, minute: int, second: int): float = Join(year, month, day,
+  hour, minute, second, false)
+fn MakeUtc(year: int, month: int, day: int, hour: int, minute: int, second: int): float = Join(year, month, day,
+  hour, minute, second, true)

@@ -610,6 +610,63 @@ static long long hs_random_int(long long lo, long long hi) {
     return (long long)((unsigned long long)lo + x % span);
 }
 
+/* ---- dates and times (Time): a time is seconds since 1970-01-01 UTC, as a double ---- */
+static double hs_now(void) {
+#ifdef _WIN32
+    FILETIME ft; GetSystemTimePreciseAsFileTime(&ft);
+    unsigned long long t = ((unsigned long long)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+    return (double)(t - 116444736000000000ULL) / 1e7;
+#else
+    struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+#endif
+}
+static void hs_sleep(double seconds) {
+    if (!(seconds > 0)) return;
+#ifdef _WIN32
+    Sleep((DWORD)(seconds * 1000));
+#else
+    struct timespec ts = { (time_t)seconds, (long)((seconds - (double)(time_t)seconds) * 1e9) };
+    while (nanosleep(&ts, &ts) && errno == EINTR) {}
+#endif
+}
+static int hs_tm(double t, bool utc, struct tm *tm) {
+    time_t tt = (time_t)floor(t);
+#ifdef _WIN32
+    return (utc ? gmtime_s(tm, &tt) : localtime_s(tm, &tt)) == 0;
+#else
+    return (utc ? gmtime_r(&tt, tm) : localtime_r(&tt, tm)) != NULL;
+#endif
+}
+static long long hs_time_part(double t, bool utc, long long which) {
+    struct tm tm;
+    if (!hs_tm(t, utc, &tm)) hs_raise(hs_fmt("%s is not a time this system can show", hs_ftoa(t)));
+    switch (which) {
+    case 0: return tm.tm_year + 1900;
+    case 1: return tm.tm_mon + 1;
+    case 2: return tm.tm_mday;
+    case 3: return tm.tm_hour;
+    case 4: return tm.tm_min;
+    case 5: return tm.tm_sec;
+    default: return tm.tm_wday ? tm.tm_wday : 7;              /* ISO: Monday 1 ... Sunday 7 */
+    }
+}
+static double hs_make_time(long long y, long long mo, long long d, long long h, long long mi, long long s, bool utc) {
+    struct tm tm = { 0 };
+    tm.tm_year = (int)(y - 1900); tm.tm_mon = (int)(mo - 1); tm.tm_mday = (int)d;
+    tm.tm_hour = (int)h; tm.tm_min = (int)mi; tm.tm_sec = (int)s; tm.tm_isdst = -1;
+#ifdef _WIN32
+    time_t t = utc ? _mkgmtime(&tm) : mktime(&tm);
+#else
+    time_t t = utc ? timegm(&tm) : mktime(&tm);
+#endif
+    struct tm back;                                            /* 30 February would quietly become 2 March */
+    if (t == (time_t)-1 || !hs_tm((double)t, utc, &back) || back.tm_year + 1900 != y || back.tm_mon + 1 != mo
+        || back.tm_mday != d || back.tm_hour != h || back.tm_min != mi || back.tm_sec != s)
+        hs_raise(hs_fmt("%lld-%02lld-%02lld %02lld:%02lld:%02lld is not a valid date and time", y, mo, d, h, mi, s));
+    return (double)t;
+}
+
 /* Wall-clock seconds from a fixed point; use differences. */
 static double hs_elapsed(void) {
 #ifdef _WIN32

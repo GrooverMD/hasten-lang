@@ -499,6 +499,13 @@ halves away from zero. `Random()` gives a decimal from 0 up to but not including
 number from `lo` to `hi` inclusive, without bias; each thread has its own generator, and `Seed(n)` makes the calling
 thread's sequence repeatable.
 
+**Time.** A time is a decimal: seconds since 1 January 1970, UTC, so times compare and move by arithmetic
+(`t + 86400` is a day later). `Time.Now()` is the current time and `Time.Sleep(seconds)` waits. `Time.Local(t)` and
+`Time.Utc(t)` give a `Moment` with `Year`, `Month` (1-12), `Day`, `Hour`, `Minute`, `Second`, `Weekday` (1 Monday to
+7 Sunday) and `Text` (`2026-10-11 09:55:03`). `Time.Make(...)` and `Time.MakeUtc(...)` turn a date and time back
+into a time; an impossible one, such as 30 February, is an error rather than being moved to another day.
+`Time.Elapsed()` measures intervals: subtract two readings.
+
 **Files and the outside world** are in `System` (`ReadText`, `ReadLines`, `WriteText`, `AppendText`,
 `FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. File names
 are UTF-8 on every system. `FileExists` is false for a folder. Reading a folder, or a file holding a zero byte, as

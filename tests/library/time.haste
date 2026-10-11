@@ -1,0 +1,30 @@
+// Time: a time is seconds since 1970 UTC; Utc and Local give its date and time; Make and MakeUtc go back;
+// an impossible date is an error; Sleep waits
+let z = Time.Utc(0)
+print(z.Text)
+print(z.Weekday)
+let t = Time.MakeUtc(2026, 10, 11, 9, 55, 3)
+print(t)
+print(Time.Utc(t).Text)
+print(Time.Utc(t).Weekday)
+print(Time.Utc(t + 86400).Weekday)
+print(Time.Local(Time.Make(2024, 2, 29, 12, 0, 0)).Day)
+print(Time.Now() > t - 86400 * 365)
+let a = Time.Elapsed()
+Time.Sleep(0.05)
+print(Time.Elapsed() - a >= 0.04)
+try
+  print(Time.MakeUtc(2026, 2, 30, 0, 0, 0))
+catch e
+  print(e)
+end
+// out: 1970-01-01 00:00:00
+// out: 4
+// out: 1791712503
+// out: 2026-10-11 09:55:03
+// out: 7
+// out: 1
+// out: 29
+// out: true
+// out: true
+// out: 2026-02-30 00:00:00 is not a valid date and time

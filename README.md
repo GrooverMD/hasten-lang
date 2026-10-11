@@ -253,6 +253,7 @@ end
 | `Math.Max(a, b)`, `Min`, `Abs`, `Sign`, `Clamp` | Whole numbers stay whole: `Math.Max(3, 5)` is `5` |
 | `Math.Sin`, `Cos`, `Tan`, `Atan2`, `Hypot`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round(x, places)`, `Pi()` | Decimals; angles in radians |
 | `Math.Random()`, `Math.RandomInt(lo, hi)`, `Math.Seed(n)` | Random numbers; a seed repeats the sequence |
+| `Time.Now()`, `Time.Local(t).Text`, `Time.Utc(t).Weekday`, `Time.Make(y, m, d, h, mi, s)`, `Time.Sleep(s)`, `Time.Elapsed()` | Dates, times and waiting; a time is seconds since 1970 |
 
 ## Tests
 

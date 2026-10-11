@@ -11,7 +11,7 @@ uses
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd, Vcl.Buttons, Vcl.Themes,
   SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
-  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions;
+  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions, Hasten.Insight;
 
 type
   TEditorTab = class(TTabSheet)
@@ -52,6 +52,8 @@ type
     FStyleName: string;                         // '' keeps the style Hasten.dpr sets
     FTools: TPanel;                             // the toolbar: icon buttons at the left of the top bar
     FToolbarAction: TAction;
+    FInsight: THasteInsight;                    // Help Insight: tips on names under the mouse
+    FInsightAction: TAction;
     FEditButtons: TArray<TSpeedButton>;         // Undo ... Paste: enabled as the Edit menu's items are
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
@@ -105,6 +107,7 @@ type
     procedure BuildToolbar(Bar: TPanel; const Actions: array of TAction);
     procedure ToolEditClick(Sender: TObject);
     procedure DoToolbar(Sender: TObject);
+    procedure DoInsight(Sender: TObject);
     procedure DoSettings(Sender: TObject);
     procedure DoModuleOptions(Sender: TObject);
     procedure SetFontSize(Size: Integer);
@@ -218,6 +221,8 @@ begin
   FClearOutput := True;
   FReopen := True;
   FHighlighter := THasteHighlighter.Create(Self);
+  FInsight := THasteInsight.Create(Self);
+  FInsight.Highlighter := FHighlighter;
   FWordLines := TStringList.Create;
   FWordsTimer := TTimer.Create(Self);
   FWordsTimer.Enabled := False;
@@ -347,6 +352,10 @@ begin
   FToolbarAction.AutoCheck := True;
   FToolbarAction.Checked := True;
   Item(ViewMenu, FToolbarAction);
+  FInsightAction := AddAction('&Help Insight', '', DoInsight);
+  FInsightAction.AutoCheck := True;
+  FInsightAction.Checked := True;
+  Item(ViewMenu, FInsightAction);
   Item(ViewMenu, nil);
   Item(ViewMenu, AddAction('&Font...', '', DoFont));
   Item(ViewMenu, nil);
@@ -696,6 +705,11 @@ begin
     end;
 end;
 
+procedure TMainForm.DoInsight(Sender: TObject);
+begin
+  FInsight.Enabled := FInsightAction.Checked;
+end;
+
 procedure TMainForm.DoToolbar(Sender: TObject);
 begin
   FTools.Parent.Visible := FToolbarAction.Checked;   // the whole top bar: the toolbar is all it holds
@@ -938,6 +952,8 @@ begin
     if FStyleName <> '' then
       TStyleManager.TrySetStyle(FStyleName, False);   // False: no error if it is no longer linked in
     FToolbarAction.Checked := Ini.ReadBool('View', 'Toolbar', True);
+    FInsightAction.Checked := Ini.ReadBool('View', 'HelpInsight', True);
+    DoInsight(nil);
     DoToolbar(nil);
     ApplyFont;
     Ini.ReadSectionValues('Open', Files);
@@ -970,6 +986,7 @@ begin
     Ini.WriteBool('Start', 'Reopen', FReopen);
     Ini.WriteString('View', 'Style', FStyleName);
     Ini.WriteBool('View', 'Toolbar', FToolbarAction.Checked);
+    Ini.WriteBool('View', 'HelpInsight', FInsightAction.Checked);
     Ini.DeleteKey('Run', 'Switches');           // from before Module Options: each program keeps its own now
     Ini.DeleteKey('Run', 'Target');
     Ini.EraseSection('Open');
@@ -1213,6 +1230,7 @@ begin
   if (ExitCode = 0) and not Stopped then
   begin
     FHighlighter.LoadWords(FWordLines);
+    FInsight.LoadWords(FWordLines);
     for I := 0 to FPages.PageCount - 1 do
       TEditorTab(FPages.Pages[I]).Editor.Invalidate;
   end;
@@ -1257,6 +1275,8 @@ end;
 procedure TMainForm.RunnerLine(const Line: string);
 begin
   OutputAdd(Line);
+  if Line.TrimLeft.StartsWith('specialised:') then
+    FInsight.LoadCompiled(Line);                // the types each function was compiled with, for the tips
   if Line.StartsWith('Cannot start: ') then
     OutputAdd('Python could not be started. Check that "python --version" works in a new command ' +
       'prompt; if Python was installed while Hasten was open, restart Hasten so it sees the new PATH.');

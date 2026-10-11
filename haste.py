@@ -2336,7 +2336,133 @@ def words(path=None):
     print('module', *sorted({m for m in mods if re.fullmatch(r'[A-Za-z_]\w*', m)} | set(kinds.get('module', []))))
     if kinds.get('type'): print('type', *sorted(kinds['type']))
     if kinds.get('function'): print('function', *sorted(kinds['function']))
+    for entry in insight(path, dirs):
+        print('insight\t' + '\t'.join(f.replace('\t', ' ').replace('\n', '\\n') for f in entry))
     return 0
+
+
+# What the editor shows when the mouse rests on a name: (name, kind, signature, help, place, target).
+BUILTIN_HELP = {
+    'print': ('print(value)', 'Writes any value on its own line, as "{value}" would show it.'),
+    'Int': ('Int(x)', 'A decimal as a whole number, towards zero: Int(2.9) is 2. An infinite or too large decimal is an error.'),
+    'Float': ('Float(x)', 'A whole number as a decimal.'),
+    'Str': ('Str(value)', 'Any value as text, as print shows it.'),
+    '.Add': ('list.Add(value)', 'Adds value at the end of the list.'),
+    '.Count': ('list.Count, dict.Count', 'How many items the list or dictionary holds.'),
+    '.Length': ('text.Length', 'How many characters the text has: "café".Length is 4.'),
+    '.Has': ('list.Has(value), dict.Has(key)', 'Whether the value (list) or key (dictionary) is there.'),
+    '.Remove': ('list.Remove(value), dict.Remove(key)', 'Removes the first equal item, or the key. Nothing happens if it is not there.'),
+    '.Get': ('dict.Get(key, default)', 'The value for key, or default when the key is not there.'),
+    '.Insert': ('list.Insert(index, value)', 'Puts value at index, from 0 to Count.'),
+    '.RemoveAt': ('list.RemoveAt(index)', 'Removes the item at index and gives it back.'),
+    '.IndexOf': ('list.IndexOf(value)', 'The first position of value, or -1.'),
+    '.Clear': ('list.Clear()', 'Empties the list.'),
+    '.Reverse': ('list.Reverse()', 'Reverses the list in place.'),
+    '.Sort': ('list.Sort(), list.Sort(Before)', 'Sorts in place, keeping equal items in order. Numbers, text and true/false sort naturally; anything else needs a function Before(a, b).'),
+    '.Slice': ('list.Slice(start, count)', 'A new list of count items from start.'),
+    '.Copy': ('list.Copy()', 'A new list with all the items.'),
+}
+KEYWORD_HELP = {
+    'alias': 'alias Short = Name gives a module, class, function or type a short name. Top level, anywhere in the file.',
+    'switch': 'switch Name = default [where rule]   // help\nA setting from the command line: --name value. Readable everywhere, never changed.',
+    'fn': 'fn Name(params) ... end, or fn Name(params) = expression. Parameters without types work with any type.',
+    'extern': 'extern fn Name(p: type): type = "c_name" calls a C function. Every type must be written.',
+    'class': 'class Name ... end: properties (with defaults and where rules) and methods. Make one with Name(Prop: value).',
+    'let': 'let x = value declares a variable that cannot be changed.',
+    'var': 'var x = value declares a variable that can be changed (as x = value does when x is new).',
+    'if': 'if condition [then] ... elif ... else ... end. Also an expression: if c then a else b.',
+    'while': 'while condition ... end',
+    'for': 'for i in a..b, for item in list, for key in dict ... end. The loop variable cannot be changed.',
+    'parallel': 'parallel for ... end runs the iterations on all cores. Outer variables cannot be changed inside.',
+    'try': 'try ... catch e ... end: e is the message of any run-time error raised inside.',
+    'return': 'return value, or return in a function with no value.',
+    'where': 'A rule on a property or switch: where it > 0. Checked whenever the value is set.',
+    'write': 'A write block on a property runs instead of storing: it is the new value, field the stored one.',
+    'init': 'init ... end in a module runs once, before the program.',
+    'need': 'need Module keeps all its typed functions, even unused ones (rarely needed).',
+    'div': 'Whole-number division, towards zero: -7 div 2 is -3.',
+    'mod': 'Remainder, with the sign of the left side: -7 mod 3 is -1.',
+    'shl': 'Shift left by 0 to 63 bits; bits shifted out are dropped.',
+    'shr': 'Shift right by 0 to 63 bits, keeping the sign.',
+    'xor': 'Exclusive or: on true/false, true when exactly one side is; on whole numbers, on the bits.',
+    'and': 'On true/false, stops as soon as the answer is known; on whole numbers, works on the bits.',
+    'or': 'On true/false, stops as soon as the answer is known; on whole numbers, works on the bits.',
+    'not': 'Negates true/false, or flips the bits of a whole number.',
+    'in': 'for x in ...: the range, list or dictionary to go through.',
+}
+
+
+def help_at(lines, line):
+    """The help for a declaration: the // comment block just above it (not the file's own header), then the
+    comment at the end of its line."""
+    raw = lines[line - 1] if 0 < line <= len(lines) else ''
+    above, i = [], line - 2
+    while i >= 0 and lines[i].strip().startswith('//') and not lines[i].strip().startswith('// ----'):
+        above.insert(0, lines[i].strip()[2:].strip()); i -= 1
+    if i < 0: above = []                         # the comment at the top of a file describes the file
+    at = comment_at(raw)
+    if at >= 0: above.append(raw[at + 2:].strip())
+    return '\n'.join(above)
+
+
+def code_at(lines, line):
+    raw = lines[line - 1] if 0 < line <= len(lines) else ''
+    at = comment_at(raw)
+    code = (raw[:at] if at >= 0 else raw).strip()
+    if code.startswith('extern '):               # what it does, not which C function does it
+        code = re.sub(r'\s*=\s*"[^"]*"\s*$', '', code[7:])
+    return code if len(code) <= 120 else code[:117] + '...'
+
+
+def insight(path, dirs):
+    """Help for every name in the modules and the program: functions, classes and their members, switches and
+    aliases, plus the built-ins, list members and keywords."""
+    out = [(k, 'builtin' if not k.startswith('.') else 'member', sig, doc, '', '') for k, (sig, doc) in BUILTIN_HELP.items()]
+    out += [(k, 'keyword', k, doc, '', '') for k, doc in KEYWORD_HELP.items()]
+    files = []                                   # (prefix, file): modules, then the program itself
+    for d in dirs:
+        for e in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            full = os.path.join(d, e)
+            if e.endswith('.haste') and not (path and os.path.abspath(path) == os.path.abspath(full)):
+                files.append((e[:-6] + '.', full))
+            elif os.path.isdir(full):
+                files += [(f'{e}.{f[:-6]}.', os.path.join(full, f)) for f in sorted(os.listdir(full)) if f.endswith('.haste')]
+    if path: files.append(('', path))
+    seen = set()
+    for prefix, f in files:
+        if prefix in seen: continue              # next to the program first, as the compiler looks
+        seen.add(prefix)
+        try:
+            src = open(f, encoding='utf-8-sig').read()
+            lines = src.split('\n')
+            prog = Parser(lex(src, os.path.basename(f)), lines).program()
+        except (HasteError, OSError, IndexError, RecursionError):
+            continue                             # a file that does not parse yet has nothing to show
+        place = lambda line: f'{os.path.basename(f)}:{line}'
+        if prefix:
+            head = []
+            for raw in lines:
+                if not raw.strip().startswith('//'): break
+                head.append(raw.strip()[2:].strip())
+            out.append((prefix[:-1], 'module', f'module {prefix[:-1]}', '\n'.join(head), os.path.basename(f), ''))
+        for fn in prog.funcs.values():
+            out.append((prefix + fn.name, 'function', code_at(lines, fn.line), help_at(lines, fn.line), place(fn.line), ''))
+        for c in prog.classes.values():
+            members = ', '.join(list(c.props) + [m + '()' for m in c.methods])
+            out.append((prefix + c.name, 'class', f'class {c.name}', '\n'.join(x for x in (help_at(lines, c.line),
+                        f'Members: {members}') if x), place(c.line), ''))
+            for p in c.props.values():
+                out.append((f'{prefix}{c.name}.{p.name}', 'property', code_at(lines, p.line), help_at(lines, p.line), place(p.line), ''))
+            for m in c.methods.values():
+                out.append((f'{prefix}{c.name}.{m.name}', 'method', code_at(lines, m.line), help_at(lines, m.line), place(m.line), ''))
+        for sw in prog.switches:
+            out.append((prefix + sw.name, 'switch', code_at(lines, sw.line),
+                        '\n'.join(x for x in (sw.help, f'On the command line: --{sw.name.lower()} value') if x), place(sw.line), ''))
+        for nm, (target, line) in prog.aliases.items():
+            out.append((prefix + nm, 'alias', code_at(lines, line), help_at(lines, line), place(line), '.'.join(target)))
+        for nm, (t, line) in prog.type_aliases.items():
+            out.append((prefix + nm, 'alias', code_at(lines, line), help_at(lines, line), place(line), ''))
+    return out
 
 
 def alias_kinds(path, search):

@@ -677,6 +677,7 @@ end
 
 fn U16(b, i) = b[i] shl 8 or b[i + 1]
 
+// The image in a PNG file, as a Bitmap. Every kind of PNG is read; a damaged file is an error.
 fn Load(path)
   b = System.ReadBytes(path)
   sig = [137, 80, 78, 71, 13, 10, 26, 10]
@@ -887,6 +888,7 @@ fn Filtered(cur, prev, i, bpp, f)
   return v and 255
 end
 
+// Writes the bitmap as a PNG: 8-bit RGB, or RGBA when some pixel is not opaque.
 fn Save(image, path)
   image.Ready()
   w = image.Width

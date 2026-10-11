@@ -1,26 +1,26 @@
 // System: core types. Nothing is imported; the compiler finds what you use.
-extern fn FileOpen(path: string): int = "hs_file_open"
-extern fn FileByte(file: int, value: int) = "hs_file_byte"
-extern fn FileClose(file: int) = "hs_file_close"
-extern fn ReadText(path: string): string = "hs_read_file"
-extern fn ReadLines(path: string): [string] = "hs_read_lines"
-extern fn WriteText(path: string, text: string) = "hs_write_text"
-extern fn AppendText(path: string, text: string) = "hs_append_text"
+extern fn FileOpen(path: string): int = "hs_file_open"              // opens a file for writing, byte by byte; gives its number
+extern fn FileByte(file: int, value: int) = "hs_file_byte"          // writes one byte (0..255) to an open file
+extern fn FileClose(file: int) = "hs_file_close"                    // finishes writing the file
+extern fn ReadText(path: string): string = "hs_read_file"           // the whole file as text (UTF-8)
+extern fn ReadLines(path: string): [string] = "hs_read_lines"       // the file as a list of lines; Windows line endings handled
+extern fn WriteText(path: string, text: string) = "hs_write_text"   // writes the text as the whole file
+extern fn AppendText(path: string, text: string) = "hs_append_text" // adds the text at the end of the file
 extern fn ReadBytes(path: string): [int] = "hs_read_bytes"          // a binary file, one 0..255 per byte
-extern fn WriteBytes(path: string, bytes: [int]) = "hs_write_bytes"
-extern fn FileExists(path: string): bool = "hs_file_exists"
+extern fn WriteBytes(path: string, bytes: [int]) = "hs_write_bytes" // writes a list of bytes (0..255) as the whole file
+extern fn FileExists(path: string): bool = "hs_file_exists"         // whether a file (not a folder) is there
 extern fn Fail(message: string) = "hs_fail"        // raise an error: try ... catch e gets the message
 extern fn Files(folder: string): [string] = "hs_files_in"       // names of the files in a folder, sorted
 extern fn Folders(folder: string): [string] = "hs_folders_in"   // names of the folders in a folder, sorted
-extern fn FolderExists(path: string): bool = "hs_folder_exists"
+extern fn FolderExists(path: string): bool = "hs_folder_exists"     // whether a folder is there
 extern fn MakeFolder(path: string) = "hs_make_folder"           // and any missing folders above it
-extern fn DeleteFile(path: string) = "hs_delete_file"
+extern fn DeleteFile(path: string) = "hs_delete_file"               // removes a file
 extern fn Env(name: string, default: string): string = "hs_env" // an environment variable, or default
 extern fn Exit(code: int) = "hs_exit"                           // end the program now with this exit code
 
-fn Write(value) = print(Str(value))
+fn Write(value) = print(Str(value))          // prints any value
 
-fn Rgb(r, g, b) = Int(r) * 65536 + Int(g) * 256 + Int(b)
+fn Rgb(r, g, b) = Int(r) * 65536 + Int(g) * 256 + Int(b)    // an opaque colour from red, green and blue, each 0..255
 
 // A colour may carry transparency above its 24 colour bits, stored as 255 - alpha so that every Rgb colour
 // is opaque: Rgba(r, g, b, 255) = Rgb(r, g, b). Png reads and writes it; Bitmap.Save (BMP) ignores it.
@@ -30,7 +30,7 @@ fn Green(c) = c div 256 mod 256
 fn Blue(c) = c mod 256
 fn Alpha(c) = 255 - c div 16777216 mod 256
 
-fn WriteLE(file, value, count)
+fn WriteLE(file, value, count)               // value as count bytes, lowest first
   v = value
   for i in 1..count
     FileByte(file, v mod 256)
@@ -38,12 +38,13 @@ fn WriteLE(file, value, count)
   end
 end
 
+// An image in memory: Width x Height colours, row by row from the top. Save writes a BMP; Png.Save a PNG.
 class Bitmap
   Width = 1 where it > 0
   Height = 1 where it > 0
   Pixels: [int] = []
 
-  fn Ready()
+  fn Ready()                                  // makes the pixels (all black) if there are none yet
     if Pixels.Count = 0
       for i in 1..Width * Height
         Pixels.Add(0)
@@ -51,24 +52,24 @@ class Bitmap
     end
   end
 
-  fn Check(x, y)
+  fn Check(x, y)                              // an error unless (x, y) is inside the bitmap
     if x < 0 or x >= Width or y < 0 or y >= Height
       Fail("pixel ({x}, {y}) is outside the {Width} x {Height} bitmap")
     end
     Ready()
   end
 
-  fn Pixel(x, y)
+  fn Pixel(x, y)                              // the colour at (x, y); (0, 0) is the top left
     Check(x, y)
     return Pixels[y * Width + x]
   end
 
-  fn SetPixel(x, y, color)
+  fn SetPixel(x, y, color)                    // sets the colour at (x, y)
     Check(x, y)
     Pixels[y * Width + x] = color
   end
 
-  fn Save(path)
+  fn Save(path)                               // writes a 24-bit BMP file (transparency is dropped)
     Ready()
     pad = (4 - Width * 3 mod 4) mod 4
     f = FileOpen(path)

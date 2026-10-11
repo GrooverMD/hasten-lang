@@ -33,6 +33,7 @@ You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.c
 | Ctrl+G | Go to line |
 | View > Font... | Choose the editor font (only monospaced fonts are listed) and size |
 | Ctrl+mouse wheel, Ctrl+NumPad + / - / 0 | Make the text bigger, smaller, or back to 11 pt, in every tab |
+| Rest the mouse on a name | Help Insight: its declaration, help comment and file:line, and after a Run or Build the types it was compiled with. Works for your own functions, classes, switches and aliases, every library module, the built-ins, list members and keywords. View > Help Insight turns it off |
 | View > Toolbar | Show or hide the toolbar: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Find, Run, Build, Stop, Run Tests, Module Options, Settings |
 | Tools > Settings... | Font, tab width, right margin, line numbers, VCL style, Python, `haste.py`, clearing the output on each run, reopening last time's files |
 
@@ -47,6 +48,7 @@ there. Settings, each program's module options, the editor font and the files yo
 | `Hasten.Main.pas` | The main window, built entirely in code (no .dfm) |
 | `Hasten.Settings.pas` | The Settings dialog, also built in code; each setting is a property |
 | `Hasten.ModuleOptions.pas` | The Module Options dialog: build targets and switch values for one program, read from its source |
+| `Hasten.Insight.pas` | Help Insight: the tips, from the `insight` lines of `haste.py words` and a build's `specialised:` line |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |
 | `Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |

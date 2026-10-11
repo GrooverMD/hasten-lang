@@ -548,6 +548,9 @@ Questions that were open, and what was decided.
 4. **Rules on list properties:** not allowed, because they could not see items being added (§9).
 5. **Printing lists, dictionaries and objects:** shown as they would be written (§14).
 6. **Functions as values:** added, compiled per function passed (§8).
+7. **Local aliases:** not added. An alias is top-level but may be placed anywhere in the file, so it can sit
+   just before the code that uses it; inside a block it would let a type or function name mean different things
+   on different lines (§11).
 
 ## 18. Open questions
 

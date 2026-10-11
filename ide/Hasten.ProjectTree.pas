@@ -12,7 +12,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.ShellAPI, System.SysUtils, System.Classes, System.IOUtils, System.RegularExpressions,
-  Vcl.Controls, Vcl.ComCtrls, Vcl.Menus, Vcl.Dialogs;
+  Vcl.Controls, Vcl.Forms, Vcl.ComCtrls, Vcl.Menus, Vcl.Dialogs;
 
 type
   TOpenFileEvent = procedure(Sender: TObject; const FileName: string) of object;

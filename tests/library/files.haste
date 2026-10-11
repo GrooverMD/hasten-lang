@@ -1,0 +1,37 @@
+// file mistakes are errors you can catch, never crashes or silently lost data; System.Fail raises your own
+let path = "build/files_test.bin"
+let f = System.FileOpen(path)
+System.FileByte(f, 65)
+System.FileByte(f, 0)
+System.FileByte(f, 66)
+System.FileClose(f)
+fn Try(n, f, path)
+  try
+    if n = 1 then
+      System.FileByte(99, 1)
+    elif n = 2 then
+      System.FileClose(f)
+    elif n = 3 then
+      print(System.ReadText("."))
+    elif n = 4 then
+      print(System.ReadText(path))
+    elif n = 5 then
+      System.Bitmap(Width: 2, Height: 2).SetPixel(-1, 1, 255)
+    elif n = 6 then
+      System.Fail("my own error")
+    end
+  catch e
+    print(e)
+  end
+end
+for n in 1..6
+  Try(n, f, path)
+end
+print("{System.FileExists(".")} {System.FileExists(path)} {System.FileExists("build/nope")}")
+// out: file 99 is not open
+// out: file 0 is not open
+// out: cannot read .: it is a folder
+// out: build/files_test.bin holds a zero byte: it is not a text file
+// out: pixel (-1, 1) is outside the 2 x 2 bitmap
+// out: my own error
+// out: false true false

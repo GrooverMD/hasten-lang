@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include <limits.h>
 #include <stdint.h>
 #ifdef _WIN32
@@ -530,19 +531,49 @@ static FILE *hs_fopen(hs_str path, const char *mode) {
 #endif
 }
 
-/* ---- files and time (used by System and Time) ---- */
-static FILE *hs_files[16];
+/* 1 for a file, 2 for a folder, 0 for nothing there. */
+static int hs_path_kind(hs_str path) {
+#ifdef _WIN32
+    wchar_t wp[1024];
+    struct _stat64 st;
+    if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wp, 1024) || _wstat64(wp, &st)) return 0;
+#else
+    struct stat st;
+    if (stat(path, &st)) return 0;
+#endif
+    return (st.st_mode & S_IFMT) == S_IFDIR ? 2 : 1;
+}
+
+/* ---- files and time (used by System and Time) ----
+   Files written byte by byte: a number from FileOpen names one. Errors (a full disk, a closed file) are
+   errors, never silently lost writes. The table is shared by parallel for's threads, so it is locked. */
+static FILE *hs_files[64];
 static long long hs_file_open(hs_str path) {
-    for (int i = 0; i < 16; i++)
+    if (hs_path_kind(path) == 2) hs_raise(hs_fmt("cannot write %s: it is a folder", path));
+    int par = hs_lock_shared();
+    for (int i = 0; i < 64; i++)
         if (!hs_files[i]) {
-            if (!(hs_files[i] = hs_fopen(path, "wb"))) hs_raise(hs_fmt("cannot write %s", path));
+            hs_files[i] = hs_fopen(path, "wb");
+            hs_unlock_shared(par);
+            if (!hs_files[i]) hs_raise(hs_fmt("cannot write %s", path));
             return i;
         }
-    hs_raise("too many open files");
+    hs_unlock_shared(par);
+    hs_raise("too many open files (64)");
     return -1;
 }
-static void hs_file_byte(long long f, long long b) { fputc((int)(b & 255), hs_files[f]); }
-static void hs_file_close(long long f) { fclose(hs_files[f]); hs_files[f] = NULL; }
+static FILE *hs_file(long long f) {
+    if (f < 0 || f >= 64 || !hs_files[f]) hs_raise(hs_fmt("file %lld is not open", f));
+    return hs_files[f];
+}
+static void hs_file_byte(long long f, long long b) {
+    if (fputc((int)(b & 255), hs_file(f)) == EOF) hs_raise("cannot write: the disk may be full");
+}
+static void hs_file_close(long long f) {
+    FILE *fp = hs_file(f);
+    int par = hs_lock_shared(); hs_files[f] = NULL; hs_unlock_shared(par);
+    if (fclose(fp)) hs_raise("cannot finish writing: the disk may be full");
+}
 /* Wall-clock seconds from a fixed point; use differences. */
 static double hs_elapsed(void) {
 #ifdef _WIN32
@@ -559,15 +590,17 @@ static double hs_elapsed(void) {
 
 /* ---- reading files and characters (used by System.ReadText and Text) ---- */
 static hs_str hs_read_file(hs_str path) {
+    if (hs_path_kind(path) == 2) hs_raise(hs_fmt("cannot read %s: it is a folder", path));
     FILE *f = hs_fopen(path, "rb");
     if (!f) hs_raise(hs_fmt("cannot read %s", path));
     fseek(f, 0, SEEK_END);
     long n = ftell(f);
     fseek(f, 0, SEEK_SET);
     char *s = hs_alloc_atomic((size_t)n + 1);
-    if (fread(s, 1, (size_t)n, f) != (size_t)n) hs_raise(hs_fmt("cannot read %s", path));
+    if (n < 0 || fread(s, 1, (size_t)n, f) != (size_t)n) { fclose(f); hs_raise(hs_fmt("cannot read %s", path)); }
     s[n] = 0;
     fclose(f);
+    if (memchr(s, 0, (size_t)n)) hs_raise(hs_fmt("%s holds a zero byte: it is not a text file", path));
     return s;
 }
 /* ---- characters: text is UTF-8, and positions and lengths count characters, not bytes ("café" has 4).
@@ -940,13 +973,10 @@ static void hs_write_file(hs_str path, hs_str text, const char *mode) {
     FILE *f = hs_fopen(path, mode);
     if (!f) hs_raise(hs_fmt("cannot write %s", path));
     size_t n = strlen(text);
-    if (fwrite(text, 1, n, f) != n) { fclose(f); hs_raise(hs_fmt("cannot write %s", path)); }
-    fclose(f);
+    if (fwrite(text, 1, n, f) != n) { fclose(f); hs_raise(hs_fmt("cannot write %s: the disk may be full", path)); }
+    if (fclose(f)) hs_raise(hs_fmt("cannot write %s: the disk may be full", path));
 }
 static void hs_write_text(hs_str path, hs_str text) { hs_write_file(path, text, "wb"); }
 static void hs_append_text(hs_str path, hs_str text) { hs_write_file(path, text, "ab"); }
-static bool hs_file_exists(hs_str path) {
-    FILE *f = hs_fopen(path, "rb");
-    if (f) fclose(f);
-    return f != NULL;
-}
+static bool hs_file_exists(hs_str path) { return hs_path_kind(path) == 1; }     /* a folder is not a file */
+static void hs_fail(hs_str message) { hs_raise(message); }

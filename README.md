@@ -239,6 +239,7 @@ end
 | `Text.ToInt(s)`, `Text.ToFloat(s)` | Text to numbers; bad text raises an error you can `catch` |
 | `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |
 | `System.WriteText(path, text)`, `System.AppendText(path, text)`, `System.FileExists(path)` | Write and check files |
+| `System.Fail(message)` | Raise an error; `try ... catch e` receives the message |
 
 ## Tests
 

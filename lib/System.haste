@@ -7,6 +7,7 @@ extern fn ReadLines(path: string): [string] = "hs_read_lines"
 extern fn WriteText(path: string, text: string) = "hs_write_text"
 extern fn AppendText(path: string, text: string) = "hs_append_text"
 extern fn FileExists(path: string): bool = "hs_file_exists"
+extern fn Fail(message: string) = "hs_fail"        // raise an error: try ... catch e gets the message
 
 fn Write(value) = print(Str(value))
 
@@ -33,13 +34,20 @@ class Bitmap
     end
   end
 
-  fn Pixel(x, y)
+  fn Check(x, y)
+    if x < 0 or x >= Width or y < 0 or y >= Height
+      Fail("pixel ({x}, {y}) is outside the {Width} x {Height} bitmap")
+    end
     Ready()
+  end
+
+  fn Pixel(x, y)
+    Check(x, y)
     return Pixels[y * Width + x]
   end
 
   fn SetPixel(x, y, color)
-    Ready()
+    Check(x, y)
     Pixels[y * Width + x] = color
   end
 

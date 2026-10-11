@@ -3,6 +3,8 @@
 
     python haste.py run   examples/bank.haste [program switches...]
     python haste.py build examples/bank.haste --target windows,macos,linux
+    python haste.py new   Fractal [folder]                 (a project: Fractal/Fractal.hproj and Fractal.haste)
+    python haste.py run   Fractal/Fractal.hproj [switches...]   (a project: its targets and switch values)
     python haste.py c     examples/bank.haste          (print generated C)
     python haste.py words [examples/bank.haste]         (names an editor should colour)
     python haste.py setup                               (download Zig, the C compiler, into tools/zig)
@@ -2502,7 +2504,64 @@ def alias_kinds(path, search):
     return kinds
 
 
+PROJECT_VERSION = 1
+
+
+def read_project(path):
+    """A project, Name.hproj, is the program Name.haste beside it plus its settings, as an INI file:
+        [Project]  Version=1
+        [Build]    Targets=windows,linux       (empty: this system)
+        [Switches] Width=1920                   (passed on run, before any given on the command line)
+    The program builds to Name (Name.exe on Windows). Returns (program, targets, switch arguments)."""
+    import configparser
+    if not os.path.isfile(path): raise HasteError(f'cannot read {path}')
+    cp = configparser.ConfigParser(interpolation=None, strict=False)
+    cp.optionxform = str                         # keep switch names as written
+    try:
+        cp.read(path, encoding='utf-8-sig')
+    except configparser.Error as ex:
+        raise HasteError(f'{path} is not a project file: {ex}')
+    version = cp.get('Project', 'Version', fallback='1').strip()
+    if not version.isdigit() or int(version) > PROJECT_VERSION:
+        raise HasteError(f'{path} is a version {version} project; this haste.py reads version {PROJECT_VERSION}')
+    stem = os.path.splitext(os.path.basename(path))[0]
+    main = os.path.join(os.path.dirname(os.path.abspath(path)), stem + '.haste')
+    if not os.path.isfile(main):
+        raise HasteError(f'{path}: its program, {stem}.haste, should be beside it')
+    targets = [t.strip() for t in cp.get('Build', 'Targets', fallback='').split(',') if t.strip()]
+    args = []
+    if cp.has_section('Switches'):
+        for name, value in cp.items('Switches'):
+            args += [f'--{name.lower()}', value]
+    return main, targets, args
+
+
+def new_project(name, folder='.'):
+    """Name/Name.hproj and Name/Name.haste, a program that runs as it is."""
+    if not re.fullmatch(r'[A-Za-z_]\w*', name):
+        raise HasteError(f'a project name is letters, digits and _, starting with a letter: not "{name}"')
+    home = os.path.join(folder, name)
+    for f in (name + '.hproj', name + '.haste'):
+        if os.path.exists(os.path.join(home, f)):
+            raise HasteError(f'{os.path.join(home, f)} is already there')
+    os.makedirs(home, exist_ok=True)
+    with open(os.path.join(home, name + '.hproj'), 'w', encoding='utf-8') as fh:
+        fh.write(f'[Project]\nVersion={PROJECT_VERSION}\n\n[Build]\nTargets=\n\n[Switches]\n')
+    with open(os.path.join(home, name + '.haste'), 'w', encoding='utf-8') as fh:
+        fh.write(f'// {name}\n\nprint("Hello from {name}")\n')
+    print(f'made {os.path.join(home, name + ".hproj")} and {name}.haste')
+    return 0
+
+
 def main(argv):
+    if argv[:1] == ['new']:
+        if len(argv) not in (2, 3):
+            print(__doc__); return 2
+        try:
+            return new_project(*argv[1:])
+        except (HasteError, OSError) as ex:
+            print(f'error: {ex}', file=sys.stderr)
+            return 1
     if argv[:1] == ['words']:
         return words(argv[1] if len(argv) > 1 else None)
     if argv[:1] == ['setup']:
@@ -2515,9 +2574,13 @@ def main(argv):
         print(__doc__); return 2
     cmd, path = argv[0], argv[1]
     try:
+        targets, extra = [host_target()], argv[2:]
+        if path.lower().endswith('.hproj'):
+            path, project_targets, switches = read_project(path)
+            targets = project_targets or targets
+            extra = switches + extra             # the command line's own switches come later, so they win
         if cmd == 'c':
             print(compile_to_c(path)[0]); return 0
-        targets, extra = [host_target()], argv[2:]
         if cmd == 'build' and '--target' in extra:
             targets = extra[extra.index('--target') + 1].split(',')
         outs = build(path, targets)

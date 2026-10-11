@@ -12,6 +12,9 @@ A test is an ordinary Haste program whose comments say what should happen:
                       error lines: each must appear)
     // args: --x 5    switches to run the program with
 
+A folder holding Name.hproj is a project test: Name.haste says what should happen, the project is run with
+"haste.py run Name.hproj" (so its switch values apply), and the folder's other .haste files are its modules.
+
 Lines the program prints must match the "out" lines exactly and completely. Tests build in parallel, one
 per core, and the exit code is the number of failures (0 when everything passes).
 """
@@ -40,9 +43,11 @@ def spec(path):
 def run(path):
     """Returns (path, failure message or None, seconds)."""
     start = time.time()
+    folder = os.path.dirname(path)
+    if path.endswith('.hproj'):
+        return run_project(path, start)
     want, errors, args = spec(path)
     error = errors[0] if errors else None
-    folder = os.path.dirname(path)
     b = subprocess.run([sys.executable, HASTE, 'build', path], cwd=folder, capture_output=True, **UTF8)
     if b.returncode != 0:
         msg = (b.stdout + b.stderr).strip()
@@ -70,6 +75,21 @@ def run(path):
     return path, '\n'.join(problems) or None, time.time() - start
 
 
+def run_project(path, start):
+    want, errors, args = spec(path[:-6] + '.haste')
+    r = subprocess.run([sys.executable, HASTE, 'run', path] + args, cwd=os.path.dirname(path),
+                       capture_output=True, timeout=600, **UTF8)
+    out = r.stdout.split('  ----\n', 1)
+    got = [l.rstrip() for l in out[1].splitlines()] if len(out) == 2 else []
+    if r.returncode != 0 and not errors:
+        return path, f'exit code {r.returncode}:\n' + indent((r.stdout + r.stderr).strip()), time.time() - start
+    if errors and not all(x in r.stdout + r.stderr for x in errors):
+        return path, 'expected an error containing ' + ', '.join(errors), time.time() - start
+    if not matches(want, got):
+        return path, 'output differs:\n' + diff(want, got), time.time() - start
+    return path, None, time.time() - start
+
+
 def matches(want, got):
     return len(want) == len(got) and all(
         re.fullmatch('.*'.join(map(re.escape, w.split('...'))), g) for w, g in zip(want, got))
@@ -93,7 +113,9 @@ def diff(want, got):
 def main(argv):
     pattern = argv[0] if argv else ''
     tests = sorted(os.path.join(d, f) for d, dirs, files in os.walk(HERE)
-                   for f in files if f.endswith('.haste') and pattern in os.path.relpath(os.path.join(d, f), HERE)
+                   for f in files if (f.endswith('.hproj') or f.endswith('.haste') and not any(
+                       g.endswith('.hproj') for g in files))          # in a project, only the project is a test
+                   and pattern in os.path.relpath(os.path.join(d, f), HERE)
                    if not (set(os.path.relpath(d, HERE).split(os.sep)) & SKIP))
     if not tests:
         print('no tests match', repr(pattern)); return 1

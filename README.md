@@ -149,6 +149,33 @@ on Windows. Keeping Zig in `tools/zig` means the one exclusion covers it.
 
 Executables go into `build/` next to the source file.
 
+## Projects
+
+A single `.haste` file is a complete program. When a program grows to several files, make it a project:
+
+```
+python haste.py new Fractal          # Fractal/Fractal.hproj and Fractal/Fractal.haste
+python haste.py run Fractal/Fractal.hproj
+```
+
+`Fractal.haste` is the program and builds to `Fractal` (`Fractal.exe` on Windows); the other `.haste` files in
+the folder are its modules. `Fractal.hproj` holds what to build for and the switch values to run with, so they
+travel with the project:
+
+```ini
+[Project]
+Version=1
+
+[Build]
+Targets=windows,linux
+
+[Switches]
+Width=1920
+```
+
+An empty `Targets` builds for this system. Switches given on the command line come after the project's, so they
+win: `run Fractal.hproj --width 640`.
+
 ## Examples
 
 | Example | Shows |

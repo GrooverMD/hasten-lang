@@ -1,0 +1,6 @@
+// System.Exit ends the program at once with an exit code
+print("stopping")
+System.Exit(3)
+print("never printed")
+// out: stopping
+// error: stopping

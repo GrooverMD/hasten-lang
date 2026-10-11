@@ -1136,3 +1136,89 @@ static void hs_write_text(hs_str path, hs_str text) { hs_write_file(path, text, 
 static void hs_append_text(hs_str path, hs_str text) { hs_write_file(path, text, "ab"); }
 static bool hs_file_exists(hs_str path) { return hs_path_kind(path) == 1; }     /* a folder is not a file */
 static void hs_fail(hs_str message) { hs_raise(message); }
+
+/* ---- folders, environment and exit (System) ---- */
+#ifdef _WIN32
+static hs_str hs_from_wide(const wchar_t *w) {
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+    char *r = hs_alloc_atomic((size_t)n);
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, r, n, NULL, NULL);
+    return r;
+}
+static wchar_t *hs_to_wide(hs_str s) {
+    int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
+    wchar_t *r = hs_alloc_atomic(sizeof(wchar_t) * (size_t)n);
+    MultiByteToWideChar(CP_UTF8, 0, s, -1, r, n);
+    return r;
+}
+#else
+#include <dirent.h>
+#endif
+static int hs_name_cmp(const void *a, const void *b) { return strcmp(*(hs_str const *)a, *(hs_str const *)b); }
+static void *hs_list_folder(hs_str folder, int want_folders) {
+    if (hs_path_kind(folder) != 2) hs_raise(hs_fmt("%s is not a folder", folder));
+    hs_strs *l = hs_alloc(sizeof *l);
+#ifdef _WIN32
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW(hs_to_wide(hs_fmt("%s\\*", folder)), &fd);
+    if (h == INVALID_HANDLE_VALUE) hs_raise(hs_fmt("cannot read the folder %s", folder));
+    do {
+        hs_str name = hs_from_wide(fd.cFileName);
+        if (!strcmp(name, ".") || !strcmp(name, "..")) continue;
+        if (!!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == want_folders) hs_strs_add(l, name);
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+#else
+    DIR *d = opendir(folder);
+    if (!d) hs_raise(hs_fmt("cannot read the folder %s", folder));
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        hs_str name = hs_dup(e->d_name, strlen(e->d_name));
+        if ((hs_path_kind(hs_fmt("%s/%s", folder, name)) == 2) == want_folders) hs_strs_add(l, name);
+    }
+    closedir(d);
+#endif
+    qsort(l->items, (size_t)l->count, sizeof(hs_str), hs_name_cmp);
+    return l;
+}
+static void *hs_files_in(hs_str folder) { return hs_list_folder(folder, 0); }
+static void *hs_folders_in(hs_str folder) { return hs_list_folder(folder, 1); }
+static bool hs_folder_exists(hs_str path) { return hs_path_kind(path) == 2; }
+static void hs_make_folder(hs_str path) {
+    char *p = (char *)hs_dup(path, strlen(path));
+    for (char *c = p + 1; ; c++) {                            /* each folder on the way, then the last */
+        if (*c && *c != '/' && *c != '\\') continue;
+        char keep = *c; *c = 0;
+        if (hs_path_kind(p) != 2) {
+#ifdef _WIN32
+            int bad = !CreateDirectoryW(hs_to_wide(p), NULL);
+#else
+            int bad = mkdir(p, 0777);
+#endif
+            if (bad && hs_path_kind(p) != 2) hs_raise(hs_fmt("cannot make the folder %s", p));
+        }
+        if (!keep) break;
+        *c = keep;
+    }
+}
+static void hs_delete_file(hs_str path) {
+    if (hs_path_kind(path) != 1) hs_raise(hs_fmt("cannot delete %s: there is no such file", path));
+#ifdef _WIN32
+    int bad = _wremove(hs_to_wide(path));
+#else
+    int bad = remove(path);
+#endif
+    if (bad) hs_raise(hs_fmt("cannot delete %s", path));
+}
+static hs_str hs_env(hs_str name, hs_str fallback) {
+#ifdef _WIN32
+    wchar_t buf[32768];
+    DWORD n = GetEnvironmentVariableW(hs_to_wide(name), buf, 32768);
+    return n && n < 32768 ? hs_from_wide(buf) : fallback;
+#else
+    const char *v = getenv(name);
+    return v ? hs_dup(v, strlen(v)) : fallback;
+#endif
+}
+static void hs_exit(long long code) { fflush(stdout); exit((int)code); }

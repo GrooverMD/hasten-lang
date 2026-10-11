@@ -507,7 +507,10 @@ into a time; an impossible one, such as 30 February, is an error rather than bei
 `Time.Elapsed()` measures intervals: subtract two readings.
 
 **Files and the outside world** are in `System` (`ReadText`, `ReadLines`, `WriteText`, `AppendText`,
-`FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. File names
+`FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. `System.Files(folder)` and `System.Folders(folder)` list a folder's
+files and folders by name, sorted; `System.FolderExists`, `System.MakeFolder` (with any missing folders above it) and
+`System.DeleteFile` manage them. `System.Env(name, default)` reads an environment variable. `System.Exit(code)` ends
+the program at once with that exit code. File names
 are UTF-8 on every system. `FileExists` is false for a folder. Reading a folder, or a file holding a zero byte, as
 text is an error.
 

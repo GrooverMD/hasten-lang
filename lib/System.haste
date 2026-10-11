@@ -8,6 +8,13 @@ extern fn WriteText(path: string, text: string) = "hs_write_text"
 extern fn AppendText(path: string, text: string) = "hs_append_text"
 extern fn FileExists(path: string): bool = "hs_file_exists"
 extern fn Fail(message: string) = "hs_fail"        // raise an error: try ... catch e gets the message
+extern fn Files(folder: string): [string] = "hs_files_in"       // names of the files in a folder, sorted
+extern fn Folders(folder: string): [string] = "hs_folders_in"   // names of the folders in a folder, sorted
+extern fn FolderExists(path: string): bool = "hs_folder_exists"
+extern fn MakeFolder(path: string) = "hs_make_folder"           // and any missing folders above it
+extern fn DeleteFile(path: string) = "hs_delete_file"
+extern fn Env(name: string, default: string): string = "hs_env" // an environment variable, or default
+extern fn Exit(code: int) = "hs_exit"                           // end the program now with this exit code
 
 fn Write(value) = print(Str(value))
 

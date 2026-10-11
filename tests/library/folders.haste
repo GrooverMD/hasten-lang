@@ -1,0 +1,33 @@
+// folders: make (with the folders above), list files and folders sorted, delete files; environment variables
+let base = "build/folders_test/a/b"
+System.MakeFolder(base)
+System.MakeFolder(base)
+System.MakeFolder(base + "/sub")
+System.WriteText(base + "/z.txt", "z")
+System.WriteText(base + "/é.txt", "e")
+print(System.Files(base))
+print(System.Folders(base))
+print(System.FolderExists(base) and not System.FolderExists(base + "/z.txt"))
+System.DeleteFile(base + "/z.txt")
+System.DeleteFile(base + "/é.txt")
+print(System.Files(base))
+try
+  System.DeleteFile(base + "/z.txt")
+catch e
+  print(e)
+end
+try
+  print(System.Files("build/no_such_folder"))
+catch e
+  print(e)
+end
+print(System.Env("HASTE_NO_SUCH_VARIABLE", "unset"))
+print(System.Env("PATH", "") <> "")
+// out: ["z.txt", "é.txt"]
+// out: ["sub"]
+// out: true
+// out: []
+// out: cannot delete build/folders_test/a/b/z.txt: there is no such file
+// out: build/no_such_folder is not a folder
+// out: unset
+// out: true

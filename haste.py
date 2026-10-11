@@ -1817,7 +1817,12 @@ def deep(path, work):
         except BaseException as ex:
             result.append((False, ex))
     sys.setrecursionlimit(200000)
-    old = threading.stack_size(512 * 1024 * 1024)
+    for mb in (512, 256, 128, 64):                # Windows' Python allows at most 256 MB per thread
+        try:
+            old = threading.stack_size(mb * 1024 * 1024)
+            break
+        except ValueError:
+            continue
     try:
         t = threading.Thread(target=run); t.start(); t.join()
     finally:

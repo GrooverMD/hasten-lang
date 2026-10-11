@@ -1002,20 +1002,18 @@ static {name} *{name}_of(int n, ...) {{
         g.protos.append(sig + ';')
         g.funcs.append(f'{sig} {{\n    return {g.coerce(c, ct, t, p)};\n}}')
 
-    def emit_setter(g, qname, pname):
+    def emit_setter(g, qname, pname, check=True):
+        """X_s_name sets a property after its where rule passes; X_r_name, used while constructing, only sets it
+        (the new object's rules are checked once every property has its value: see emit_valid)."""
         cls = g.classes[qname]; p = cls.props[pname]
         t = g.prop_type(cls, p)
-        sig = f'static C_{cls.cname} *{cls.cname}_s_{pname}(C_{cls.cname} *self, {g.ctype(t)} it)'
+        sig = f'static C_{cls.cname} *{cls.cname}_{"s" if check else "r"}_{pname}(C_{cls.cname} *self, {g.ctype(t)} it)'
         g.protos.append(sig + ';')
         body = []
         env = Env(cls.mod, cls); env.vars['self'] = (qname, False, 'self')
         env.vars['it'] = (t, False, 'it')
-        if p.where:
-            c, ct = g.expr(p.where, env)
-            if ct != 'bool': g.err(p, 'a where clause must be true or false')
-            show = {'string': 'hs_fmt("\\"%s\\"", it)', 'int': 'hs_fmt("%lld", it)',
-                    'float': 'hs_ftoa(it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
-            body.append(f'    if (!({c})) hs_require_fail("{qname}.{pname}", {show}, {cstr(p.wtext)});')
+        if p.where and (check or p.computed):
+            body.append(g.where_check(cls, p, env, t))
         if p.write:                              # it = incoming value, field = the stored value
             wenv = env.child()
             wenv.writing = (qname, pname)
@@ -1026,13 +1024,68 @@ static {name} *{name}_of(int n, ...) {{
         body.append('    return self;')
         g.funcs.append(sig + ' {\n' + '\n'.join(body) + '\n}')
 
+    def where_check(g, cls, p, env, t):
+        c, ct = g.expr(p.where, env)
+        if ct != 'bool': g.err(p, 'a where clause must be true or false')
+        show = {'string': 'hs_fmt("\\"%s\\"", it)', 'int': 'hs_fmt("%lld", it)',
+                'float': 'hs_ftoa(it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
+        return f'    if (!({c})) hs_require_fail("{cls.qname}.{p.name}", {show}, {cstr(p.wtext)});'
+
+    def emit_valid(g, qname):
+        """A new object's where rules, checked after all its properties are set, so a rule may compare
+        properties (hi = 10 where it >= lo) whatever order they were given in, and defaults are checked too."""
+        cls = g.classes[qname]
+        sig = f'static C_{cls.cname} *{cls.cname}_valid(C_{cls.cname} *self)'
+        g.protos.append(sig + ';')
+        body = []
+        for p in cls.props.values():
+            if p.computed or not p.where: continue
+            t = g.prop_type(cls, p)
+            env = Env(cls.mod, cls); env.vars['self'] = (qname, False, 'self')
+            env.vars['it'] = (t, False, 'it')
+            body += [f'    {{ {g.ctype(t)} it = self->p_{p.name};', g.where_check(cls, p, env, t), '    }']
+        g.funcs.append(sig + ' {\n' + '\n'.join(body + ['    return self;']) + '\n}')
+
+    def default_cycle(g, cls, path=()):
+        """Node.next = Node() would make Nodes forever: Haste has no nil to stop it."""
+        if cls.qname in path:
+            chain = ' -> '.join([g.classes[q].name for q in path] + [cls.name])
+            first = g.classes[path[0]]
+            p = next(p for p in first.props.values() if p.default is not None and g.makes(first, p.default))
+            g.err(p, f'{chain}: each new {first.name} would make another one forever (Haste has no nil); '
+                     f'hold it in a list instead, e.g. {p.name}: [{g.classes[path[-1]].name if len(path) > 0 else cls.name}] = []')
+        for p in cls.props.values():
+            if p.default is None: continue
+            for made in g.makes(cls, p.default):
+                g.default_cycle(made, path + (cls.qname,))
+
+    def makes(g, cls, e):
+        """Classes a default expression constructs directly."""
+        out = []
+        if e.kind == 'call':
+            parts = dotted(e.fn)
+            if parts:
+                try:
+                    r = g.resolve(parts, Env(cls.mod), e)
+                except HasteError:
+                    r = None
+                if r and r[0] == 'class': out.append(r[1])
+            for _, a in e.args: out += g.makes(cls, a)
+        for name in ('items',):
+            for sub in getattr(e, name, None) or []: out += g.makes(cls, sub)
+        for name in ('a', 'b', 'l', 'r', 'e', 'obj'):
+            sub = getattr(e, name, None)
+            if isinstance(sub, N): out += g.makes(cls, sub)
+        return out
+
     def emit_new(g, qname):
         cls = g.classes[qname]
+        g.default_cycle(cls)
         sig = f'static C_{cls.cname} *{cls.cname}_new(void)'
         g.protos.append(sig + ';')
         plain = all(g.prop_type(cls, p) in ('int', 'float', 'bool') for p in cls.props.values() if not p.computed)
         alloc = 'hs_alloc_atomic' if plain else 'hs_alloc'   # only numbers inside: nothing for the collector to follow
-        body = [f'    C_{cls.cname} *self = {alloc}(sizeof(C_{cls.cname}));']
+        body = ['    hs_enter();', f'    C_{cls.cname} *self = {alloc}(sizeof(C_{cls.cname}));']
         for p in cls.props.values():
             if p.computed: continue
             t = g.prop_type(cls, p)
@@ -1048,7 +1101,7 @@ static {name} *{name}_of(int n, ...) {{
             else:
                 c = {'string': '""', 'bool': 'false'}.get(t, '0')
             body.append(f'    self->p_{p.name} = {c};')
-        body.append('    return self;')
+        body += ['    hs_leave();', '    return self;']
         g.funcs.append(sig + ' {\n' + '\n'.join(body) + '\n}')
 
     # ── functions: one C version per combination of argument types ──
@@ -1359,7 +1412,7 @@ static {name} *{name}_of(int n, ...) {{
             return f'{g.list_type(ot[1:-1])}_set({oc}, {ic}, {g.coerce(c, ct, ot[1:-1], st)})'
         g.err(st, 'cannot assign to that')
 
-    def set_prop(g, objc, cls, pname, value, env):
+    def set_prop(g, objc, cls, pname, value, env, check=True):
         p = cls.props[pname]
         if p.computed and not p.write: g.err(value, f'{cls.name}.{pname} is computed and read-only')
         if env.writing == (cls.qname, pname):
@@ -1367,8 +1420,8 @@ static {name} *{name}_of(int n, ...) {{
                   if not p.computed else f'{pname} is computed: set the properties it is computed from instead')
         t = g.prop_type(cls, p)
         c, ct = g.expr(value, env, t)
-        g.request(('setter', cls.qname, pname))
-        return f'{cls.cname}_s_{pname}({objc}, {g.coerce(c, ct, t, value)})'
+        g.request(('setter', cls.qname, pname, check))
+        return f'{cls.cname}_{"s" if check else "r"}_{pname}({objc}, {g.coerce(c, ct, t, value)})'
 
     def get_prop(g, objc, cls, p):
         t = g.prop_type(cls, p)
@@ -1694,11 +1747,16 @@ static {name} *{name}_of(int n, ...) {{
     def construct(g, cls, e, env):
         g.use_class(cls.qname)
         g.request(('new', cls.qname))
-        code = f'{cls.cname}_new()'
+        code, given = f'{cls.cname}_new()', set()
         for nm, a in e.args:
             if not nm: g.err(e, f'{cls.name}(...) takes named properties, e.g. {cls.name}(Name: "x")')
             if nm not in cls.props: g.err(e, f'{cls.name} has no property {nm}')
-            code = g.set_prop(code, cls, nm, a, env)
+            if nm in given: g.err(a, f'{nm} is given twice')
+            given.add(nm)
+            code = g.set_prop(code, cls, nm, a, env, check=False)
+        if any(p.where and not p.computed for p in cls.props.values()):
+            g.request(('valid', cls.qname))
+            code = f'{cls.cname}_valid({code})'
         return code, cls.qname
 
     # ── command-line switches: variables whose defaults the command line can override ──

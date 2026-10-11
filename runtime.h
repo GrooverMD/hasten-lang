@@ -382,7 +382,7 @@ static void hs_raise(hs_str msg) {
         if (!*hs_calls[d]) continue;
         int same = 0;
         while (d > 0 && hs_calls[d - 1] == hs_calls[d]) { d--; same++; }
-        if (same) fprintf(stderr, "  called from %s (%d more times)\n", hs_calls[d], same);
+        if (same) fprintf(stderr, "  called from %s (%d more time%s)\n", hs_calls[d], same, same == 1 ? "" : "s");
         else fprintf(stderr, "  called from %s\n", hs_calls[d]);
         lines++;
         if (lines == 10 && d > 0) fprintf(stderr, "  ...\n");

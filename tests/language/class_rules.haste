@@ -1,0 +1,33 @@
+// a new object checks its where rules once every property is set: defaults are checked, and a rule
+// may compare properties whatever order they are given in; setting a property later checks it at once
+class Range
+  Lo = 0 where it <= Hi
+  Hi = 10
+end
+let a = Range(Lo: 15, Hi: 20)
+let b = Range(Hi: 20, Lo: 15)
+print("{a.Lo} {b.Lo}")
+try
+  let c = Range(Lo: 15)
+catch e
+  print(e)
+end
+try
+  a.Lo = 30
+catch e
+  print(e)
+end
+print(a.Lo)
+class Odd
+  N = -1 where it >= 0
+end
+try
+  let o = Odd()
+catch e
+  print(e)
+end
+// out: 15 15
+// out: Range.Lo cannot be 15 (requires it <= Hi)
+// out: Range.Lo cannot be 30 (requires it <= Hi)
+// out: 15
+// out: Odd.N cannot be -1 (requires it >= 0)

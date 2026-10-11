@@ -1,0 +1,6 @@
+// a property can be given once when making an object
+class P
+  X = 1
+end
+let p = P(X: 2, X: 3)
+// error: ctor_twice.haste:5: X is given twice

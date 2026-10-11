@@ -1,0 +1,8 @@
+// a default that makes another object of the same kind would go on forever (there is no nil)
+class Node
+  Value = 0
+  Next: Node = Node()
+end
+let n = Node()
+// error: default_cycle.haste:4: Node -> Node: each new Node would make another one forever
+// error: Next: [Node] = []

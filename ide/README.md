@@ -23,20 +23,21 @@ You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.c
 
 | Key | Does |
 |---|---|
-| F9 | Save, then `haste.py run` the current file, with the switches from the toolbar |
-| Ctrl+F9 | Save, then `haste.py build` for the systems chosen in "Build for" |
+| F9 | Save, then `haste.py run` the current file, with the switch values from Module Options |
+| Ctrl+F9 | Save, then `haste.py build` for the targets chosen in Module Options (this system if none) |
 | Ctrl+F2 | Stop the running program |
+| Shift+Ctrl+F11 | Module Options: what this program is built for, and a value for each of its switches (the grid lists the switches the source declares, with their defaults; empty means the default). Kept per file |
 | Run > Run Tests | Run the test suite (`tests/run.py`); double-click a `FAIL` line to open that test |
 | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+W | New, open, save, close tab |
 | Ctrl+F, F3 | Find, find next |
 | Ctrl+G | Go to line |
 | View > Font... | Choose the editor font (only monospaced fonts are listed) and size |
 | Ctrl+mouse wheel, Ctrl+NumPad + / - / 0 | Make the text bigger, smaller, or back to 11 pt, in every tab |
-| View > Toolbar | Show or hide the toolbar: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Find, Run, Build, Stop, Run Tests, Settings |
+| View > Toolbar | Show or hide the toolbar: New, Open, Save, Undo, Redo, Cut, Copy, Paste, Find, Run, Build, Stop, Run Tests, Module Options, Settings |
 | Tools > Settings... | Font, tab width, right margin, line numbers, VCL style, Python, `haste.py`, clearing the output on each run, reopening last time's files |
 
 A compiler error takes you straight to its line. Double-click any `file.haste:12` in the output to go
-there. Settings, the editor font and the files you had open are kept in `%APPDATA%\Hasten\Hasten.ini`.
+there. Settings, each program's module options, the editor font and the files you had open are kept in `%APPDATA%\Hasten\Hasten.ini`.
 
 ## Files
 
@@ -45,6 +46,7 @@ there. Settings, the editor font and the files you had open are kept in `%APPDAT
 | `Hasten.dpr` | The program |
 | `Hasten.Main.pas` | The main window, built entirely in code (no .dfm) |
 | `Hasten.Settings.pas` | The Settings dialog, also built in code; each setting is a property |
+| `Hasten.ModuleOptions.pas` | The Module Options dialog: build targets and switch values for one program, read from its source |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |
 | `Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |

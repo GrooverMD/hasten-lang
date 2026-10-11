@@ -11,7 +11,7 @@ uses
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd, Vcl.Buttons, Vcl.Themes,
   SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
-  Hasten.Watcher, Hasten.Settings;
+  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions;
 
 type
   TEditorTab = class(TTabSheet)
@@ -36,10 +36,8 @@ type
     FOutput: TSynEdit;                          // read-only, coloured by SynHighlighterHasteOutput
     FOutputHighlighter: TSynHasteOutputSyn;
     FStatus: TStatusBar;
-    FArgs: TEdit;
-    FTarget: TComboBox;
     FActions: TActionList;
-    FRunAction, FBuildAction, FStopAction, FTestsAction: TAction;
+    FRunAction, FBuildAction, FStopAction, FTestsAction, FModuleAction: TAction;
     FHighlighter: THasteHighlighter;
     FSearch: TSynEditSearch;
     FFind: TFindDialog;
@@ -93,7 +91,9 @@ type
     function JumpToError(const Line: string): Boolean;
     procedure EditorStatus(Sender: TObject; Changes: TSynStatusChanges);
     procedure UpdateStatus;
-    function SwitchHint(Tab: TEditorTab): string;
+    function ModuleSection(const FileName: string): string;
+    function ModuleTargets(const FileName: string): string;
+    function ModuleSwitchArgs(Tab: TEditorTab): string;
     procedure PagesChange(Sender: TObject);
     procedure OutputDblClick(Sender: TObject);
     procedure OutputClear;
@@ -106,6 +106,7 @@ type
     procedure ToolEditClick(Sender: TObject);
     procedure DoToolbar(Sender: TObject);
     procedure DoSettings(Sender: TObject);
+    procedure DoModuleOptions(Sender: TObject);
     procedure SetFontSize(Size: Integer);
     procedure EditorMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
       MousePos: TPoint; var Handled: Boolean);
@@ -153,7 +154,6 @@ implementation
 
 const
   HasteFilter = 'Haste files (*.haste)|*.haste|All files (*.*)|*.*';
-  TargetAll = 'windows,macos,linux';
 
 function Quote(const S: string): string;
 begin
@@ -288,7 +288,6 @@ var
   Menu: TMainMenu;
   Bar: TPanel;
   Split: TSplitter;
-  Lbl: TLabel;
 
   function Item(Parent: TMenuItem; Action: TAction): TMenuItem;
   begin
@@ -307,7 +306,6 @@ var
 var
   FileMenu, EditMenu, ViewMenu, RunMenu, ToolsMenu: TMenuItem;
   Zoom, NewAction, OpenAction, SaveAction, FindAction, SettingsAction: TAction;
-  Right: TPanel;
 begin
   Caption := 'Hasten';
   Width := 1100;
@@ -365,11 +363,14 @@ begin
   FBuildAction := AddAction('&Build', 'Ctrl+F9', DoBuild);
   FStopAction := AddAction('&Stop', 'Ctrl+F2', DoStop);
   FTestsAction := AddAction('Run &Tests', '', DoTests);
+  FModuleAction := AddAction('Module &Options...', 'Shift+Ctrl+F11', DoModuleOptions);
   Item(RunMenu, FRunAction);
   Item(RunMenu, FBuildAction);
   Item(RunMenu, FStopAction);
   Item(RunMenu, nil);
   Item(RunMenu, FTestsAction);
+  Item(RunMenu, nil);
+  Item(RunMenu, FModuleAction);
   Item(RunMenu, nil);
   Item(RunMenu, AddAction('Where is &haste.py...', '', DoHastePy));
 
@@ -383,37 +384,7 @@ begin
   Bar.Height := 34;
   Bar.BevelOuter := bvNone;
   BuildToolbar(Bar, [NewAction, OpenAction, SaveAction, nil, nil, FindAction, FRunAction, FBuildAction,
-    FStopAction, FTestsAction, SettingsAction]);
-
-  Right := TPanel.Create(Self);                 // slides left when the toolbar is hidden
-  Right.Parent := Bar;
-  Right.Align := alClient;
-  Right.BevelOuter := bvNone;
-
-  Lbl := TLabel.Create(Self);
-  Lbl.Parent := Right;
-  Lbl.SetBounds(10, 9, 70, 16);
-  Lbl.Caption := 'Switches:';
-  FArgs := TEdit.Create(Self);
-  FArgs.Parent := Right;
-  FArgs.SetBounds(72, 6, 300, 22);
-  FArgs.Hint := 'Passed to the program on Run, e.g. --width 1920 --height 1080';   // a tooltip: the
-  FArgs.ShowHint := True;                       // VCL style draws a TextHint too faintly to read
-
-  Lbl := TLabel.Create(Self);
-  Lbl.Parent := Right;
-  Lbl.SetBounds(388, 9, 60, 16);
-  Lbl.Caption := 'Build for:';
-  FTarget := TComboBox.Create(Self);
-  FTarget.Parent := Right;
-  FTarget.SetBounds(450, 6, 180, 22);
-  FTarget.Style := csDropDownList;
-  FTarget.Items.Add('this system');
-  FTarget.Items.Add(TargetAll);
-  FTarget.Items.Add('windows');
-  FTarget.Items.Add('linux');
-  FTarget.Items.Add('macos');
-  FTarget.ItemIndex := 0;
+    FStopAction, FTestsAction, FModuleAction, SettingsAction]);
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
@@ -614,7 +585,7 @@ type
 
 procedure TMainForm.BuildToolbar(Bar: TPanel; const Actions: array of TAction);
 const
-  Glyphs: array[0..10] of TTool = (
+  Glyphs: array[0..11] of TTool = (
     (Glyph: #$E8A5; Word: 'New'; Hint: 'New (Ctrl+N)'; Tag: 0),
     (Glyph: #$E8E5; Word: 'Open'; Hint: 'Open (Ctrl+O)'; Tag: 0),
     (Glyph: #$E74E; Word: 'Save'; Hint: 'Save (Ctrl+S)'; Tag: 0),
@@ -624,6 +595,7 @@ const
     (Glyph: #$E90F; Word: 'Build'; Hint: 'Build (Ctrl+F9)'; Tag: 0),
     (Glyph: #$E71A; Word: 'Stop'; Hint: 'Stop (Ctrl+F2)'; Tag: 0),
     (Glyph: #$E9D5; Word: 'Tests'; Hint: 'Run Tests'; Tag: 0),
+    (Glyph: #$E9E9; Word: 'Options'; Hint: 'Module Options (Shift+Ctrl+F11)'; Tag: 0),
     (Glyph: #$E713; Word: 'Settings'; Hint: 'Settings'; Tag: 0));
   Edits: array[0..4] of TTool = (
     (Glyph: #$E7A7; Word: 'Undo'; Hint: 'Undo (Ctrl+Z)'; Tag: emUndo),
@@ -677,7 +649,7 @@ begin
   for I := 0 to High(Actions) do
     if Actions[I] <> nil then
     begin
-      if I in [6, 10] then Gap;                  // before Run, and before Settings
+      if I in [6, 11] then Gap;                  // before Run, and before Settings
       Button(Glyphs[I], Actions[I]);
     end
     else if not EditsDone then
@@ -712,7 +684,7 @@ end;
 
 procedure TMainForm.DoToolbar(Sender: TObject);
 begin
-  FTools.Visible := FToolbarAction.Checked;
+  FTools.Parent.Visible := FToolbarAction.Checked;   // the whole top bar: the toolbar is all it holds
 end;
 
 { ---- settings that apply to every editor ---- }
@@ -767,6 +739,87 @@ begin
     SaveSettings;
   finally
     Dialog.Free;
+  end;
+end;
+
+{ ---- module options: each program's own, in Hasten.ini under [Module <full file name>] ---- }
+
+function TMainForm.ModuleSection(const FileName: string): string;
+begin
+  Result := 'Module ' + FileName;
+end;
+
+{ '' builds for this system; else the targets for haste.py --target, e.g. windows,linux. }
+function TMainForm.ModuleTargets(const FileName: string): string;
+var
+  Ini: TMemIniFile;
+begin
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  try
+    Result := Ini.ReadString(ModuleSection(FileName), 'Targets', '');
+  finally
+    Ini.Free;
+  end;
+end;
+
+{ The values saved for the switches the program declares now: one removed from the source is not passed. }
+function TMainForm.ModuleSwitchArgs(Tab: TEditorTab): string;
+var
+  Ini: TMemIniFile;
+  Switches: TArray<TSwitchInfo>;
+  Names, Values: TArray<string>;
+  S: TSwitchInfo;
+begin
+  Switches := ReadSwitches(Tab.Editor.Lines);
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  try
+    for S in Switches do
+    begin
+      Names := Names + [S.Name];
+      Values := Values + [Ini.ReadString(ModuleSection(Tab.FileName), 'Switch.' + S.Name, '')];
+    end;
+  finally
+    Ini.Free;
+  end;
+  Result := SwitchArgs(Names, Values);
+end;
+
+procedure TMainForm.DoModuleOptions(Sender: TObject);
+var
+  Tab: TEditorTab;
+  Dialog: TModuleOptionsDialog;
+  Ini: TMemIniFile;
+  Section: string;
+  I: Integer;
+begin
+  Tab := ActiveTab;
+  if Tab = nil then Exit;
+  if Tab.FileName = '' then                     // the options are kept by file, so it needs a name
+  begin
+    if MessageDlg('Save ' + Tab.Title + ' first? Module options are kept with the file.',
+      mtConfirmation, [mbOK, mbCancel], 0) <> mrOk then Exit;
+    if not SaveTab(Tab, True) or (Tab.FileName = '') then Exit;
+  end;
+  Section := ModuleSection(Tab.FileName);
+  ForceDirectories(ExtractFilePath(FIniName));
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  Dialog := TModuleOptionsDialog.Create(Self);
+  try
+    Dialog.LoadSwitches(Tab.Editor.Lines);
+    Dialog.Targets := Ini.ReadString(Section, 'Targets', '');
+    for I := 0 to Dialog.SwitchCount - 1 do
+      Dialog.Values[Dialog.Switches[I].Name] := Ini.ReadString(Section, 'Switch.' + Dialog.Switches[I].Name, '');
+    if not Dialog.Execute(Tab.Title) then Exit;
+    Ini.EraseSection(Section);                  // switches no longer in the program go with it
+    if Dialog.Targets <> '' then
+      Ini.WriteString(Section, 'Targets', Dialog.Targets);
+    for I := 0 to Dialog.SwitchCount - 1 do
+      if Dialog.Values[Dialog.Switches[I].Name] <> '' then
+        Ini.WriteString(Section, 'Switch.' + Dialog.Switches[I].Name, Dialog.Values[Dialog.Switches[I].Name]);
+    Ini.UpdateFile;
+  finally
+    Dialog.Free;
+    Ini.Free;
   end;
 end;
 
@@ -873,9 +926,6 @@ begin
     FToolbarAction.Checked := Ini.ReadBool('View', 'Toolbar', True);
     DoToolbar(nil);
     ApplyFont;
-    FArgs.Text := Ini.ReadString('Run', 'Switches', '');
-    FTarget.ItemIndex := FTarget.Items.IndexOf(Ini.ReadString('Run', 'Target', 'this system'));
-    if FTarget.ItemIndex < 0 then FTarget.ItemIndex := 0;
     Ini.ReadSectionValues('Open', Files);
     if FReopen then
       for I := 0 to Files.Count - 1 do             // the files that were open last time
@@ -906,8 +956,8 @@ begin
     Ini.WriteBool('Start', 'Reopen', FReopen);
     Ini.WriteString('View', 'Style', FStyleName);
     Ini.WriteBool('View', 'Toolbar', FToolbarAction.Checked);
-    Ini.WriteString('Run', 'Switches', FArgs.Text);
-    Ini.WriteString('Run', 'Target', FTarget.Text);
+    Ini.DeleteKey('Run', 'Switches');           // from before Module Options: each program keeps its own now
+    Ini.DeleteKey('Run', 'Target');
     Ini.EraseSection('Open');
     N := 0;
     for I := 0 to FPages.PageCount - 1 do
@@ -1165,15 +1215,23 @@ end;
 procedure TMainForm.Start(const Verb: string);
 var
   Tab: TEditorTab;
-  Cmd: string;
+  Cmd, Targets, Args: string;
 begin
   Tab := ActiveTab;
   if Running or (Tab = nil) or not SaveAllForRun or not LocateHastePy then Exit;
   Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' ' + Verb + ' ' + Quote(Tab.FileName);
-  if (Verb = 'build') and (FTarget.ItemIndex > 0) then
-    Cmd := Cmd + ' --target ' + FTarget.Text;
-  if (Verb = 'run') and (Trim(FArgs.Text) <> '') then
-    Cmd := Cmd + ' ' + Trim(FArgs.Text);
+  if Verb = 'build' then
+    Targets := ModuleTargets(Tab.FileName)
+  else
+    Targets := '';
+  if Targets <> '' then
+    Cmd := Cmd + ' --target ' + Targets;
+  if Verb = 'run' then
+    Args := ModuleSwitchArgs(Tab)
+  else
+    Args := '';
+  if Args <> '' then
+    Cmd := Cmd + ' ' + Args;
   FRunFolder := ExtractFileDir(Tab.FileName);
   FJumped := False;
   OutputClear;
@@ -1292,36 +1350,6 @@ begin
   FStatus.Panels[0].Text := Format('Line %d, Col %d', [Tab.Editor.CaretY, Tab.Editor.CaretX]);
   if Tab.Modified then FStatus.Panels[1].Text := 'Modified' else FStatus.Panels[1].Text := '';
   if Tab.FileName <> '' then Caption := Tab.FileName + ' - Hasten' else Caption := Tab.Title + ' - Hasten';
-  FArgs.Hint := SwitchHint(Tab);
-end;
-
-{ The switches the open program accepts, read from its source the way haste.py reads them:
-    switch Name[: type] = default [where rule]   // help
-  Kept current as you type, because UpdateStatus runs on every edit and caret move. }
-function TMainForm.SwitchHint(Tab: TEditorTab): string;
-var
-  I: Integer;
-  Line, Item: string;
-  M: TMatch;
-begin
-  Result := '';
-  for I := 0 to Tab.Editor.Lines.Count - 1 do
-  begin
-    Line := Tab.Editor.Lines[I];
-    if not Line.TrimLeft.StartsWith('switch ') then Continue;
-    M := TRegEx.Match(Line, '^\s*switch\s+(\w+)\s*(?::\s*\w+\s*)?=\s*("(?:[^"\\]|\\.)*"|.+?)(?:\s+where\s+(.+?))?\s*(?://\s*(.*))?$');
-    if not M.Success then Continue;
-    Item := '--' + M.Groups[1].Value.ToLower + ' ' + M.Groups[2].Value;
-    if (M.Groups.Count > 4) and (M.Groups[4].Value <> '') then
-      Item := Item + '    ' + M.Groups[4].Value;
-    if (M.Groups.Count > 3) and (M.Groups[3].Value <> '') then
-      Item := Item + '    (' + M.Groups[3].Value + ')';
-    Result := Result + sLineBreak + Item.Replace('|', '/');   // | would split the hint in two
-  end;
-  if Result = '' then
-    Result := Tab.Title + ' has no switches. Anything typed here is passed to the program on Run.'
-  else
-    Result := 'Switches for ' + Tab.Title + ', passed on Run (shown with their defaults):' + Result;
 end;
 
 procedure TMainForm.PagesChange(Sender: TObject);
@@ -1346,6 +1374,7 @@ begin
   FRunAction.Enabled := not Running and (ActiveTab <> nil);
   FBuildAction.Enabled := FRunAction.Enabled;
   FTestsAction.Enabled := not Running;
+  FModuleAction.Enabled := ActiveTab <> nil;
 end;
 
 { ---- commands ---- }

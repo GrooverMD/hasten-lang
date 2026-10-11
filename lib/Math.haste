@@ -1,13 +1,37 @@
-// Math: extern functions map straight onto the C library.
+// Math: numbers. Functions without types work on whole numbers and decimals alike: Max(3, 5) is 5.
 extern fn Sqrt(x: float): float = "sqrt"
 extern fn Pow(x: float, y: float): float = "pow"
 extern fn Floor(x: float): float = "floor"
+extern fn Ceil(x: float): float = "ceil"
+extern fn Exp(x: float): float = "exp"
+extern fn Log(x: float): float = "log"                // natural logarithm
+extern fn Log10(x: float): float = "log10"
+extern fn Sin(x: float): float = "sin"                // angles in radians
+extern fn Cos(x: float): float = "cos"
+extern fn Tan(x: float): float = "tan"
+extern fn Asin(x: float): float = "asin"
+extern fn Acos(x: float): float = "acos"
+extern fn Atan(x: float): float = "atan"
+extern fn Atan2(y: float, x: float): float = "atan2"
+extern fn Hypot(x: float, y: float): float = "hypot"  // Sqrt(x * x + y * y), without overflowing
+extern fn RoundC(x: float): float = "round"
 
-fn Max(a: float, b: float): float = if a > b then a else b
-fn Min(a: float, b: float): float = if a < b then a else b
-fn Clamp(v: float, lo: float, hi: float): float = Max(lo, Min(v, hi))
+fn Pi(): float = 3.141592653589793
+fn E(): float = 2.718281828459045
 
+fn Abs(x) = if x < 0 then -x else x
+fn Sign(x) = if x > 0 then 1 else if x < 0 then -1 else 0
+fn Max(a, b) = if a > b then a else b
+fn Min(a, b) = if a < b then a else b
+fn Clamp(v, lo, hi) = Max(lo, Min(v, hi))
+
+// x to the given number of decimal places, halves away from zero: Round(2.5, 0) is 3, Round(-2.5, 0) is -3
 fn Round(x: float, places: int): float
   let f = Pow(10, places)
-  return Floor(x * f + 0.5) / f
+  return RoundC(x * f) / f
 end
+
+// Random numbers: each thread has its own generator, seeded differently, unless Seed sets this thread's
+extern fn Random(): float = "hs_random"                      // from 0 up to, not including, 1
+extern fn RandomInt(lo: int, hi: int): int = "hs_random_int" // from lo to hi, both included
+extern fn Seed(n: int) = "hs_seed"                           // the same seed gives the same numbers again

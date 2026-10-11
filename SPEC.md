@@ -484,6 +484,13 @@ that holds itself still prints as one line.
 Equal means equal as `=` sees it (§6.5). A position outside the list is an error. Adding, inserting, removing and
 clearing are locked during `parallel for` (§13); sorting and reversing are not, so sort before or after the loop.
 
+**Math.** `Abs`, `Sign`, `Max`, `Min` and `Clamp` have no types, so whole numbers stay whole (`Max(3, 5)` is `5`).
+`Sqrt`, `Pow`, `Floor`, `Ceil`, `Exp`, `Log` (natural), `Log10`, `Sin`, `Cos`, `Tan`, `Asin`, `Acos`, `Atan`,
+`Atan2`, `Hypot` work on decimals, angles in radians; `Pi()` and `E()` are constants. `Round(x, places)` rounds
+halves away from zero. `Random()` gives a decimal from 0 up to but not including 1, `RandomInt(lo, hi)` a whole
+number from `lo` to `hi` inclusive, without bias; each thread has its own generator, and `Seed(n)` makes the calling
+thread's sequence repeatable.
+
 **Files and the outside world** are in `System` (`ReadText`, `ReadLines`, `WriteText`, `AppendText`,
 `FileExists`, `FileOpen`/`FileByte`/`FileClose`, `Bitmap`, `Fail`), `Text`, `Math`, `Time` and `Net`. File names
 are UTF-8 on every system. `FileExists` is false for a folder. Reading a folder, or a file holding a zero byte, as

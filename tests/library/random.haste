@@ -1,0 +1,30 @@
+// random numbers: Seed repeats a sequence; RandomInt includes both ends; Random is spread evenly over 0..1
+Math.Seed(42)
+let a = Math.Random()
+let b = Math.RandomInt(1, 6)
+Math.Seed(42)
+print(a = Math.Random() and b = Math.RandomInt(1, 6))
+var lo = 100
+var hi = -100
+var sum = 0.0
+for i in 1..100000
+  let r = Math.RandomInt(-3, 3)
+  lo = Math.Min(lo, r)
+  hi = Math.Max(hi, r)
+  sum = sum + Math.Random()
+end
+print("{lo} {hi} {sum / 100000 > 0.49 and sum / 100000 < 0.51}")
+try
+  print(Math.RandomInt(5, 1))
+catch e
+  print(e)
+end
+let out = [0.0, 0.0, 0.0]
+parallel for i in 0..2
+  out[i] = Math.Random()
+end
+print(out[0] <> out[1] and out[1] <> out[2])
+// out: true
+// out: -3 3 true
+// out: RandomInt(5, 1): the lowest is above the highest
+// out: true

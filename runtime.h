@@ -574,6 +574,42 @@ static void hs_file_close(long long f) {
     int par = hs_lock_shared(); hs_files[f] = NULL; hs_unlock_shared(par);
     if (fclose(fp)) hs_raise("cannot finish writing: the disk may be full");
 }
+/* ---- random numbers (Math.Random): xoshiro256**, one generator per thread ----
+   A thread's generator is seeded on first use from the clock, its own address and a counter, so parallel for's
+   threads get different numbers; Seed(n) sets the calling thread's, so a sequence can be repeated. */
+static _Thread_local unsigned long long hs_rng[4];
+static _Thread_local int hs_rng_ready;
+static unsigned long long hs_splitmix(unsigned long long *x) {
+    unsigned long long z = (*x += 0x9E3779B97F4A7C15ULL);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
+}
+static void hs_seed(long long n) {
+    unsigned long long x = (unsigned long long)n;
+    for (int i = 0; i < 4; i++) hs_rng[i] = hs_splitmix(&x);
+    hs_rng_ready = 1;
+}
+static unsigned long long hs_next(void) {
+    if (!hs_rng_ready) {
+        static unsigned long long counter;
+        hs_seed((long long)((unsigned long long)time(NULL) ^ (unsigned long long)(uintptr_t)&hs_rng
+                ^ (__atomic_add_fetch(&counter, 1, __ATOMIC_RELAXED) * 0x9E3779B97F4A7C15ULL)));
+    }
+    unsigned long long *s = hs_rng, r = ((s[1] * 5) << 7 | (s[1] * 5) >> 57) * 9, t = s[1] << 17;
+    s[2] ^= s[0]; s[3] ^= s[1]; s[1] ^= s[2]; s[0] ^= s[3]; s[2] ^= t; s[3] = s[3] << 45 | s[3] >> 19;
+    return r;
+}
+static double hs_random(void) { return (double)(hs_next() >> 11) * (1.0 / 9007199254740992.0); }
+static long long hs_random_int(long long lo, long long hi) {
+    if (lo > hi) hs_raise(hs_fmt("RandomInt(%lld, %lld): the lowest is above the highest", lo, hi));
+    unsigned long long span = (unsigned long long)hi - (unsigned long long)lo + 1, x;
+    if (!span) return (long long)hs_next();                       /* the whole 64-bit range */
+    unsigned long long limit = -span % span;                     /* reject the uneven top part: no bias */
+    do x = hs_next(); while (x < limit);
+    return (long long)((unsigned long long)lo + x % span);
+}
+
 /* Wall-clock seconds from a fixed point; use differences. */
 static double hs_elapsed(void) {
 #ifdef _WIN32

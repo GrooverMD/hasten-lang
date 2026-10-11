@@ -248,6 +248,9 @@ end
 | `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |
 | `System.WriteText(path, text)`, `System.AppendText(path, text)`, `System.FileExists(path)` | Write and check files |
 | `System.Fail(message)` | Raise an error; `try ... catch e` receives the message |
+| `Math.Max(a, b)`, `Min`, `Abs`, `Sign`, `Clamp` | Whole numbers stay whole: `Math.Max(3, 5)` is `5` |
+| `Math.Sin`, `Cos`, `Tan`, `Atan2`, `Hypot`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round(x, places)`, `Pi()` | Decimals; angles in radians |
+| `Math.Random()`, `Math.RandomInt(lo, hi)`, `Math.Seed(n)` | Random numbers; a seed repeats the sequence |
 
 ## Tests
 

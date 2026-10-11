@@ -1,0 +1,27 @@
+// Math: type-free Max/Min/Abs/Sign/Clamp keep whole numbers whole; trigonometry; rounding away from zero
+print(Math.Max(3, 7) div 2)
+print(Math.Max(3, 7.5))
+print(Math.Abs(-4))
+print(Math.Abs(-2.5))
+print(Math.Sign(-3.2))
+print(Math.Round(2.5, 0))
+print(Math.Round(-2.5, 0))
+print(Math.Sin(Math.Pi() / 2))
+print(Math.Atan2(1, 1) * 4)
+print(Math.Hypot(3, 4))
+print(Math.Log(Math.E()))
+print(Math.Ceil(2.1))
+print(Math.Log10(1000))
+// out: 3
+// out: 7.5
+// out: 4
+// out: 2.5
+// out: -1
+// out: 3
+// out: -3
+// out: 1
+// out: 3.14159265358979
+// out: 5
+// out: 1
+// out: 3
+// out: 3

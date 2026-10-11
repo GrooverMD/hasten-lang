@@ -61,6 +61,7 @@ type
     FTree: TProjectTree;                        // the Project Manager, at the right
     FTreeSplit: TSplitter;
     FTreeAction: TAction;
+    FSaveProjectAction, FSaveProjectAsAction: TAction;
     FEditButtons: TArray<TSpeedButton>;         // Undo ... Paste: enabled as the Edit menu's items are
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
@@ -119,6 +120,12 @@ type
     procedure DoProjectManager(Sender: TObject);
     procedure ShowProjectManager;
     procedure TreeOpenFile(Sender: TObject; const FileName: string);
+    procedure TreeRenamed(Sender: TObject; const OldName, NewName: string);
+    procedure TreeDeleting(Sender: TObject; const FileName: string);
+    function SaveProject: Boolean;
+    procedure DoSaveProject(Sender: TObject);
+    procedure DoSaveProjectAs(Sender: TObject);
+    function ModuleNameOf(const FileName: string): string;
     procedure DoOpenProject(Sender: TObject);
     procedure DoCloseProject(Sender: TObject);
     procedure DoRecentProject(Sender: TObject);
@@ -356,7 +363,7 @@ begin
   Item(FileMenu, NewAction);
   Item(FileMenu, OpenAction);
   Item(FileMenu, SaveAction);
-  Item(FileMenu, AddAction('Save &As...', 'Ctrl+Shift+S', DoSaveAs));
+  Item(FileMenu, AddAction('Save &As...', '', DoSaveAs));
   Item(FileMenu, AddAction('&Close', 'Ctrl+W', DoCloseTab));
   Item(FileMenu, nil);
   Item(FileMenu, AddAction('E&xit', 'Alt+F4', DoQuit));
@@ -403,6 +410,10 @@ begin
   FRecentMenu := TMenuItem.Create(Menu);
   FRecentMenu.Caption := '&Recent Projects';
   ProjectMenu.Add(FRecentMenu);
+  FSaveProjectAction := AddAction('&Save Project', 'Shift+Ctrl+S', DoSaveProject);   // Delphi's Save All
+  Item(ProjectMenu, FSaveProjectAction);
+  FSaveProjectAsAction := AddAction('Save Project &As...', '', DoSaveProjectAs);
+  Item(ProjectMenu, FSaveProjectAsAction);
   FCloseProjectAction := AddAction('&Close Project', '', DoCloseProject);
   Item(ProjectMenu, FCloseProjectAction);
   Item(ProjectMenu, nil);
@@ -480,6 +491,8 @@ begin
   FTree.Width := 220;
   FTree.Visible := False;                       // only while a project is open
   FTree.OnOpenFile := TreeOpenFile;
+  FTree.OnRenamed := TreeRenamed;
+  FTree.OnDeleting := TreeDeleting;
   FTreeSplit := TSplitter.Create(Self);
   FTreeSplit.Parent := Self;
   FTreeSplit.Align := alRight;
@@ -791,6 +804,193 @@ end;
 procedure TMainForm.TreeOpenFile(Sender: TObject; const FileName: string);
 begin
   OpenFile(FileName);
+end;
+
+{ Shapes\Rect.haste in the project folder is the module Shapes.Rect. }
+function TMainForm.ModuleNameOf(const FileName: string): string;
+begin
+  Result := ChangeFileExt(ExtractRelativePath(IncludeTrailingPathDelimiter(ExtractFileDir(FProject)), FileName),
+    '').Replace(PathDelim, '.');
+end;
+
+{ A module renamed in the Project Manager: its tab follows, and the files that use it by its old name can be
+  changed to the new one (Old.Name and "alias X = Old"), open tabs in their editors, others on disk. }
+procedure TMainForm.TreeRenamed(Sender: TObject; const OldName, NewName: string);
+var
+  Tab: TEditorTab;
+  OldMod, NewMod, F, Text, Changed: string;
+  Uses1, Uses2: TRegEx;
+  Users: TArray<string>;
+  Lines: TStringList;
+
+  function TextOf(const Path: string): string;
+  var
+    T: TEditorTab;
+  begin
+    T := FindTab(Path);
+    if T <> nil then Result := T.Editor.Lines.Text else Result := TFile.ReadAllText(Path, TEncoding.UTF8);
+  end;
+
+  function Replaced(const S: string): string;
+  begin
+    Result := Uses1.Replace(S, NewMod);
+    Result := Uses2.Replace(Result, '\1' + NewMod);
+  end;
+
+begin
+  Tab := FindTab(OldName);
+  if Tab <> nil then
+    Tab.FileName := NewName;
+  OldMod := ModuleNameOf(OldName);
+  NewMod := ModuleNameOf(NewName);
+  Uses1 := TRegEx.Create('(?<![\w.])' + TRegEx.Escape(OldMod) + '(?=\s*\.)');
+  Uses2 := TRegEx.Create('^(\s*alias\s+\w+\s*=\s*)' + TRegEx.Escape(OldMod) + '(?=\s*(//|$))', [roMultiLine]);
+  Users := nil;
+  for F in FTree.Files do
+  begin
+    Text := TextOf(F);
+    if Replaced(Text) <> Text then
+      Users := Users + [F];
+  end;
+  if Length(Users) > 0 then
+  begin
+    Changed := '';
+    for F in Users do
+      Changed := Changed + sLineBreak + '  ' + ExtractFileName(F);
+    if MessageDlg(Format('These files use %s. Change them to %s?', [OldMod, NewMod]) + Changed,
+      mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      for F in Users do
+      begin
+        Tab := FindTab(F);
+        if Tab <> nil then
+          Tab.Editor.Lines.Text := Replaced(Tab.Editor.Lines.Text)   // unsaved, so it can be checked
+        else
+        begin
+          Lines := TStringList.Create;
+          try
+            Lines.WriteBOM := False;
+            Lines.Text := Replaced(TFile.ReadAllText(F, TEncoding.UTF8));
+            Lines.SaveToFile(F, TEncoding.UTF8);
+          finally
+            Lines.Free;
+          end;
+        end;
+      end;
+  end;
+  UpdateStatus;
+  RefreshWords;
+end;
+
+procedure TMainForm.TreeDeleting(Sender: TObject; const FileName: string);
+var
+  Tab: TEditorTab;
+begin
+  Tab := FindTab(FileName);
+  if Tab <> nil then
+    Tab.Free;                                   // the file is going: nothing to save
+  UpdateStatus;
+end;
+
+{ Saves every changed file (a new, unnamed one asks for its name). }
+function TMainForm.SaveProject: Boolean;
+var
+  I: Integer;
+  Tab: TEditorTab;
+begin
+  for I := 0 to FPages.PageCount - 1 do
+  begin
+    Tab := TEditorTab(FPages.Pages[I]);
+    if Tab.Modified and not SaveTab(Tab, False) then Exit(False);
+  end;
+  Result := True;
+end;
+
+procedure TMainForm.DoSaveProject(Sender: TObject);
+begin
+  SaveProject;
+end;
+
+{ A new name and/or folder for the project. In its own folder, the project file and the program are renamed;
+  in another folder, the whole project (program, modules and project file) is copied there and opened. }
+procedure TMainForm.DoSaveProjectAs(Sender: TObject);
+var
+  Dialog: TSaveDialog;
+  NewProj, NewName, NewDir, OldDir, OldMain, NewMain, F, Dest: string;
+  Tab: TEditorTab;
+begin
+  if (FProject = '') or not SaveProject then Exit;
+  Dialog := TSaveDialog.Create(nil);
+  try
+    Dialog.Title := 'Save Project As';
+    Dialog.Filter := ProjectFilter;
+    Dialog.DefaultExt := 'hproj';
+    Dialog.InitialDir := ExtractFileDir(FProject);
+    Dialog.FileName := ProjectName;
+    if not Dialog.Execute then Exit;
+    NewProj := ChangeFileExt(Dialog.FileName, '.hproj');
+  finally
+    Dialog.Free;
+  end;
+  NewName := ChangeFileExt(ExtractFileName(NewProj), '');
+  if not TRegEx.IsMatch(NewName, '^[A-Za-z_][A-Za-z0-9_]*$') then
+  begin
+    MessageDlg('A project name is letters, digits and _, starting with a letter or _.', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  if SameFileName(NewProj, FProject) then Exit;
+  NewDir := ExtractFileDir(NewProj);
+  OldDir := ExtractFileDir(FProject);
+  OldMain := ChangeFileExt(FProject, '.haste');
+  NewMain := ChangeFileExt(NewProj, '.haste');
+  FTree.Rescan;
+  if SameFileName(NewDir, OldDir) then
+  begin
+    if (FileExists(NewProj) and not SameFileName(NewProj, FProject)) or
+      (FileExists(NewMain) and not SameFileName(NewMain, OldMain)) then
+    begin
+      MessageDlg(NewName + '.hproj or ' + NewName + '.haste is already in this folder.', mtWarning, [mbOK], 0);
+      Exit;
+    end;
+    if not RenameFile(FProject, NewProj) or not RenameFile(OldMain, NewMain) then
+    begin
+      MessageDlg('Could not rename the project: ' + SysErrorMessage(GetLastError), mtError, [mbOK], 0);
+      Exit;
+    end;
+    Tab := FindTab(OldMain);
+    if Tab <> nil then Tab.FileName := NewMain;
+    Tab := FindTab(FProject);
+    if Tab <> nil then Tab.FileName := NewProj;
+    FProject := NewProj;
+    FTree.Project := NewProj;
+    AddRecent(NewProj);
+    UpdateStatus;
+    RefreshWords;
+    Exit;
+  end;
+  for F in FTree.Files do                       // copy nothing until it is sure nothing is overwritten
+  begin
+    if SameFileName(F, OldMain) then Dest := NewMain
+    else Dest := TPath.Combine(NewDir, ExtractRelativePath(IncludeTrailingPathDelimiter(OldDir), F));
+    if FileExists(Dest) then
+    begin
+      MessageDlg(Dest + ' is already there.', mtWarning, [mbOK], 0);
+      Exit;
+    end;
+  end;
+  if FileExists(NewProj) then
+  begin
+    MessageDlg(NewProj + ' is already there.', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  for F in FTree.Files do
+  begin
+    if SameFileName(F, OldMain) then Dest := NewMain
+    else Dest := TPath.Combine(NewDir, ExtractRelativePath(IncludeTrailingPathDelimiter(OldDir), F));
+    ForceDirectories(ExtractFileDir(Dest));
+    TFile.Copy(F, Dest);
+  end;
+  TFile.Copy(FProject, NewProj);
+  OpenProject(NewProj);
 end;
 
 procedure TMainForm.DoToolbar(Sender: TObject);
@@ -1176,6 +1376,8 @@ var
   I: Integer;
 begin
   Main := ChangeFileExt(FProject, '.haste');
+  Tab := FindTab(FProject);                     // the project file open in a tab: its changes first
+  if (Tab <> nil) and Tab.Modified and not SaveTab(Tab, False) then Exit;
   Source := TStringList.Create;
   Ini := TMemIniFile.Create(FProject, TEncoding.UTF8);
   Dialog := TModuleOptionsDialog.Create(Self);
@@ -1196,6 +1398,14 @@ begin
       if Dialog.Values[Dialog.Switches[I].Name] <> '' then
         Ini.WriteString('Switches', Dialog.Switches[I].Name, Dialog.Values[Dialog.Switches[I].Name]);
     Ini.UpdateFile;
+    Tab := FindTab(FProject);                   // and the tab shows what was saved
+    if Tab <> nil then
+    begin
+      Tab.Editor.Lines.LoadFromFile(FProject, TEncoding.UTF8);
+      Tab.Editor.Modified := False;
+      Tab.UpdateCaption;
+    end;
+    FTree.Rescan;                               // the heading shows the targets
   finally
     Dialog.Free;
     Ini.Free;
@@ -1422,6 +1632,8 @@ begin
     else
       Tab := NewTab(AFileName);
   end;
+  if SameText(ExtractFileExt(AFileName), '.hproj') then
+    Tab.Editor.Highlighter := nil;              // a project file is settings, not Haste
   FPages.ActivePage := Tab;
   if Line > 0 then
     Tab.Editor.GotoLineAndCenter(Line);
@@ -1781,6 +1993,8 @@ begin
   FTestsAction.Enabled := not Running;
   FModuleAction.Enabled := (ActiveTab <> nil) or (FProject <> '');
   FCloseProjectAction.Enabled := FProject <> '';
+  FSaveProjectAction.Enabled := FProject <> '';
+  FSaveProjectAsAction.Enabled := FProject <> '';
   if FProject <> '' then Wanted := 'Project &Options...' else Wanted := 'Module &Options...';
   if FModuleAction.Caption <> Wanted then FModuleAction.Caption := Wanted;
 end;

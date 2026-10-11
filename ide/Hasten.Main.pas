@@ -11,7 +11,7 @@ uses
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd, Vcl.Buttons, Vcl.Themes,
   SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
-  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions, Hasten.Insight;
+  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions, Hasten.Insight, Hasten.ProjectTree;
 
 type
   TEditorTab = class(TTabSheet)
@@ -58,6 +58,9 @@ type
     FRecentMenu: TMenuItem;
     FRecent: TArray<string>;                    // the paths behind Recent Projects' items
     FCloseProjectAction: TAction;
+    FTree: TProjectTree;                        // the Project Manager, at the right
+    FTreeSplit: TSplitter;
+    FTreeAction: TAction;
     FEditButtons: TArray<TSpeedButton>;         // Undo ... Paste: enabled as the Edit menu's items are
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
@@ -113,6 +116,9 @@ type
     procedure DoToolbar(Sender: TObject);
     procedure DoInsight(Sender: TObject);
     procedure DoNewProject(Sender: TObject);
+    procedure DoProjectManager(Sender: TObject);
+    procedure ShowProjectManager;
+    procedure TreeOpenFile(Sender: TObject; const FileName: string);
     procedure DoOpenProject(Sender: TObject);
     procedure DoCloseProject(Sender: TObject);
     procedure DoRecentProject(Sender: TObject);
@@ -374,6 +380,10 @@ begin
   FInsightAction.AutoCheck := True;
   FInsightAction.Checked := True;
   Item(ViewMenu, FInsightAction);
+  FTreeAction := AddAction('&Project Manager', 'Ctrl+Alt+F11', DoProjectManager);
+  FTreeAction.AutoCheck := True;
+  FTreeAction.Checked := True;
+  Item(ViewMenu, FTreeAction);
   Item(ViewMenu, nil);
   Item(ViewMenu, AddAction('&Font...', '', DoFont));
   Item(ViewMenu, nil);
@@ -463,6 +473,18 @@ begin
   FStatus.Top := 100000;
   FOutput.Top := 10;                            // bottom edge 190: above the status bar
   Split.Top := 0;                               // bottom edge 3: above the output
+
+  FTree := TProjectTree.Create(Self);
+  FTree.Parent := Self;
+  FTree.Align := alRight;
+  FTree.Width := 220;
+  FTree.Visible := False;                       // only while a project is open
+  FTree.OnOpenFile := TreeOpenFile;
+  FTreeSplit := TSplitter.Create(Self);
+  FTreeSplit.Parent := Self;
+  FTreeSplit.Align := alRight;
+  FTreeSplit.MinSize := 80;
+  FTreeSplit.Visible := False;
 
   FPages := TPageControl.Create(Self);
   FPages.Parent := Self;
@@ -738,6 +760,39 @@ begin
   FInsight.Enabled := FInsightAction.Checked;
 end;
 
+procedure TMainForm.DoProjectManager(Sender: TObject);
+begin
+  ShowProjectManager;
+end;
+
+{ Shown while a project is open and View > Project Manager is ticked. Right-aligned controls stack by their
+  right edge, the largest rightmost, so each time it appears the tree is put at the far right and the splitter
+  just left of it (as the output and its splitter are at the bottom). }
+procedure TMainForm.ShowProjectManager;
+var
+  Show: Boolean;
+begin
+  Show := (FProject <> '') and FTreeAction.Checked;
+  if Show = FTree.Visible then Exit;
+  if Show then
+  begin
+    FTree.Visible := True;
+    FTree.Left := ClientWidth + 1000;
+    FTreeSplit.Visible := True;
+    FTreeSplit.Left := FTree.Left - FTreeSplit.Width - 1;
+  end
+  else
+  begin
+    FTreeSplit.Visible := False;
+    FTree.Visible := False;
+  end;
+end;
+
+procedure TMainForm.TreeOpenFile(Sender: TObject; const FileName: string);
+begin
+  OpenFile(FileName);
+end;
+
 procedure TMainForm.DoToolbar(Sender: TObject);
 begin
   FTools.Parent.Visible := FToolbarAction.Checked;   // the whole top bar: the toolbar is all it holds
@@ -932,6 +987,8 @@ begin
   if Result then
   begin
     FProject := '';
+    FTree.Project := '';
+    ShowProjectManager;
     UpdateStatus;
     RefreshWords;
   end;
@@ -955,6 +1012,8 @@ begin
   end;
   if not CloseProject or not CloseAllTabs then Exit(False);
   FProject := Full;
+  FTree.Project := Full;
+  ShowProjectManager;
   AddRecent(Full);
   Files := TStringList.Create;
   Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
@@ -1246,6 +1305,8 @@ begin
       TStyleManager.TrySetStyle(FStyleName, False);   // False: no error if it is no longer linked in
     FToolbarAction.Checked := Ini.ReadBool('View', 'Toolbar', True);
     FInsightAction.Checked := Ini.ReadBool('View', 'HelpInsight', True);
+    FTreeAction.Checked := Ini.ReadBool('View', 'ProjectManager', True);
+    FTree.Width := Ini.ReadInteger('View', 'ProjectManagerWidth', FTree.Width);
     DoInsight(nil);
     DoToolbar(nil);
     ApplyFont;
@@ -1283,6 +1344,8 @@ begin
     Ini.WriteString('View', 'Style', FStyleName);
     Ini.WriteBool('View', 'Toolbar', FToolbarAction.Checked);
     Ini.WriteBool('View', 'HelpInsight', FInsightAction.Checked);
+    Ini.WriteBool('View', 'ProjectManager', FTreeAction.Checked);
+    Ini.WriteInteger('View', 'ProjectManagerWidth', FTree.Width);
     Ini.DeleteKey('Run', 'Switches');           // from before Module Options: each program keeps its own now
     Ini.DeleteKey('Run', 'Target');
     SaveOpenFiles(Ini, 'Open');
@@ -1471,6 +1534,7 @@ var
   Cmd: string;
   Tab: TEditorTab;
 begin
+  FTree.Rescan;                                 // a file saved, added or removed: the tree follows
   if not LocateHastePy(False) then Exit;       // never ask for haste.py just to colour words
   WatchFolders;
   if FWordsRunner <> nil then
@@ -1693,6 +1757,8 @@ end;
 procedure TMainForm.PagesChange(Sender: TObject);
 begin
   UpdateStatus;
+  if ActiveTab <> nil then
+    FTree.Select(ActiveTab.FileName);
   RefreshWords;                                 // another folder can mean other modules
 end;
 

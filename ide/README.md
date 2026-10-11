@@ -28,6 +28,7 @@ You need Delphi 10.3 or newer (Delphi 13 is fine) and [SynEdit](https://github.c
 | Ctrl+F2 | Stop the running program |
 | Project > New Project... | Asks for a name and a folder, and makes `Name/Name.hproj` and `Name/Name.haste` (with `haste.py new`, so the IDE and the command line make the same project) |
 | Project > Open Project... (Shift+Ctrl+O), Recent Projects, Close Project | Opening a project closes what was open (asking to save changes) and reopens the files you had open in it. While a project is open, F9 and Ctrl+F9 run and build its program, whichever tab is active |
+| Ctrl+Alt+F11 | View > Project Manager: the open project's files at the right, the program first, then its modules and folders of modules. Double-click or Enter opens one; right-click for New Module..., Show in Explorer and Look Again. It follows the folder: files added, saved or removed appear at once |
 | Shift+Ctrl+F11 | Project > Options for the open project, saved in its `.hproj` where `haste.py` reads them; with no project, Module Options for the active file, kept in Hasten.ini. Both set what to build for and a value for each switch the program declares (the grid lists them with their defaults; empty means the default) |
 | Run > Run Tests | Run the test suite (`tests/run.py`); double-click a `FAIL` line to open that test |
 | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+W | New, open, save, close tab |
@@ -50,6 +51,7 @@ there. Settings, each program's module options, the editor font and the files yo
 | `Hasten.Main.pas` | The main window, built entirely in code (no .dfm) |
 | `Hasten.Settings.pas` | The Settings dialog, also built in code; each setting is a property |
 | `Hasten.ModuleOptions.pas` | The Module Options dialog: build targets and switch values for one program, read from its source |
+| `Hasten.ProjectTree.pas` | The Project Manager: a tree view of the project's folder |
 | `Hasten.Insight.pas` | Help Insight: the tips, from the `insight` lines of `haste.py words` and a build's `specialised:` line |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |

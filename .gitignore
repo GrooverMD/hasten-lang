@@ -86,3 +86,6 @@ __pycache__/
 # Zig downloaded by "haste.py setup"
 tools/
 *.zip
+
+# Zig's compile cache on the test machines (GitHub Actions)
+.zig-cache/

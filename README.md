@@ -7,6 +7,8 @@
 
 <p align="center"><b>Fast to write. Fast to run.</b></p>
 
+<p align="center"><a href="https://github.com/GrooverMD/hasten-lang/actions/workflows/tests.yml"><img src="https://github.com/GrooverMD/hasten-lang/actions/workflows/tests.yml/badge.svg" alt="Tests"></a></p>
+
 Haste is an experimental programming language that compiles to small, dependency-free native executables for
 **Windows, macOS and Linux**, all from any one of them. It keeps the readability of Pascal, makes properties the
 default for everything in a class, works out types for you, and still runs at the speed of C.
@@ -255,7 +257,7 @@ python tests/run.py dict      run only the tests whose path contains "dict"
 
 Each test is an ordinary Haste program in `tests/` whose comments say what must happen: `// out:` lines it
 must print, `// error:` text the build or the run must fail with, and `// args:` switches to run it with.
-Run the tests after every change to the compiler or the runtime.
+Run the tests after every change to the compiler or the runtime. GitHub also runs them on Windows, Linux and macOS for every push; the badge at the top shows the result.
 
 ## How it works
 

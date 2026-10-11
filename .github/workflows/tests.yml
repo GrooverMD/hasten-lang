@@ -1,0 +1,40 @@
+# Runs the whole test suite on Windows, Linux and macOS for every push and pull request.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false                # see every system's result, not just the first failure
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      ZIG_GLOBAL_CACHE_DIR: ${{ github.workspace }}/.zig-cache    # kept between runs: a cold cache costs minutes
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Restore Zig and its cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/zig
+            .zig-cache
+          key: zig-0.16.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('runtime.h') }}
+          restore-keys: zig-0.16.0-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install Zig
+        run: '[ -e tools/zig/zig ] || [ -e tools/zig/zig.exe ] || python haste.py setup'
+
+      - name: Run the tests
+        run: python tests/run.py

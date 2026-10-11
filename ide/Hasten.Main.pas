@@ -286,7 +286,7 @@ end;
 procedure TMainForm.BuildUi;
 var
   Menu: TMainMenu;
-  Bar: TPanel;
+  Bar, Work: TPanel;
   Split: TSplitter;
 
   function Item(Parent: TMenuItem; Action: TAction): TMenuItem;
@@ -388,14 +388,23 @@ begin
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
+  FStatus.Align := alBottom;
   FStatus.SimplePanel := False;
   FStatus.Panels.Add.Width := 110;
   FStatus.Panels.Add.Width := 90;
   FStatus.Panels.Add;
 
+  { The editor, splitter and output share a panel of their own, so the output is the only bottom-aligned
+    control beside the splitter. On the form, the status bar is bottom-aligned too, and VCL can put it
+    next to the splitter, which then resizes the status bar instead of the output. }
+  Work := TPanel.Create(Self);
+  Work.Parent := Self;
+  Work.Align := alClient;
+  Work.BevelOuter := bvNone;
+
   FOutputHighlighter := TSynHasteOutputSyn.Create(Self);
   FOutput := TSynEdit.Create(Self);
-  FOutput.Parent := Self;
+  FOutput.Parent := Work;
   FOutput.Align := alBottom;
   FOutput.Height := 180;
   FOutput.ReadOnly := True;
@@ -409,12 +418,13 @@ begin
   FOutput.OnDblClick := OutputDblClick;
 
   Split := TSplitter.Create(Self);
-  Split.Parent := Self;
+  Split.Parent := Work;
   Split.Align := alBottom;
-  Split.Top := FOutput.Top - 1;                 // keeps the splitter above the output panel
+  Split.Top := 0;                               // above the output: bottom-aligned controls stack by Top
+  Split.MinSize := 40;
 
   FPages := TPageControl.Create(Self);
-  FPages.Parent := Self;
+  FPages.Parent := Work;
   FPages.Align := alClient;
   FPages.OnChange := PagesChange;
 

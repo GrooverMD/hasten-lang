@@ -9,6 +9,17 @@
 
 <p align="center"><a href="https://github.com/GrooverMD/hasten-lang/actions/workflows/tests.yml"><img src="https://github.com/GrooverMD/hasten-lang/actions/workflows/tests.yml/badge.svg" alt="Tests"></a></p>
 
+<p align="center">
+<i>"I like this app. It's small and it runs fast."</i><br>
+<i>"Yeah, I wrote it in Haste."</i>
+</p>
+
+<p align="center">
+<i>"Any bugs?" — "I don't make mistakes. I make Haste."</i><br>
+<i>"How long did it take?" — "Not long. More Haste, more speed."</i><br>
+<i>"Did you test it?" — "136 times. Haste makes no waste."</i>
+</p>
+
 Haste is an experimental programming language that compiles to small, dependency-free native executables for
 **Windows, macOS and Linux**, all from any one of them. It keeps the readability of Pascal, makes properties the
 default for everything in a class, works out types for you, and still runs at the speed of C.

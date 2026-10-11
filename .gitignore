@@ -81,6 +81,8 @@ __recovery/
 # Haste build output and downloaded data
 build/
 words_alpha.txt
+examples/fractal.png
+examples/fractal.bmp
 __pycache__/
 
 # Zig downloaded by "haste.py setup"

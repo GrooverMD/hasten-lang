@@ -40,7 +40,7 @@ for py in 0..img.Height - 1
   end
 end
 
-switch Out = "fractal.bmp"                              // file to save
+switch Out = "fractal.png"                              // file to save
 
-img.Save(Out)
+Png.Save(img, Out)
 print("Rendered {img.Width} x {img.Height} to {Out} in {Time.Elapsed() - start:2} seconds")

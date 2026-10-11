@@ -155,7 +155,7 @@ Executables go into `build/` next to the source file.
 |---|---|
 | [`hello.haste`](examples/hello.haste) | The smallest program, and `alias` |
 | [`bank.haste`](examples/bank.haste) | Classes, validated and computed properties, lists, `try`/`catch` |
-| [`fractal.haste`](examples/fractal.haste) | Type-free functions, `System.Bitmap`, command-line switches. Try `--width 1920 --height 1080`. |
+| [`fractal.haste`](examples/fractal.haste) | Type-free functions, `System.Bitmap`, saved as a PNG by `Png`, command-line switches. Try `--width 1920 --height 1080`. |
 | [`scores.haste`](examples/scores.haste) | `write` blocks, dictionaries, and reading and writing text files |
 | [`fivewords.haste`](examples/fivewords.haste) | Five words with 25 different letters, found in about 0.02 seconds with bit masks and `parallel for`. Needs the word list [`words_alpha.txt`](https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt) from [dwyl/english-words](https://github.com/dwyl/english-words), saved in `examples/`. |
 

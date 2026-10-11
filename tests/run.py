@@ -104,6 +104,9 @@ def main(argv):
             if problem:
                 failed += 1
                 print(f'FAIL  {name}\n{problem}')
+                if os.environ.get('GITHUB_ACTIONS'):    # shown on the run's page on GitHub
+                    detail = problem[:2000].replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+                    print(f'::error title=FAIL {name}::{detail}')
             else:
                 print(f'ok    {name}  ({secs:.1f}s)')
     print(f'\n{len(tests) - failed} passed, {failed} failed, {len(tests)} tests in {time.time() - start:.1f} seconds')

@@ -288,6 +288,7 @@ var
   Menu: TMainMenu;
   Bar, Work: TPanel;
   Split: TSplitter;
+  I: Integer;
 
   function Item(Parent: TMenuItem; Action: TAction): TMenuItem;
   begin
@@ -393,6 +394,8 @@ begin
   FStatus.Panels.Add.Width := 110;
   FStatus.Panels.Add.Width := 90;
   FStatus.Panels.Add;
+  for I := 0 to FStatus.Panels.Count - 1 do
+    FStatus.Panels[I].Bevel := pbNone;          // flat: no sunken frame round each panel
 
   { The editor, splitter and output share a panel of their own, so the output is the only bottom-aligned
     control beside the splitter. On the form, the status bar is bottom-aligned too, and VCL can put it

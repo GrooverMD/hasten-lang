@@ -197,6 +197,7 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Loop over a dictionary's keys | `for name in ages` (in the order they were added) |
 | Function, one expression | `fn Square(x) = x * x` |
 | Function, block | `fn Name(args) ... end` |
+| Function as a value | `fn Apply(f, x) = f(x)` then `Apply(Twice, 3)`, `Sort(names, ByLength)` |
 | Loops | `for x in list`, `for i in 1..n`, `while cond`, `parallel for x in list` |
 | Errors | `try ... catch e ... end` |
 | String interpolation | `"{value}"`, `"{price:2}"` for 2 decimals |
@@ -205,6 +206,8 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Type names | `alias Grid = [[int]]`, `alias Stock = {string: int}`, then `Cells: Grid = []` |
 | Include a whole module | `need Module` (rarely needed) |
 | Long lines | A line continues while a `(`, `[` or `{` is open |
+| Numbers | `255`, `0xFF`, `0b1010`, `1_000_000`, `2.5`, `1e-3` |
+| Print anything | `print([1, 2])`, `print({"a": 1})`, `print(point)` shows `Point(X: 1, Y: 2)` |
 
 There is no `nil`: every property always has a value. Whole numbers are 64-bit, and going past that is an error you can `catch`, never a silent wrap; `shl` and `shr` take amounts from 0 to 63. An unhandled error names the line it happened on and the lines each call came from. `=` compares lists and dictionaries by what they hold, and objects by being the same object. Haste only builds the code a program uses, but it checks all of it: a misspelt name in a function nothing calls yet is still an error.
 

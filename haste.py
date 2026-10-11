@@ -32,7 +32,8 @@ HINTS = {'!=': "Haste writes 'not equal' as <>", '==': 'Haste compares with a si
          '*=': 'Haste has no *=; write x = x * 2', '/=': 'Haste has no /=; write x = x / 2',
          '&&': "Haste writes && as 'and'", '||': "Haste writes || as 'or'", '!': "Haste writes ! as 'not'",
          ';': "Haste has no ';'; put each statement on its own line"}
-NUM = re.compile(r'\d+(\.\d+)?')
+NUM = re.compile(r'0[xX][0-9A-Fa-f]+(?:_[0-9A-Fa-f]+)*|0[bB][01]+(?:_[01]+)*'      # 0xFF, 0b1010
+                 r'|\d+(?:_\d+)*(\.\d+(?:_\d+)*)?([eE][+-]?\d+)?')               # 1_000, 2.5, 1e5, 2.5e-3
 WORD = re.compile(r'\w+')
 
 
@@ -97,7 +98,12 @@ def lex(src, file, line=1):
                 i += 1
         elif '0' <= c <= '9':
             m = NUM.match(src, i)
-            toks.append(Tok('FLOAT' if m.group(1) else 'INT', m.group(), line, file)); i = m.end()
+            if m.end() < n and (src[m.end()].isalnum() or src[m.end()] == '_'):
+                bad = re.match(r'\w+', src[i:]).group()
+                raise HasteError(f"{file}:{line}: '{bad}' is not a number: write whole numbers like 255, 0xFF or "
+                                 f"0b1010 and decimals like 2.5 or 1e-3, with _ between digits if you like")
+            text = m.group().replace('_', '')
+            toks.append(Tok('FLOAT' if m.group(1) or m.group(2) else 'INT', text, line, file)); i = m.end()
         elif c.isalpha() or c == '_':
             w = WORD.match(src, i).group()
             toks.append(Tok('KW' if w in KEYWORDS else 'NAME', w, line, file)); i += len(w)
@@ -381,7 +387,9 @@ class Parser:
             s.close()
             return N('if', L, arms=arms, els=els)
         if s.at('while'):
-            s.opened('while', s.next().line); c = s.expr(); s.no_do(); s.nl(); b = s.block(); s.close()
+            s.opened('while', s.next().line); c = s.expr(); s.no_do()
+            if s.at('then'): s.next()                   # optional, as after if
+            s.nl(); b = s.block(); s.close()
             return N('while', L, cond=c, body=b)
         if s.at('parallel', 'for'):
             par = s.next().val == 'parallel'
@@ -461,7 +469,9 @@ class Parser:
 
     def primary(s):
         t = s.next(); L = t.line
-        if t.kind == 'INT': return N('int', L, v=int(t.val))
+        if t.kind == 'INT':
+            v = t.val.lower()
+            return N('int', L, v=int(v[2:], 16) if v.startswith('0x') else int(v[2:], 2) if v.startswith('0b') else int(v))
         if t.kind == 'FLOAT': return N('float', L, v=t.val)
         if t.kind == 'STR': return s.string(t)
         if t.kind == 'NAME': return N('name', L, name=t.val)
@@ -583,10 +593,11 @@ class Env:
         e.writing = parent.writing if parent else None   # (class, property) whose write block this is
 
     def lookup(e, n):
+        mod = e.mod
         while e:
             if n in e.vars: return e.vars[n]
             e = e.parent
-        return None
+        return getattr(mod, 'globals', {}).get(n)       # switches: readable in every function of the program
 
     def decl(e, n):
         while e:
@@ -596,11 +607,13 @@ class Env:
 
     def fixed_reason(e, n):
         """Why n cannot be assigned to, for the error message."""
+        mod = e.mod
         while e:
             if n in e.vars:
                 if n in e.params: return f'{n} is a parameter and cannot be changed; copy it into a variable first'
                 break
             e = e.parent
+        if n in getattr(mod, 'globals', {}): return f'{n} is a switch: the command line sets it, and it cannot be changed'
         if n == 'it': return 'it is the incoming value and cannot be changed; set field instead'
         if n == 'self': return 'self cannot be changed'
         return f'{n} is declared with let; use var to change it'
@@ -642,6 +655,7 @@ def kv(t):
 
 
 def mangle(t):
+    if t.startswith('function '): return 'F_' + t[9:].replace('.', '_')
     if t.startswith('['): return 'L' + mangle(t[1:-1])
     if t.startswith('{'): k, v = kv(t); return 'D' + mangle(k) + '_' + mangle(v) + '_E'
     return {'int': 'i', 'float': 'f', 'string': 's', 'bool': 'b'}.get(t, t.replace('.', '_'))
@@ -670,6 +684,7 @@ class Gen:
         g.widen = widen                      # variables to declare as decimals (see Widen)
         g.depth = 0                          # how deeply the expression being generated is nested
         g.try_names = {}                     # module -> names assigned inside a try (made volatile)
+        g.fnrefs = {}                        # 'function Name' -> (module, fn): functions used as values
         g.classes = {}
         for m in list(registry.values()): g.register(m)
         g.fwd, g.lists, g.structs, g.protos, g.funcs = [], [], [], [], []
@@ -753,6 +768,7 @@ class Gen:
     # ── types ──
     def ctype(g, t):
         if t in PRIM: return PRIM[t]
+        if t.startswith('function '): return 'char'      # nothing to hold: the type itself says which function
         if t[1:2] == '?': return f'@@P{t[2:-1]}@@*'       # filled in once the first Add or d[k] = v is seen
         if t.startswith('['): return g.list_type(t[1:-1]) + '*'
         if t.startswith('{'): return g.dict_type(*kv(t)) + '*'
@@ -761,6 +777,9 @@ class Gen:
 
     def list_type(g, elem):
         if elem in g.list_types: return g.list_types[elem]
+        if elem.startswith('function '):
+            raise HasteError(f'{elem[9:]} is a function: functions can be passed to a function and called, '
+                             'but not kept in a list or dictionary')
         et = g.ctype(elem)
         name = 'L_' + mangle(elem)
         g.list_types[elem] = name
@@ -783,6 +802,59 @@ static {name} *{name}_of(int n, ...) {{
     {name} *l = {name}_new(); va_list ap; va_start(ap, n);
     for (int k = 0; k < n; k++) {name}_add(l, ({et})va_arg(ap, {va}));
     va_end(ap); return l;
+}}''')
+        return name
+
+    def show(g, t, c, quoted=True, depth='0'):
+        """C text for value c of type t: as print shows it. Inside a list, dictionary or object, text is quoted."""
+        if t == 'string': return f'hs_fmt("\\"%s\\"", {c})' if quoted else c
+        if t == 'int': return f'hs_fmt("%lld", {c})'
+        if t == 'float': return f'hs_ftoa({c})'
+        if t == 'bool': return f'({c} ? "true" : "false")'
+        return f'{g.show_fn(t)}({c}, {depth})'
+
+    def show_fn(g, t):
+        """[1, 2], {"a": 1}, Point(X: 1, Y: 2): nested values go 3 levels deep and lists show 100 items, so an
+        object that holds itself, or a bitmap's pixels, still prints as one readable line."""
+        name = 'S_' + mangle(t)
+        if name in g.list_types: return name
+        g.list_types[name] = name
+        if t.startswith('['):
+            et, lt = t[1:-1], g.list_type(t[1:-1])
+            item = g.show(et, 'l->items[i]', depth='depth + 1')
+            g.protos.append(f'static hs_str {name}({lt} *l, int depth);')
+            g.funcs.append(f'''static hs_str {name}({lt} *l, int depth) {{
+    if (depth >= 3) return l->count ? "[...]" : "[]";
+    hs_strs *parts = hs_alloc(sizeof *parts);
+    for (long long i = 0; i < l->count && i < 100; i++) hs_strs_add(parts, {item});
+    if (l->count > 100) hs_strs_add(parts, hs_fmt("... %lld more", l->count - 100));
+    return hs_fmt("[%s]", hs_join(parts, ", "));
+}}''')
+        elif t.startswith('{'):
+            k, v = kv(t); dt = g.dict_type(k, v)
+            key, val = g.show(k, 'd->keys[i]', depth='depth + 1'), g.show(v, 'd->vals[i]', depth='depth + 1')
+            g.protos.append(f'static hs_str {name}({dt} *d, int depth);')
+            g.funcs.append(f'''static hs_str {name}({dt} *d, int depth) {{
+    if (depth >= 3) return d->count ? "{{...}}" : "{{}}";
+    hs_strs *parts = hs_alloc(sizeof *parts);
+    long long shown = 0;
+    for (long long i = 0; i < d->used && shown < 100; i++)
+        if (!d->dead[i]) {{ hs_strs_add(parts, hs_fmt("%s: %s", {key}, {val})); shown++; }}
+    if (d->count > 100) hs_strs_add(parts, hs_fmt("... %lld more", d->count - 100));
+    return hs_fmt("{{%s}}", hs_join(parts, ", "));
+}}''')
+        else:
+            cls = g.classes[t]
+            g.use_class(t)
+            props = [p for p in cls.props.values() if not p.computed]
+            parts = '\n'.join(f'    hs_strs_add(parts, hs_fmt("{p.name}: %s", '
+                              f'{g.show(g.prop_type(cls, p), "o->p_" + p.name, depth="depth + 1")}));' for p in props)
+            g.protos.append(f'static hs_str {name}(C_{cls.cname} *o, int depth);')
+            g.funcs.append(f'''static hs_str {name}(C_{cls.cname} *o, int depth) {{
+    if (depth >= 3) return "{cls.qname}(...)";
+    hs_strs *parts = hs_alloc(sizeof *parts);
+{parts}
+    return hs_fmt("{cls.qname}(%s)", hs_join(parts, ", "));
 }}''')
         return name
 
@@ -824,6 +896,10 @@ static {name} *{name}_of(int n, ...) {{
     def dict_type(g, k, v, node=None):
         key = '{' + k + ':' + v + '}'
         if key in g.list_types: return g.list_types[key]
+        if v.startswith('function ') or k.startswith('function '):
+            msg = 'functions can be passed to a function and called, but not kept in a list or dictionary'
+            if node is not None: g.err(node, msg)
+            raise HasteError(msg)
         if k not in ('int', 'string', 'bool'):
             msg = f'dictionary keys must be whole numbers, text or true/false, not {k}'
             if node is not None: g.err(node, msg)
@@ -981,6 +1057,9 @@ static {name} *{name}_of(int n, ...) {{
         if frm[1:2] == '?' and to[:1] == frm[:1] and '?' not in to:
             g.settle(frm, to); return code
         if frm == 'int' and to == 'float': return f'(double)({code})'
+        if frm.startswith('function ') and to.startswith('function '):
+            g.err(node, f'this holds the function {to[9:]}, so it cannot take {frm[9:]}: a variable or parameter that '
+                        'holds a function always holds the same one')
         g.err(node, f'expected {to}, got {frm}')
 
     # ── getters, setters and constructors are generated only when reached ──
@@ -1464,6 +1543,7 @@ static {name} *{name}_of(int n, ...) {{
                 elif is_num(t) and spec is not None: fmt += f'%.{spec}f'; args.append(f'(double)({c})')
                 elif t == 'int': fmt += '%lld'; args.append(c)
                 elif t == 'float': fmt += '%s'; args.append(f'hs_ftoa({c})')
+                elif t[:1] in '[{' or t in g.classes: fmt += '%s'; args.append(g.show(g.known(t, x), c, quoted=False))
                 else: g.err(x, f'cannot put a {t} in a string')
             return f'hs_fmt({", ".join([cstr(fmt)] + args)})', 'string'
         if k == 'name':
@@ -1471,13 +1551,16 @@ static {name} *{name}_of(int n, ...) {{
             if v: return v[2], v[0]
             if env.cls and e.name in env.cls.props:
                 return g.get_prop('self', env.cls, env.cls.props[e.name])
-            g.not_a_value([e.name], env, e)
+            return g.not_a_value([e.name], env, e)
         if k == 'list':
             if not e.items:
                 if not (want and want.startswith('[')): return g.new_pending('[')
                 return f'{g.list_type(want[1:-1])}_new()', want
             elem_want = want[1:-1] if want and want.startswith('[') else None
             items = [g.expr(x, env, elem_want) for x in e.items]
+            for (_, t), x in zip(items, e.items):
+                if t.startswith('function '): g.err(x, f'{t[9:]} is a function: functions can be passed to a function '
+                                                       'and called, but not kept in a list or dictionary')
             et = elem_want or ('float' if any(t == 'float' for _, t in items) and all(is_num(t) for _, t in items)
                                else items[0][1])
             codes = [g.coerce(c, t, et, x) for (c, t), x in zip(items, e.items)]
@@ -1515,7 +1598,7 @@ static {name} *{name}_of(int n, ...) {{
         if k == 'bin': return g.binop(e, env)
         if k == 'member':
             parts = dotted(e)
-            if g.is_path(parts, env): g.not_a_value(parts, env, e)
+            if g.is_path(parts, env): return g.not_a_value(parts, env, e)
             oc, ot = g.expr(e.obj, env)
             if ot[:1] in '[{' and e.name == 'Count': return f'({oc})->count', 'int'
             if ot == 'string' and e.name == 'Length': return f'(long long)hs_len({oc})', 'int'
@@ -1571,10 +1654,13 @@ static {name} *{name}_of(int n, ...) {{
             top.add(sw.name)
         g.check_block(prog.stmts, m, None, [top])
         for blk in prog.inits: g.check_block(blk, m, None, [set()])
+        g.check_top = top if m.is_main else set()
         for f in prog.funcs.values(): g.check_fn(f, m, None)
         for c in prog.classes.values():
             for pr in c.props.values():
-                if pr.type: g.tname(pr.type, env, pr)
+                if pr.type and g.tname(pr.type, env, pr)[:1] in '[{' and pr.where:
+                    g.err(pr, f'{c.name}.{pr.name} holds a list or dictionary: a where rule would only be checked when '
+                              f'a whole new one is assigned, not when items are added; check items in the method that adds them')
                 if pr.default: g.check(pr.default, m, c, [{'self'}]); g.check_literal(pr, env)
                 if pr.where: g.check(pr.where, m, c, [{'self', 'it'}])
                 if pr.computed: g.check(pr.computed, m, c, [{'self'}])
@@ -1594,7 +1680,7 @@ static {name} *{name}_of(int n, ...) {{
             if pt: g.tname(pt, env, f)
         if f.ret and f.ret != 'void': g.tname(f.ret, env, f)
         if f.cname: return
-        scope = [{pn for pn, _ in f.params} | ({'self'} if c else set())]
+        scope = [getattr(g, 'check_top', set()), {pn for pn, _ in f.params} | ({'self'} if c else set())]
         if f.expr: g.check(f.expr, m, c, scope)
         else: g.check_block(f.body, m, c, scope)
 
@@ -1665,13 +1751,18 @@ static {name} *{name}_of(int n, ...) {{
         name = '.'.join(parts)
         r = g.resolve(parts, env, e)
         if not r: g.err(e, f'unknown name {name}' + g.case_hint(parts))
-        what = {'module': 'a module', 'class': 'a class; create one with ' + name + '(...)',
-                'fn': 'a function; call it with ()'}[r[0]]
+        if r[0] == 'fn':                         # a function as a value: its type names it, so calls stay direct
+            t = 'function ' + (r[2].name if r[1].is_main else f'{r[1].name}.{r[2].name}')
+            g.fnrefs[t] = (r[1], r[2])
+            return '0', t
+        what = {'module': 'a module', 'class': 'a class; create one with ' + name + '(...)'}[r[0]]
         g.err(e, f'{name} is {what}')
 
     def binop(g, e, env):
         (l, lt), (r, rt) = g.expr(e.l, env), g.expr(e.r, env)
         op = e.op
+        if lt.startswith('function ') or rt.startswith('function '):
+            g.err(e, f"'{op}' cannot work on a function; functions can only be called, or passed to a function")
         if op in BITS:                       # Pascal style: on whole numbers they work on bits
             if lt == rt == 'int':
                 if op in ('shl', 'shr'): return f'hs_{op}({l}, {r})', 'int'
@@ -1702,6 +1793,8 @@ static {name} *{name}_of(int n, ...) {{
         c, t = g.expr(e.args[0][1], env)
         text = {'string': c, 'int': f'hs_fmt("%lld", {c})', 'float': f'hs_ftoa({c})',
                 'bool': f'({c} ? "true" : "false")'}
+        if n in ('Str', 'print') and (t[:1] in '[{' or t in g.classes):
+            text[t] = g.show(g.known(t, e), c, quoted=False)
         if n == 'Int' and t == 'int': return c, 'int'
         if n == 'Int' and t == 'float': return f'hs_int({c})', 'int'
         if n == 'Float' and is_num(t): return f'((double)({c}))', 'float'
@@ -1713,6 +1806,10 @@ static {name} *{name}_of(int n, ...) {{
         f = e.fn
         if f.kind == 'name' and f.name in BUILTINS and not env.lookup(f.name):
             return g.builtin(f.name, e, env)
+        if f.kind == 'name' and (env.lookup(f.name) or ('',))[0].startswith('function '):
+            mod, fn = g.fnrefs[env.lookup(f.name)[0]]
+            g.mark(mod, fn.name)
+            return g.call_fn(mod, fn, e.args, e, env)
         if f.kind == 'name' and env.cls and f.name in env.cls.methods and not env.lookup(f.name):
             return g.call_fn(env.mod, env.cls.methods[f.name], e.args, e, env, env.cls, 'self')
         parts = dotted(f)
@@ -1775,6 +1872,7 @@ static {name} *{name}_of(int n, ...) {{
     # ── command-line switches: variables whose defaults the command line can override ──
     def switches(g, env):
         sws = g.main.prog.switches
+        g.main.globals = {}
         if not sws: return []
         kinds = {'int': 0, 'float': 1, 'string': 2, 'bool': 3}
         decl, table, checks = [], [], []
@@ -1791,8 +1889,14 @@ static {name} *{name}_of(int n, ...) {{
             if sw.where:
                 wenv = env.child(); wenv.vars['it'] = (t, False, cn)
                 checks.append(f'    if (!({g.cond(sw.where, wenv)})) hs_switch_fail(&_sw[{n}]);')
+        publish = []                             # functions read the switches through globals
+        for sw in sws:
+            t = env.vars[sw.name][0]
+            g.protos.append(f'static {g.ctype(t)} g_{sw.name};')
+            g.main.globals[sw.name] = (t, False, 'g_' + sw.name)
+            publish.append(f'    g_{sw.name} = v_{sw.name};')
         return decl + ['    hs_switch _sw[] = {', ',\n'.join(table), '    };',
-                       f'    hs_switches(argc, argv, _sw, {len(sws)});'] + checks
+                       f'    hs_switches(argc, argv, _sw, {len(sws)});'] + checks + publish
 
     # ── whole program ──
     def program(g):

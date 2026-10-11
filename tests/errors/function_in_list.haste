@@ -1,0 +1,4 @@
+// functions can be passed and called, not kept in lists
+fn A() = 1
+let l = [A]
+// error: function_in_list.haste:3: A is a function: functions can be passed to a function and called, but not kept in a list or dictionary

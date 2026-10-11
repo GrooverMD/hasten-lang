@@ -1,0 +1,41 @@
+// a function can be passed to a function and called there; each one passed gets its own direct call
+fn Apply(f, x) = f(x)
+fn Twice(x) = x * 2
+fn Square(x) = x * x
+fn Map(l, f)
+  let out = []
+  for x in l
+    out.Add(f(x))
+  end
+  return out
+end
+fn Sort(l, before)
+  for i in 1..l.Count - 1
+    var j = i
+    while j > 0 and before(l[j], l[j - 1])
+      let t = l[j]
+      l[j] = l[j - 1]
+      l[j - 1] = t
+      j = j - 1
+    end
+  end
+end
+fn Desc(a, b) = a > b
+fn ByLength(a, b) = a.Length < b.Length
+print(Apply(Twice, 3))
+print(Apply(Square, 3))
+print(Map([1, 2, 3], Square))
+let n = [3, 1, 2]
+Sort(n, Desc)
+print(n)
+let w = ["ccc", "a", "bb"]
+Sort(w, ByLength)
+print(w)
+let up = Text.Upper
+print(up("hi"))
+// out: 6
+// out: 9
+// out: [1, 4, 9]
+// out: [3, 2, 1]
+// out: ["a", "bb", "ccc"]
+// out: HI

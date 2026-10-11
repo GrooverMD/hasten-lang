@@ -1,0 +1,26 @@
+// whole numbers in hexadecimal and binary, decimals with an exponent, and _ between digits
+print(0xFF)
+print(0b1010)
+print(1_000_000)
+print(0x7FFF_FFFF_FFFF_FFFF)
+print(-0x10)
+print(1e5)
+print(2.5e-3)
+print(1_000.25)
+print(1E3 + 1)
+print(0xFF - 1)
+for i in 1..2
+  print(i)
+end
+// out: 255
+// out: 10
+// out: 1000000
+// out: 9223372036854775807
+// out: -16
+// out: 100000
+// out: 0.0025
+// out: 1000.25
+// out: 1001
+// out: 254
+// out: 1
+// out: 2

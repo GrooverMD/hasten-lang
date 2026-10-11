@@ -39,15 +39,15 @@ parallel return shl shr switch then true try var where while write xor
 
 | Kind | Form | Notes |
 |---|---|---|
-| Whole number | `42`, `-7` | Decimal digits only. Must fit in 64 bits: −9223372036854775808 to 9223372036854775807. A `-` directly before a number is part of it. |
-| Decimal | `3.14`, `0.5` | Digits on both sides of the point. |
+| Whole number | `42`, `-7`, `0xFF`, `0b1010`, `1_000_000` | Decimal, hexadecimal (`0x`) or binary (`0b`); `_` may separate digits. Must fit in 64 bits: −9223372036854775808 to 9223372036854775807. A `-` directly before a number is part of it. |
+| Decimal | `3.14`, `0.5`, `1e5`, `2.5e-3` | Digits on both sides of the point; an exponent makes a decimal. A number that runs into letters (`12abc`) is an error. |
 | Text | `"Hello {name}"` | One line. Escapes: `\n` `\r` `\t` `\\` `\"` `\{` `\}`. `{expression}` inserts a value (§6.8). |
 | True/false | `true`, `false` | |
 | List | `[1, 2, 3]`, `[]` | |
 | Dictionary | `{"Mark": 50}`, `{}` | |
 
-Not in the language: hexadecimal (`0xFF`) and exponent (`1e5`) literals, `!=`, `==`, `+=`, `&&`, `||`, `!`,
-`;`, `else if` and `do`. The compiler says what to write instead.
+Not in the language: `!=`, `==`, `+=`, `&&`, `||`, `!`, `;`, `else if` and `do`. The compiler says what to write
+instead.
 
 ---
 
@@ -122,13 +122,13 @@ block already has; the inner one hides the outer one until the block ends. Decla
 block is an error.
 
 **Functions see** their parameters and their own variables, plus the functions, classes, aliases and modules of
-their file. They do not see the program's top-level variables or switches. Methods also see their object's
-properties and methods (§9).
+their file, and the program's switches (§12). They do not see the program's other top-level variables. Methods
+also see their object's properties and methods (§9).
 
 *Why:* a function that depends only on its arguments can be understood, tested and run in parallel on its own.
 
-**Cannot be changed:** parameters, `let` variables, `for` loop variables, `it`, `self`, and outer variables
-inside `parallel for` (§13).
+**Cannot be changed:** parameters, `let` variables, `for` loop variables, switches, `it`, `self`, and outer
+variables inside `parallel for` (§13).
 
 ---
 
@@ -212,9 +212,8 @@ It cannot be an operand without brackets: `1 + (if c then 1 else 2)`.
 
 ### 6.8 Text interpolation
 
-`"{expression}"` inserts the expression's value: text as it is, whole numbers in decimal, decimals as in §14,
-`true`/`false`. `"{x:2}"` shows a number with 2 decimal places. Objects and lists cannot be inserted. `\{` is a
-brace that is just text.
+`"{expression}"` inserts the expression's value as `print` would show it (§14). `"{x:2}"` shows a number with 2
+decimal places. `\{` is a brace that is just text.
 
 ---
 
@@ -234,7 +233,7 @@ else
 end
 ```
 
-**While.** `while condition` ... `end`.
+**While.** `while condition` ... `end`; `then` after the condition is optional, as after `if`.
 
 **For.**
 
@@ -279,7 +278,23 @@ extern fn Sqrt(x: float): float = "sqrt"  // a C function; every type must be wr
 - **The result type** is worked out from the `return`s (§3.1). A function that calls itself before its result
   type is known needs it written: `fn Fact(n): int = ...`.
 - **A function that must return a value** and reaches its end without one is an error.
-- **Functions are not values**: they can be called, not passed around.
+- **Functions as values.** A function's name without brackets is a value that can be passed to a function and
+  called there:
+
+  ```haste
+  fn Apply(f, x) = f(x)
+  fn Twice(x) = x * 2
+  print(Apply(Twice, 3))          // 6
+  Sort(names, ByLength)           // a compare function
+  let up = Text.Upper             // a variable holding a function
+  ```
+
+  The type of such a value is the function itself, so each function passed gets its own compiled version of the
+  receiver, with a direct call: no cost at run time. A variable or parameter that holds a function always holds
+  the same one. Functions cannot be kept in lists or dictionaries, compared or printed. Methods are not values.
+
+  *Why:* this covers what passing functions is for (sorting, filtering, mapping, callbacks) using the same
+  compile-per-type design as type-free functions, with no hidden function pointers.
 - **Recursion** may go about 16 million calls deep for small functions (the program's stack is 256 MB). Deeper is
   the error *recursion too deep*, which can be caught.
 
@@ -305,7 +320,9 @@ end
 a = Account(Owner: "Mark", Balance: 1500)
 ```
 
-**Properties** need a type or a default, or both. A property holding a list or dictionary needs its type written.
+**Properties** need a type or a default, or both. A property holding a list or dictionary needs its type written,
+and cannot have a `where` rule: the rule would only see a whole new list being assigned, never items being added,
+so it would look like protection it does not give. Check items in the method that adds them.
 Inside the class, properties and methods are used by their bare names or through `self`.
 
 **Rules.** `where` gives a condition on the property's value, `it`. When a property is set, its rule is checked
@@ -386,7 +403,8 @@ switch Quiet = false
 
 A switch is a top-level variable that the command line can set. Its type comes from its default (or is written:
 `switch Width: int = 640`) and must be `int`, `float`, `string` or `bool`. The comment on its line is its help.
-Switches can be read in top-level code.
+Switches can be read everywhere in the program's file, including in functions and methods, but not changed:
+they are the program's settings.
 
 | Command line | Means |
 |---|---|
@@ -440,9 +458,14 @@ A byte that is not valid UTF-8 counts as one character.
 significant digits that reads back as the same number (as Delphi's `FloatToStr`): `250`, `1234567.5`, `0.3` for
 `0.1 + 0.2`, `9` for `9.0`, `1e+15` once a number has more than 15 digits, `inf`, `nan`.
 
-**Built-ins.** `print(x)` prints a number, text or true/false on its own line. `Str(x)` gives the same text.
-`Int(x)` turns a decimal into a whole number towards zero (an infinite or out-of-range decimal is an error);
-`Float(x)` the other way. Lists, dictionaries and objects cannot be printed.
+**Built-ins.** `print(x)` prints any value on its own line; `Str(x)` gives the same text. `Int(x)` turns a
+decimal into a whole number towards zero (an infinite or out-of-range decimal is an error); `Float(x)` the other
+way.
+
+**Lists, dictionaries and objects as text** look as they would be written: `[1, 2, 3]`, `["a", "b"]`,
+`{"Mark": 50}`, `Point(X: 1, Y: 2.5)` (stored properties, not computed ones). Text inside them is quoted. Nesting
+stops at 3 levels (`[...]`, `Point(...)`), and a list shows its first 100 items then `... N more`, so an object
+that holds itself still prints as one line.
 
 **Members.** Lists: `Add(v)`, `Count`, `[i]`. Dictionaries: `Has(k)`, `Remove(k)`, `Get(k, default)`, `Count`,
 `[k]`. Text: `Length`.
@@ -476,15 +499,21 @@ call returns.
 
 ---
 
-## 17. Open questions
+## 17. Decisions
 
-Decisions not yet made. Until one is made, the current behaviour stands and is described above.
+Questions that were open, and what was decided.
 
-1. **Switches in functions.** Switches are top-level variables, so functions cannot read them (§4). Should switches
-   be readable everywhere, as settings?
-2. **`then` after `while`.** `if` accepts an optional `then`; `while` rejects it. Allow it for consistency?
-3. **Hexadecimal and exponent literals** (`0xFF`, `1e5`).
-4. **Rules on list properties.** A `where` rule is checked when a property is set, not when a list it holds is
-   changed with `Add`.
-5. **Printing lists and objects.** `print([1, 2])` is an error.
-6. **Functions as values**, and generic classes.
+1. **Switches in functions:** readable everywhere, as settings; never changeable (§12).
+2. **`then` after `while`:** optional, as after `if` (§7).
+3. **Hexadecimal, binary and exponent literals, and `_` between digits:** added (§1).
+4. **Rules on list properties:** not allowed, because they could not see items being added (§9).
+5. **Printing lists, dictionaries and objects:** shown as they would be written (§14).
+6. **Functions as values:** added, compiled per function passed (§8).
+
+## 18. Open questions
+
+1. **Generic classes**, such as a `Stack` that works for any item type. Lists and dictionaries are already generic,
+   and type-free functions already work on any type, so most programs do not need them. The design that fits Haste
+   is the one functions use: a class whose properties have no type and no default would be compiled once for each
+   combination of property types it is made with (`Pair(First: 1, Second: "a")`). That changes how every class type
+   is named and checked, so it waits for a program that needs it.

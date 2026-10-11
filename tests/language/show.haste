@@ -1,0 +1,33 @@
+// lists, dictionaries and objects print as they would be written; nesting stops at 3 levels
+class Point
+  X = 1
+  Y = 2.5
+  Name = "p"
+  Sum => X + Y
+end
+class Node
+  V = 1
+  Kids: [Node] = []
+end
+print([1, 2, 3])
+print(["a", "b"])
+print([[1], [2, 3]])
+print({"Mark": 50, "Ada": 36})
+print(Point())
+print("at {Point(X: 9)}")
+let n = Node()
+n.Kids.Add(n)
+print(n)
+let big = []
+for i in 1..103
+  big.Add(i mod 2)
+end
+print(Str(big).Length)
+// out: [1, 2, 3]
+// out: ["a", "b"]
+// out: [[1], [2, 3]]
+// out: {"Mark": 50, "Ada": 36}
+// out: Point(X: 1, Y: 2.5, Name: "p")
+// out: at Point(X: 9, Y: 2.5, Name: "p")
+// out: Node(V: 1, Kids: [Node(V: 1, Kids: [...])])
+// out: 312

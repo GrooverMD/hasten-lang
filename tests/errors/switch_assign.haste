@@ -1,0 +1,7 @@
+// the command line sets a switch; the program cannot change it
+switch Size = 3
+fn Grow()
+  Size = 4
+end
+Grow()
+// error: switch_assign.haste:4: Size is a switch: the command line sets it, and it cannot be changed

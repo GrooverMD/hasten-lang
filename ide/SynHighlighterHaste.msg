@@ -83,10 +83,18 @@ EndProc
 
 '0'..'9':: Number
 BeginProc
+  { 255, 1_000, 0xFF, 0b1010, 2.5, 1e5, 2.5e-3 }
   fTokenID := tkNumber;
-  while CharInSet(fLine[Run], ['0'..'9']) do
+  while CharInSet(fLine[Run], ['0'..'9', 'a'..'z', 'A'..'Z', '_']) do
     Inc(Run);
   if (fLine[Run] = '.') and CharInSet(fLine[Run + 1], ['0'..'9']) then
+  begin
+    Inc(Run);
+    while CharInSet(fLine[Run], ['0'..'9', 'e', 'E', '_']) do
+      Inc(Run);
+  end;
+  if CharInSet(fLine[Run], ['+', '-']) and CharInSet(fLine[Run - 1], ['e', 'E'])
+    and not CharInSet(fLine[fTokenPos + 1], ['x', 'X']) then
   begin
     Inc(Run);
     while CharInSet(fLine[Run], ['0'..'9']) do

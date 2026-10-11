@@ -1,0 +1,6 @@
+// a where rule on a list property would never see items being added, so it is not allowed
+class Basket
+  Items: [int] = [] where it.Count < 3
+end
+print(Basket().Items.Count)
+// error: list_rule.haste:3: Basket.Items holds a list or dictionary

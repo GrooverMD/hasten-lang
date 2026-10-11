@@ -1,0 +1,6 @@
+// a variable holding a function always holds the same one
+fn A() = 1
+fn B() = 2
+var f = A
+f = B
+// error: function_reassign.haste:5: this holds the function A, so it cannot take B

@@ -1,0 +1,3 @@
+// a number that runs into letters is not a number
+print(12abc)
+// error: bad_number.haste:2: '12abc' is not a number

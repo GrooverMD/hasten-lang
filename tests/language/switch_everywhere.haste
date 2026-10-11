@@ -1,0 +1,16 @@
+// switches are settings: functions and methods of the program can read them too
+switch Size = 3
+switch Label = "n"
+fn Area() = Size * Size
+class Report
+  fn Line() = "{Label}={Area()}"
+end
+print(Report().Line())
+let out = [0, 0]
+parallel for i in 0..1
+  out[i] = Size + i
+end
+print(out)
+// args: --size 5
+// out: n=25
+// out: [5, 6]

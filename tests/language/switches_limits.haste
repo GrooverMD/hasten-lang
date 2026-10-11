@@ -1,0 +1,5 @@
+// a switch value too big for its type is an error, not a clamped or infinite value
+switch Scale = 1.5
+print(Scale)
+// args: --scale 1e999
+// error: --scale cannot be 1e999: it is too big

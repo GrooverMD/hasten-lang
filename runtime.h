@@ -844,6 +844,7 @@ static void hs_switches(int argc, char **argv, hs_switch *s, int n) {
             else { fprintf(stderr, "--%s needs a value\n", hs_lowered(w->name)); exit(1); }
         }
         char *end = NULL;
+        errno = 0;
         switch (w->kind) {
         case 0: *(long long *)w->ptr = strtoll(value, &end, 10); break;
         case 1: *(double *)w->ptr = strtod(value, &end); break;
@@ -854,6 +855,10 @@ static void hs_switches(int argc, char **argv, hs_switch *s, int n) {
             else if (hs_same(value, "false", 5) || hs_same(value, "no", 2) || hs_same(value, "off", 3) || !strcmp(value, "0"))
                 *(bool *)w->ptr = false, end = "";
             break;
+        }
+        if (errno == ERANGE && w->kind <= 1) {
+            fprintf(stderr, "--%s cannot be %s: it is too big\n", hs_lowered(w->name), value);
+            exit(1);
         }
         if (!end || end == value || *end) {
             static const char *need[] = { "a whole number", "a number", "text", "true or false" };

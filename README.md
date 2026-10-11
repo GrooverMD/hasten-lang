@@ -14,6 +14,8 @@ default for everything in a class, works out types for you, and still runs at th
 > **Status: experimental prototype.** The language changes from day to day and the compiler is a proof of concept
 > written in Python. Expect breaking changes. Not for production use.
 
+The full definition of the language, every rule and the reasons for the main ones, is in [SPEC.md](SPEC.md).
+
 ## Hello World
 
 `examples/hello.haste`:

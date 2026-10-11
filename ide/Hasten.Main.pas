@@ -9,9 +9,9 @@ interface
 uses
   Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, System.UITypes,
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
-  Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd,
+  Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd, Vcl.Buttons, Vcl.Themes,
   SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
-  Hasten.Watcher;
+  Hasten.Watcher, Hasten.Settings;
 
 type
   TEditorTab = class(TTabSheet)
@@ -46,6 +46,15 @@ type
     FEditorMenu: TPopupMenu;                    // right-click menu shared by every editor tab
     FFontName: string;                          // the editor font, kept in Hasten.ini
     FFontSize: Integer;
+    FTabWidth: Integer;                         // these and the rest are set in Tools > Settings
+    FRightEdge: Integer;                        // 0: no margin line
+    FLineNumbers: Boolean;
+    FClearOutput: Boolean;                      // on each Run, Build and Run Tests
+    FReopen: Boolean;                           // last session's files at start
+    FStyleName: string;                         // '' keeps the style Hasten.dpr sets
+    FTools: TPanel;                             // the toolbar: icon buttons at the left of the top bar
+    FToolbarAction: TAction;
+    FEditButtons: TArray<TSpeedButton>;         // Undo ... Paste: enabled as the Edit menu's items are
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
     FFinished: TRunner;                         // the last run, freed once its thread is long gone
@@ -92,6 +101,11 @@ type
     procedure FindNext(Sender: TObject);
     procedure BuildEditorMenu;
     procedure ApplyFont;
+    procedure ApplyEditor(E: TSynEdit);
+    procedure BuildToolbar(Bar: TPanel; const Actions: array of TAction);
+    procedure ToolEditClick(Sender: TObject);
+    procedure DoToolbar(Sender: TObject);
+    procedure DoSettings(Sender: TObject);
     procedure SetFontSize(Size: Integer);
     procedure EditorMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
       MousePos: TPoint; var Handled: Boolean);
@@ -197,6 +211,11 @@ begin
   inherited CreateNew(AOwner);                  // no .dfm: everything is built in BuildUi
   FFontName := 'Consolas';
   FFontSize := 11;
+  FTabWidth := 2;
+  FRightEdge := 80;
+  FLineNumbers := True;
+  FClearOutput := True;
+  FReopen := True;
   FHighlighter := THasteHighlighter.Create(Self);
   FWordLines := TStringList.Create;
   FWordsTimer := TTimer.Create(Self);
@@ -269,7 +288,6 @@ var
   Menu: TMainMenu;
   Bar: TPanel;
   Split: TSplitter;
-  RunButton: TButton;
   Lbl: TLabel;
 
   function Item(Parent: TMenuItem; Action: TAction): TMenuItem;
@@ -287,8 +305,9 @@ var
   end;
 
 var
-  FileMenu, EditMenu, ViewMenu, RunMenu: TMenuItem;
-  Zoom: TAction;
+  FileMenu, EditMenu, ViewMenu, RunMenu, ToolsMenu: TMenuItem;
+  Zoom, NewAction, OpenAction, SaveAction, FindAction, SettingsAction: TAction;
+  Right: TPanel;
 begin
   Caption := 'Hasten';
   Width := 1100;
@@ -302,9 +321,12 @@ begin
   Self.Menu := Menu;
 
   FileMenu := Head('&File');
-  Item(FileMenu, AddAction('&New', 'Ctrl+N', DoNew));
-  Item(FileMenu, AddAction('&Open...', 'Ctrl+O', DoOpen));
-  Item(FileMenu, AddAction('&Save', 'Ctrl+S', DoSave));
+  NewAction := AddAction('&New', 'Ctrl+N', DoNew);
+  OpenAction := AddAction('&Open...', 'Ctrl+O', DoOpen);
+  SaveAction := AddAction('&Save', 'Ctrl+S', DoSave);
+  Item(FileMenu, NewAction);
+  Item(FileMenu, OpenAction);
+  Item(FileMenu, SaveAction);
   Item(FileMenu, AddAction('Save &As...', 'Ctrl+Shift+S', DoSaveAs));
   Item(FileMenu, AddAction('&Close', 'Ctrl+W', DoCloseTab));
   Item(FileMenu, nil);
@@ -315,11 +337,17 @@ begin
   EditMenu.OnClick := EditMenuOpen;             // runs as the menu opens: grey out what can't apply
   AddEditItems(EditMenu, False);
   Item(EditMenu, nil);
-  Item(EditMenu, AddAction('&Find...', 'Ctrl+F', DoFind));
+  FindAction := AddAction('&Find...', 'Ctrl+F', DoFind);
+  Item(EditMenu, FindAction);
   Item(EditMenu, AddAction('Find &Next', 'F3', DoFindNext));
   Item(EditMenu, AddAction('&Go to Line...', 'Ctrl+G', DoGoToLine));
 
   ViewMenu := Head('&View');
+  FToolbarAction := AddAction('&Toolbar', '', DoToolbar);
+  FToolbarAction.AutoCheck := True;
+  FToolbarAction.Checked := True;
+  Item(ViewMenu, FToolbarAction);
+  Item(ViewMenu, nil);
   Item(ViewMenu, AddAction('&Font...', '', DoFont));
   Item(ViewMenu, nil);
   Zoom := AddAction('Zoom &In', '', DoZoomIn);          // Ctrl + NumPad +, -, 0; Ctrl+wheel also zooms
@@ -345,35 +373,40 @@ begin
   Item(RunMenu, nil);
   Item(RunMenu, AddAction('Where is &haste.py...', '', DoHastePy));
 
+  ToolsMenu := Head('&Tools');
+  SettingsAction := AddAction('&Settings...', '', DoSettings);
+  Item(ToolsMenu, SettingsAction);
+
   Bar := TPanel.Create(Self);
   Bar.Parent := Self;
   Bar.Align := alTop;
   Bar.Height := 34;
   Bar.BevelOuter := bvNone;
+  BuildToolbar(Bar, [NewAction, OpenAction, SaveAction, nil, nil, FindAction, FRunAction, FBuildAction,
+    FStopAction, FTestsAction, SettingsAction]);
 
-  RunButton := TButton.Create(Self);
-  RunButton.Parent := Bar;
-  RunButton.SetBounds(6, 5, 70, 24);
-  RunButton.Action := FRunAction;
-  RunButton.Caption := 'Run';
+  Right := TPanel.Create(Self);                 // slides left when the toolbar is hidden
+  Right.Parent := Bar;
+  Right.Align := alClient;
+  Right.BevelOuter := bvNone;
 
   Lbl := TLabel.Create(Self);
-  Lbl.Parent := Bar;
-  Lbl.SetBounds(88, 9, 70, 16);
+  Lbl.Parent := Right;
+  Lbl.SetBounds(10, 9, 70, 16);
   Lbl.Caption := 'Switches:';
   FArgs := TEdit.Create(Self);
-  FArgs.Parent := Bar;
-  FArgs.SetBounds(150, 6, 360, 22);
+  FArgs.Parent := Right;
+  FArgs.SetBounds(72, 6, 300, 22);
   FArgs.Hint := 'Passed to the program on Run, e.g. --width 1920 --height 1080';   // a tooltip: the
   FArgs.ShowHint := True;                       // VCL style draws a TextHint too faintly to read
 
   Lbl := TLabel.Create(Self);
-  Lbl.Parent := Bar;
-  Lbl.SetBounds(528, 9, 60, 16);
+  Lbl.Parent := Right;
+  Lbl.SetBounds(388, 9, 60, 16);
   Lbl.Caption := 'Build for:';
   FTarget := TComboBox.Create(Self);
-  FTarget.Parent := Bar;
-  FTarget.SetBounds(590, 6, 180, 22);
+  FTarget.Parent := Right;
+  FTarget.SetBounds(450, 6, 180, 22);
   FTarget.Style := csDropDownList;
   FTarget.Items.Add('this system');
   FTarget.Items.Add(TargetAll);
@@ -569,6 +602,174 @@ begin
   end;
 end;
 
+{ ---- the toolbar ----
+  Flat buttons whose pictures are characters of Windows' own icon font (Segoe Fluent Icons on Windows 11,
+  Segoe MDL2 Assets on Windows 10): no image files, sharp at any size, drawn in the VCL style's colours.
+  Without either font the buttons show short words. Buttons with an action follow it (Stop is enabled only
+  while something runs); Undo ... Paste act on what has focus, as the Edit menu does. A nil in Actions
+  stands for the edit buttons, then a gap. }
+
+type
+  TTool = record Glyph: Char; Word, Hint: string; Tag: Integer; end;
+
+procedure TMainForm.BuildToolbar(Bar: TPanel; const Actions: array of TAction);
+const
+  Glyphs: array[0..10] of TTool = (
+    (Glyph: #$E8A5; Word: 'New'; Hint: 'New (Ctrl+N)'; Tag: 0),
+    (Glyph: #$E8E5; Word: 'Open'; Hint: 'Open (Ctrl+O)'; Tag: 0),
+    (Glyph: #$E74E; Word: 'Save'; Hint: 'Save (Ctrl+S)'; Tag: 0),
+    (Glyph: #0; Word: ''; Hint: ''; Tag: 0), (Glyph: #0; Word: ''; Hint: ''; Tag: 0),
+    (Glyph: #$E721; Word: 'Find'; Hint: 'Find (Ctrl+F)'; Tag: 0),
+    (Glyph: #$E768; Word: 'Run'; Hint: 'Run (F9)'; Tag: 0),
+    (Glyph: #$E90F; Word: 'Build'; Hint: 'Build (Ctrl+F9)'; Tag: 0),
+    (Glyph: #$E71A; Word: 'Stop'; Hint: 'Stop (Ctrl+F2)'; Tag: 0),
+    (Glyph: #$E9D5; Word: 'Tests'; Hint: 'Run Tests'; Tag: 0),
+    (Glyph: #$E713; Word: 'Settings'; Hint: 'Settings'; Tag: 0));
+  Edits: array[0..4] of TTool = (
+    (Glyph: #$E7A7; Word: 'Undo'; Hint: 'Undo (Ctrl+Z)'; Tag: emUndo),
+    (Glyph: #$E7A6; Word: 'Redo'; Hint: 'Redo (Ctrl+Shift+Z)'; Tag: emRedo),
+    (Glyph: #$E8C6; Word: 'Cut'; Hint: 'Cut (Ctrl+X)'; Tag: emCut),
+    (Glyph: #$E8C8; Word: 'Copy'; Hint: 'Copy (Ctrl+C)'; Tag: emCopy),
+    (Glyph: #$E77F; Word: 'Paste'; Hint: 'Paste (Ctrl+V)'; Tag: emPaste));
+var
+  IconFont: string;
+  X, I, J: Integer;
+  EditsDone: Boolean;
+
+  function Button(const T: TTool; Action: TAction): TSpeedButton;
+  begin
+    Result := TSpeedButton.Create(Self);
+    Result.Parent := FTools;
+    Result.Flat := True;
+    if Action <> nil then Result.Action := Action;   // enabled with the action; sets Caption, so after:
+    if IconFont <> '' then
+    begin
+      Result.Font.Name := IconFont;
+      Result.Font.Size := 12;
+      Result.Caption := T.Glyph;
+      Result.SetBounds(X, 3, 30, 28);
+    end
+    else
+    begin
+      Result.Caption := T.Word;
+      Result.SetBounds(X, 3, Canvas.TextWidth(T.Word) + 16, 28);
+    end;
+    Result.Hint := T.Hint;
+    Result.ShowHint := True;
+    Inc(X, Result.Width + 1);
+  end;
+
+  procedure Gap;
+  begin
+    Inc(X, 10);
+  end;
+
+begin
+  if Screen.Fonts.IndexOf('Segoe Fluent Icons') >= 0 then IconFont := 'Segoe Fluent Icons'
+  else if Screen.Fonts.IndexOf('Segoe MDL2 Assets') >= 0 then IconFont := 'Segoe MDL2 Assets'
+  else IconFont := '';
+  FTools := TPanel.Create(Self);
+  FTools.Parent := Bar;
+  FTools.Align := alLeft;
+  FTools.BevelOuter := bvNone;
+  X := 4;
+  EditsDone := False;
+  for I := 0 to High(Actions) do
+    if Actions[I] <> nil then
+    begin
+      if I in [6, 10] then Gap;                  // before Run, and before Settings
+      Button(Glyphs[I], Actions[I]);
+    end
+    else if not EditsDone then
+    begin
+      Gap;
+      for J := 0 to High(Edits) do
+      begin
+        FEditButtons := FEditButtons + [Button(Edits[J], nil)];
+        FEditButtons[J].Tag := Edits[J].Tag;
+        FEditButtons[J].OnClick := ToolEditClick;
+      end;
+      Gap;
+      EditsDone := True;
+    end;
+  FTools.Width := X + 4;
+end;
+
+{ Undo ... Paste on the toolbar: a speed button never takes the focus, so the editor or box that had it
+  is still ActiveControl, and the Edit menu's code does the work. }
+procedure TMainForm.ToolEditClick(Sender: TObject);
+var
+  Item: TMenuItem;
+begin
+  for Item in FEditMenu do
+    if Item.Tag = TSpeedButton(Sender).Tag then
+    begin
+      UpdateEditItems(FEditMenu);
+      if Item.Enabled then EditorMenuClick(Item);
+      Exit;
+    end;
+end;
+
+procedure TMainForm.DoToolbar(Sender: TObject);
+begin
+  FTools.Visible := FToolbarAction.Checked;
+end;
+
+{ ---- settings that apply to every editor ---- }
+
+procedure TMainForm.ApplyEditor(E: TSynEdit);
+begin
+  E.Font.Name := FFontName;
+  E.Font.Size := FFontSize;
+  E.Gutter.Font.Name := FFontName;
+  E.Gutter.Font.Size := FFontSize;
+  E.TabWidth := FTabWidth;
+  E.RightEdge := FRightEdge;
+  E.Gutter.ShowLineNumbers := FLineNumbers;
+end;
+
+procedure TMainForm.DoSettings(Sender: TObject);
+var
+  Dialog: TSettingsDialog;
+begin
+  Dialog := TSettingsDialog.Create(Self);
+  try
+    Dialog.FontName := FFontName;
+    Dialog.FontSize := FFontSize;
+    Dialog.TabWidth := FTabWidth;
+    Dialog.RightEdge := FRightEdge;
+    Dialog.LineNumbers := FLineNumbers;
+    Dialog.StyleName := TStyleManager.ActiveStyle.Name;
+    Dialog.Python := FPython;
+    Dialog.HastePy := FHastePy;
+    Dialog.ClearOutput := FClearOutput;
+    Dialog.Reopen := FReopen;
+    if not Dialog.Execute then Exit;
+    FFontName := Dialog.FontName;
+    FFontSize := Dialog.FontSize;
+    FTabWidth := Dialog.TabWidth;
+    FRightEdge := Dialog.RightEdge;
+    FLineNumbers := Dialog.LineNumbers;
+    FPython := Dialog.Python;
+    if Dialog.HastePy <> FHastePy then
+    begin
+      FHastePy := Dialog.HastePy;
+      RefreshWords;                             // another haste.py can mean other modules
+    end;
+    FClearOutput := Dialog.ClearOutput;
+    FReopen := Dialog.Reopen;
+    if (Dialog.StyleName <> '') and (Dialog.StyleName <> TStyleManager.ActiveStyle.Name) then
+    begin
+      FStyleName := Dialog.StyleName;
+      TStyleManager.TrySetStyle(FStyleName);
+    end;
+    ApplyFont;
+    SaveSettings;
+  finally
+    Dialog.Free;
+  end;
+end;
+
 { ---- the editor font: one font and size for every tab, chosen under View or with Ctrl+mouse wheel ---- }
 
 const
@@ -582,10 +783,7 @@ begin
   for I := 0 to FPages.PageCount - 1 do
   begin
     E := TEditorTab(FPages.Pages[I]).Editor;
-    E.Font.Name := FFontName;
-    E.Font.Size := FFontSize;
-    E.Gutter.Font.Name := FFontName;
-    E.Gutter.Font.Size := FFontSize;
+    ApplyEditor(E);
   end;
   FOutput.Font.Name := FFontName;              // the output panel keeps its own, smaller size
 end;
@@ -663,14 +861,25 @@ begin
     FPython := Ini.ReadString('Haste', 'Python', 'python');
     FFontName := Ini.ReadString('Editor', 'FontName', FFontName);
     FFontSize := Ini.ReadInteger('Editor', 'FontSize', FFontSize);
+    FTabWidth := Ini.ReadInteger('Editor', 'TabWidth', FTabWidth);
+    FRightEdge := Ini.ReadInteger('Editor', 'RightEdge', FRightEdge);
+    FLineNumbers := Ini.ReadBool('Editor', 'LineNumbers', FLineNumbers);
+    FClearOutput := Ini.ReadBool('Run', 'ClearOutput', FClearOutput);
+    FReopen := Ini.ReadBool('Start', 'Reopen', FReopen);
+    FStyleName := Ini.ReadString('View', 'Style', '');
+    if FStyleName <> '' then
+      TStyleManager.TrySetStyle(FStyleName, False);   // False: no error if it is no longer linked in
+    FToolbarAction.Checked := Ini.ReadBool('View', 'Toolbar', True);
+    DoToolbar(nil);
     ApplyFont;
     FArgs.Text := Ini.ReadString('Run', 'Switches', '');
     FTarget.ItemIndex := FTarget.Items.IndexOf(Ini.ReadString('Run', 'Target', 'this system'));
     if FTarget.ItemIndex < 0 then FTarget.ItemIndex := 0;
     Ini.ReadSectionValues('Open', Files);
-    for I := 0 to Files.Count - 1 do               // the files that were open last time
-      if FileExists(Files.ValueFromIndex[I]) then
-        OpenFile(Files.ValueFromIndex[I]);
+    if FReopen then
+      for I := 0 to Files.Count - 1 do             // the files that were open last time
+        if FileExists(Files.ValueFromIndex[I]) then
+          OpenFile(Files.ValueFromIndex[I]);
   finally
     Files.Free;
     Ini.Free;
@@ -689,6 +898,13 @@ begin
     Ini.WriteString('Haste', 'Python', FPython);
     Ini.WriteString('Editor', 'FontName', FFontName);
     Ini.WriteInteger('Editor', 'FontSize', FFontSize);
+    Ini.WriteInteger('Editor', 'TabWidth', FTabWidth);
+    Ini.WriteInteger('Editor', 'RightEdge', FRightEdge);
+    Ini.WriteBool('Editor', 'LineNumbers', FLineNumbers);
+    Ini.WriteBool('Run', 'ClearOutput', FClearOutput);
+    Ini.WriteBool('Start', 'Reopen', FReopen);
+    Ini.WriteString('View', 'Style', FStyleName);
+    Ini.WriteBool('View', 'Toolbar', FToolbarAction.Checked);
     Ini.WriteString('Run', 'Switches', FArgs.Text);
     Ini.WriteString('Run', 'Target', FTarget.Text);
     Ini.EraseSection('Open');
@@ -726,10 +942,7 @@ begin
   Result.Editor.OnStatusChange := EditorStatus;
   Result.Editor.PopupMenu := FEditorMenu;
   Result.Editor.OnMouseWheel := EditorMouseWheel;
-  Result.Editor.Font.Name := FFontName;
-  Result.Editor.Font.Size := FFontSize;
-  Result.Editor.Gutter.Font.Name := FFontName;
-  Result.Editor.Gutter.Font.Size := FFontSize;
+  ApplyEditor(Result.Editor);
   if AFileName = '' then
   begin
     Inc(FUntitled);
@@ -1026,9 +1239,13 @@ begin
   Result := False;
 end;
 
+{ Each run starts on a clean panel, or under the last one's output if Clear the output is off. }
 procedure TMainForm.OutputClear;
 begin
-  FOutput.Lines.Clear;
+  if FClearOutput then
+    FOutput.Lines.Clear
+  else if FOutput.Lines.Count > 0 then
+    FOutput.Lines.Add('');
 end;
 
 { Adds a line and keeps the end of the output in view, as a console does. A line holding several lines
@@ -1113,7 +1330,17 @@ begin
 end;
 
 procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
+var
+  B: TSpeedButton;
+  Item: TMenuItem;
 begin
+  if Action = FStopAction then                  // once per round of updates: grey out Undo ... Paste
+  begin
+    UpdateEditItems(FEditMenu);
+    for B in FEditButtons do
+      for Item in FEditMenu do
+        if Item.Tag = B.Tag then B.Enabled := Item.Enabled;
+  end;
   FStopAction.Enabled := Running;
   FRunAction.Enabled := not Running and (ActiveTab <> nil);
   FBuildAction.Enabled := FRunAction.Enabled;

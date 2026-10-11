@@ -54,6 +54,10 @@ type
     FToolbarAction: TAction;
     FInsight: THasteInsight;                    // Help Insight: tips on names under the mouse
     FInsightAction: TAction;
+    FProject: string;                           // the open project's .hproj, or '' for single files
+    FRecentMenu: TMenuItem;
+    FRecent: TArray<string>;                    // the paths behind Recent Projects' items
+    FCloseProjectAction: TAction;
     FEditButtons: TArray<TSpeedButton>;         // Undo ... Paste: enabled as the Edit menu's items are
     FEditMenu: TMenuItem;                       // the main menu's Edit
     FRunner: TRunner;
@@ -108,6 +112,18 @@ type
     procedure ToolEditClick(Sender: TObject);
     procedure DoToolbar(Sender: TObject);
     procedure DoInsight(Sender: TObject);
+    procedure DoNewProject(Sender: TObject);
+    procedure DoOpenProject(Sender: TObject);
+    procedure DoCloseProject(Sender: TObject);
+    procedure DoRecentProject(Sender: TObject);
+    function OpenProject(const Path: string): Boolean;
+    function CloseProject: Boolean;
+    function CloseAllTabs: Boolean;
+    function ProjectName: string;
+    procedure SaveOpenFiles(Ini: TMemIniFile; const Section: string);
+    procedure AddRecent(const Path: string);
+    procedure BuildRecentMenu;
+    procedure ProjectOptions;
     procedure DoSettings(Sender: TObject);
     procedure DoModuleOptions(Sender: TObject);
     procedure SetFontSize(Size: Integer);
@@ -157,6 +173,8 @@ implementation
 
 const
   HasteFilter = 'Haste files (*.haste)|*.haste|All files (*.*)|*.*';
+  ProjectFilter = 'Hasten projects (*.hproj)|*.hproj';
+  MaxRecent = 8;
 
 function Quote(const S: string): string;
 begin
@@ -311,7 +329,7 @@ var
   end;
 
 var
-  FileMenu, EditMenu, ViewMenu, RunMenu, ToolsMenu: TMenuItem;
+  FileMenu, EditMenu, ViewMenu, ProjectMenu, RunMenu, ToolsMenu: TMenuItem;
   Zoom, NewAction, OpenAction, SaveAction, FindAction, SettingsAction: TAction;
 begin
   Caption := 'Hasten';
@@ -369,6 +387,16 @@ begin
   Zoom.ShortCut := Vcl.Menus.ShortCut(VK_NUMPAD0, [ssCtrl]);
   Item(ViewMenu, Zoom);
 
+  ProjectMenu := Head('&Project');
+  Item(ProjectMenu, AddAction('&New Project...', '', DoNewProject));
+  Item(ProjectMenu, AddAction('&Open Project...', 'Shift+Ctrl+O', DoOpenProject));
+  FRecentMenu := TMenuItem.Create(Menu);
+  FRecentMenu.Caption := '&Recent Projects';
+  ProjectMenu.Add(FRecentMenu);
+  FCloseProjectAction := AddAction('&Close Project', '', DoCloseProject);
+  Item(ProjectMenu, FCloseProjectAction);
+  Item(ProjectMenu, nil);
+
   RunMenu := Head('&Run');
   FRunAction := AddAction('&Run', 'F9', DoRun);
   FBuildAction := AddAction('&Build', 'Ctrl+F9', DoBuild);
@@ -381,9 +409,9 @@ begin
   Item(RunMenu, nil);
   Item(RunMenu, FTestsAction);
   Item(RunMenu, nil);
-  Item(RunMenu, FModuleAction);
-  Item(RunMenu, nil);
   Item(RunMenu, AddAction('Where is &haste.py...', '', DoHastePy));
+
+  Item(ProjectMenu, FModuleAction);           // Options: the project's, or the single file's
 
   ToolsMenu := Head('&Tools');
   SettingsAction := AddAction('&Settings...', '', DoSettings);
@@ -820,6 +848,11 @@ var
   Section: string;
   I: Integer;
 begin
+  if FProject <> '' then
+  begin
+    ProjectOptions;
+    Exit;
+  end;
   Tab := ActiveTab;
   if Tab = nil then Exit;
   if Tab.FileName = '' then                     // the options are kept by file, so it needs a name
@@ -848,6 +881,266 @@ begin
   finally
     Dialog.Free;
     Ini.Free;
+  end;
+end;
+
+{ ---- projects: Name.hproj beside Name.haste, the program, which builds to Name ----
+  The .hproj holds what is shared (targets and switch values, read by haste.py); which files were open is
+  yours alone, so it is kept in Hasten.ini under [Project <path>]. }
+
+function TMainForm.ProjectName: string;
+begin
+  Result := ChangeFileExt(ExtractFileName(FProject), '');
+end;
+
+procedure TMainForm.SaveOpenFiles(Ini: TMemIniFile; const Section: string);
+var
+  I, N: Integer;
+begin
+  Ini.EraseSection(Section);
+  N := 0;
+  for I := 0 to FPages.PageCount - 1 do
+    if TEditorTab(FPages.Pages[I]).FileName <> '' then
+    begin
+      Inc(N);
+      Ini.WriteString(Section, 'File' + N.ToString, TEditorTab(FPages.Pages[I]).FileName);
+    end;
+end;
+
+function TMainForm.CloseAllTabs: Boolean;
+begin
+  while FPages.PageCount > 0 do
+    if not CloseTab(TEditorTab(FPages.Pages[FPages.PageCount - 1])) then
+      Exit(False);
+  Result := True;
+end;
+
+function TMainForm.CloseProject: Boolean;
+var
+  Ini: TMemIniFile;
+begin
+  if FProject = '' then Exit(True);
+  ForceDirectories(ExtractFilePath(FIniName));
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  try
+    SaveOpenFiles(Ini, 'Project ' + FProject);   // reopened with the project next time
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+  Result := CloseAllTabs;
+  if Result then
+  begin
+    FProject := '';
+    UpdateStatus;
+    RefreshWords;
+  end;
+end;
+
+{ Closes what is open (asking to save changes), then opens the project's files from last time, or its program. }
+function TMainForm.OpenProject(const Path: string): Boolean;
+var
+  Ini: TMemIniFile;
+  Files: TStringList;
+  Full, Main: string;
+  I: Integer;
+begin
+  Full := TPath.GetFullPath(Path);
+  Main := ChangeFileExt(Full, '.haste');
+  if not FileExists(Main) then
+  begin
+    MessageDlg(Format('%s needs its program, %s, beside it.', [ExtractFileName(Full), ExtractFileName(Main)]),
+      mtError, [mbOK], 0);
+    Exit(False);
+  end;
+  if not CloseProject or not CloseAllTabs then Exit(False);
+  FProject := Full;
+  AddRecent(Full);
+  Files := TStringList.Create;
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  try
+    Ini.ReadSectionValues('Project ' + Full, Files);
+    for I := 0 to Files.Count - 1 do
+      if FileExists(Files.ValueFromIndex[I]) then
+        OpenFile(Files.ValueFromIndex[I]);
+  finally
+    Ini.Free;
+    Files.Free;
+  end;
+  if FindTab(Main) = nil then
+    OpenFile(Main);
+  UpdateStatus;
+  Result := True;
+end;
+
+procedure TMainForm.AddRecent(const Path: string);
+var
+  Ini: TMemIniFile;
+  Old: TStringList;
+  I, N: Integer;
+begin
+  ForceDirectories(ExtractFilePath(FIniName));
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  Old := TStringList.Create;
+  try
+    Ini.ReadSectionValues('Recent', Old);
+    Ini.EraseSection('Recent');
+    Ini.WriteString('Recent', 'Project1', Path);
+    N := 1;
+    for I := 0 to Old.Count - 1 do
+      if (N < MaxRecent) and not SameFileName(Old.ValueFromIndex[I], Path) then
+      begin
+        Inc(N);
+        Ini.WriteString('Recent', 'Project' + N.ToString, Old.ValueFromIndex[I]);
+      end;
+    Ini.UpdateFile;
+  finally
+    Old.Free;
+    Ini.Free;
+  end;
+  BuildRecentMenu;
+end;
+
+procedure TMainForm.BuildRecentMenu;
+var
+  Ini: TMemIniFile;
+  List: TStringList;
+  Item: TMenuItem;
+  I: Integer;
+begin
+  FRecentMenu.Clear;
+  FRecent := nil;
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  List := TStringList.Create;
+  try
+    Ini.ReadSectionValues('Recent', List);
+    for I := 0 to List.Count - 1 do
+    begin
+      FRecent := FRecent + [List.ValueFromIndex[I]];
+      Item := TMenuItem.Create(FRecentMenu);
+      Item.Caption := Format('&%d  %s    %s', [I + 1, ChangeFileExt(ExtractFileName(FRecent[I]), ''),
+        ExtractFileDir(FRecent[I]).Replace('&', '&&')]);
+      Item.Tag := I;
+      Item.OnClick := DoRecentProject;
+      FRecentMenu.Add(Item);
+    end;
+  finally
+    List.Free;
+    Ini.Free;
+  end;
+  FRecentMenu.Enabled := Length(FRecent) > 0;
+end;
+
+procedure TMainForm.DoRecentProject(Sender: TObject);
+var
+  Path: string;
+begin
+  Path := FRecent[TMenuItem(Sender).Tag];
+  if FileExists(Path) then
+    OpenProject(Path)
+  else
+    MessageDlg(Path + ' is no longer there.', mtWarning, [mbOK], 0);
+end;
+
+procedure TMainForm.DoOpenProject(Sender: TObject);
+var
+  Dialog: TOpenDialog;
+begin
+  Dialog := TOpenDialog.Create(nil);
+  try
+    Dialog.Filter := ProjectFilter;
+    Dialog.Options := Dialog.Options + [ofFileMustExist];
+    if Dialog.Execute then
+      OpenProject(Dialog.FileName);
+  finally
+    Dialog.Free;
+  end;
+end;
+
+procedure TMainForm.DoCloseProject(Sender: TObject);
+begin
+  CloseProject;
+end;
+
+{ haste.py new makes the project, so the IDE and the command line make the same one. }
+procedure TMainForm.DoNewProject(Sender: TObject);
+var
+  ProjName, Folder, Cmd: string;
+  Picker: TFileOpenDialog;
+  Ini: TMemIniFile;
+begin
+  if Running or not LocateHastePy then Exit;
+  ProjName := '';
+  repeat
+    if not InputQuery('New Project', 'Project name (also the program''s name):', ProjName) then Exit;
+    ProjName := ProjName.Trim;
+    if TRegEx.IsMatch(ProjName, '^[A-Za-z_][A-Za-z0-9_]*$') then Break;
+    MessageDlg('A project name is letters, digits and _, starting with a letter or _.', mtWarning, [mbOK], 0);
+  until False;
+  Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
+  Picker := TFileOpenDialog.Create(nil);
+  try
+    Picker.Title := 'Where should the ' + ProjName + ' folder go?';
+    Picker.Options := [fdoPickFolders, fdoPathMustExist];
+    Picker.DefaultFolder := Ini.ReadString('Session', 'ProjectsFolder', TPath.GetDocumentsPath);
+    if not Picker.Execute then Exit;
+    Folder := Picker.FileName;
+    Ini.WriteString('Session', 'ProjectsFolder', Folder);
+    ForceDirectories(ExtractFilePath(FIniName));
+    Ini.UpdateFile;
+  finally
+    Picker.Free;
+    Ini.Free;
+  end;
+  Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' new ' + ProjName + ' ' + Quote(Folder);
+  FJumped := True;
+  OutputClear;
+  OutputAdd('> ' + Cmd);
+  FRunner := TRunner.Create(Cmd, Folder, RunnerLine,
+    procedure(ExitCode: Cardinal; Stopped: Boolean)
+    begin
+      RunnerDone(ExitCode, Stopped);
+      if (ExitCode = 0) and not Stopped then
+        OpenProject(TPath.Combine(TPath.Combine(Folder, ProjName), ProjName + '.hproj'));
+    end);
+end;
+
+{ Project Options: the same dialog as for a single file; the values go in the .hproj, where haste.py reads
+  them. The switches are those the program declares now, unsaved changes included. }
+procedure TMainForm.ProjectOptions;
+var
+  Dialog: TModuleOptionsDialog;
+  Ini: TMemIniFile;
+  Source: TStringList;
+  Main: string;
+  Tab: TEditorTab;
+  I: Integer;
+begin
+  Main := ChangeFileExt(FProject, '.haste');
+  Source := TStringList.Create;
+  Ini := TMemIniFile.Create(FProject, TEncoding.UTF8);
+  Dialog := TModuleOptionsDialog.Create(Self);
+  try
+    Tab := FindTab(Main);
+    if Tab <> nil then
+      Source.Assign(Tab.Editor.Lines)
+    else if FileExists(Main) then
+      Source.LoadFromFile(Main, TEncoding.UTF8);
+    Dialog.LoadSwitches(Source);
+    Dialog.Targets := Ini.ReadString('Build', 'Targets', '');
+    for I := 0 to Dialog.SwitchCount - 1 do
+      Dialog.Values[Dialog.Switches[I].Name] := Ini.ReadString('Switches', Dialog.Switches[I].Name, '');
+    if not Dialog.Execute(ProjectName, True) then Exit;
+    Ini.WriteString('Build', 'Targets', Dialog.Targets);
+    Ini.EraseSection('Switches');                // switches no longer in the program go with it
+    for I := 0 to Dialog.SwitchCount - 1 do
+      if Dialog.Values[Dialog.Switches[I].Name] <> '' then
+        Ini.WriteString('Switches', Dialog.Switches[I].Name, Dialog.Values[Dialog.Switches[I].Name]);
+    Ini.UpdateFile;
+  finally
+    Dialog.Free;
+    Ini.Free;
+    Source.Free;
   end;
 end;
 
@@ -956,11 +1249,15 @@ begin
     DoInsight(nil);
     DoToolbar(nil);
     ApplyFont;
+    BuildRecentMenu;
     Ini.ReadSectionValues('Open', Files);
     if FReopen then
-      for I := 0 to Files.Count - 1 do             // the files that were open last time
-        if FileExists(Files.ValueFromIndex[I]) then
-          OpenFile(Files.ValueFromIndex[I]);
+      if FileExists(Ini.ReadString('Session', 'Project', '')) then
+        OpenProject(Ini.ReadString('Session', 'Project', ''))    // it reopens its own files
+      else
+        for I := 0 to Files.Count - 1 do           // the files that were open last time
+          if FileExists(Files.ValueFromIndex[I]) then
+            OpenFile(Files.ValueFromIndex[I]);
   finally
     Files.Free;
     Ini.Free;
@@ -970,7 +1267,6 @@ end;
 procedure TMainForm.SaveSettings;
 var
   Ini: TMemIniFile;
-  I, N: Integer;
 begin
   ForceDirectories(ExtractFilePath(FIniName));
   Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
@@ -989,14 +1285,10 @@ begin
     Ini.WriteBool('View', 'HelpInsight', FInsightAction.Checked);
     Ini.DeleteKey('Run', 'Switches');           // from before Module Options: each program keeps its own now
     Ini.DeleteKey('Run', 'Target');
-    Ini.EraseSection('Open');
-    N := 0;
-    for I := 0 to FPages.PageCount - 1 do
-      if TEditorTab(FPages.Pages[I]).FileName <> '' then
-      begin
-        Inc(N);
-        Ini.WriteString('Open', 'File' + N.ToString, TEditorTab(FPages.Pages[I]).FileName);
-      end;
+    SaveOpenFiles(Ini, 'Open');
+    Ini.WriteString('Session', 'Project', FProject);
+    if FProject <> '' then
+      SaveOpenFiles(Ini, 'Project ' + FProject);
     Ini.UpdateFile;
   finally
     Ini.Free;
@@ -1250,7 +1542,18 @@ var
   Cmd, Targets, Args: string;
 begin
   Tab := ActiveTab;
-  if Running or (Tab = nil) or not SaveAllForRun or not LocateHastePy then Exit;
+  if Running or ((Tab = nil) and (FProject = '')) or not SaveAllForRun or not LocateHastePy then Exit;
+  if FProject <> '' then                        // the project's program, whichever tab is active;
+  begin                                         // haste.py reads its targets and switch values
+    Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' ' + Verb + ' ' + Quote(FProject);
+    FRunFolder := ExtractFileDir(FProject);
+    FJumped := False;
+    OutputClear;
+    OutputAdd('> ' + Cmd);
+    FStatus.Panels[2].Text := 'Running ' + ProjectName + '...';
+    FRunner := TRunner.Create(Cmd, FRunFolder, RunnerLine, RunnerDone);
+    Exit;
+  end;
   Cmd := Quote(PythonCommand) + ' ' + Quote(FHastePy) + ' ' + Verb + ' ' + Quote(Tab.FileName);
   if Verb = 'build' then
     Targets := ModuleTargets(Tab.FileName)
@@ -1378,12 +1681,13 @@ begin
   Tab := ActiveTab;
   if Tab = nil then
   begin
-    Caption := 'Hasten';
+    if FProject <> '' then Caption := ProjectName + ' - Hasten' else Caption := 'Hasten';
     Exit;
   end;
   FStatus.Panels[0].Text := Format('Line %d, Col %d', [Tab.Editor.CaretY, Tab.Editor.CaretX]);
   if Tab.Modified then FStatus.Panels[1].Text := 'Modified' else FStatus.Panels[1].Text := '';
   if Tab.FileName <> '' then Caption := Tab.FileName + ' - Hasten' else Caption := Tab.Title + ' - Hasten';
+  if FProject <> '' then Caption := ProjectName + ' - ' + Caption;
 end;
 
 procedure TMainForm.PagesChange(Sender: TObject);
@@ -1396,6 +1700,7 @@ procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
 var
   B: TSpeedButton;
   Item: TMenuItem;
+  Wanted: string;
 begin
   if Action = FStopAction then                  // once per round of updates: grey out Undo ... Paste
   begin
@@ -1405,10 +1710,13 @@ begin
         if Item.Tag = B.Tag then B.Enabled := Item.Enabled;
   end;
   FStopAction.Enabled := Running;
-  FRunAction.Enabled := not Running and (ActiveTab <> nil);
+  FRunAction.Enabled := not Running and ((ActiveTab <> nil) or (FProject <> ''));
   FBuildAction.Enabled := FRunAction.Enabled;
   FTestsAction.Enabled := not Running;
-  FModuleAction.Enabled := ActiveTab <> nil;
+  FModuleAction.Enabled := (ActiveTab <> nil) or (FProject <> '');
+  FCloseProjectAction.Enabled := FProject <> '';
+  if FProject <> '' then Wanted := 'Project &Options...' else Wanted := 'Module &Options...';
+  if FModuleAction.Caption <> Wanted then FModuleAction.Caption := Wanted;
 end;
 
 { ---- commands ---- }

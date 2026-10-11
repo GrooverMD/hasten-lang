@@ -35,7 +35,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     procedure LoadSwitches(Source: TStrings);
-    function Execute(const ModuleName: string): Boolean;
+    function Execute(const ModuleName: string; IsProject: Boolean = False): Boolean;
     property Targets: string read GetTargets write SetTargets;    // '' for this system, else 'windows,linux'...
     property Values[const Name: string]: string read GetValue write SetValue;   // '' for the default
     property SwitchCount: Integer read GetSwitchCount;
@@ -212,9 +212,12 @@ begin
   ShowHelp(1);
 end;
 
-function TModuleOptionsDialog.Execute(const ModuleName: string): Boolean;
+function TModuleOptionsDialog.Execute(const ModuleName: string; IsProject: Boolean): Boolean;
 begin
-  Caption := 'Module Options - ' + ModuleName;
+  if IsProject then
+    Caption := 'Project Options - ' + ModuleName
+  else
+    Caption := 'Module Options - ' + ModuleName;
   Result := ShowModal = mrOk;
 end;
 

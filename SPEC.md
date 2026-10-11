@@ -453,6 +453,14 @@ A byte that is not valid UTF-8 counts as one character.
 | `Text.Repeat(s, n)` | `s` `n` times; empty for `n <= 0` |
 | `Text.Upper(s)`, `Text.Lower(s)` | ASCII, accented Latin letters, Greek and Cyrillic |
 | `Text.ToInt(s)`, `Text.ToFloat(s)` | spaces around are allowed; anything else is an error |
+| `Text.StartsWith(s, p)`, `Text.EndsWith(s, p)` | whether `s` begins or ends with `p` |
+| `Text.PadLeft(s, width)` | spaces before `s` up to `width` characters; never shortens |
+| `Text.Char(code)` | the character with this code, as text: the opposite of `Code` |
+| `Text.TrimStart(s)`, `Text.TrimEnd(s)` | spaces removed from one end (`Text.Trim` does both) |
+| `Text.Reverse(s)` | the characters in reverse order |
+| `Text.LastIndexOf(s, part)` | position of the last match, or -1 |
+| `Text.Lines(s)` | the lines of `s`, without their `\n` or `\r\n` |
+| `Text.IsDigit(c)`, `Text.IsLetter(c)`, `Text.IsSpace(c)` | tests on a character code; letters are ASCII, accented Latin, Greek and Cyrillic |
 
 **Numbers as text.** Whole numbers print in decimal. Decimals print in their shortest form with up to 15
 significant digits that reads back as the same number (as Delphi's `FloatToStr`): `250`, `1234567.5`, `0.3` for

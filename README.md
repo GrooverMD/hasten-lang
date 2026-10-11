@@ -245,6 +245,8 @@ end
 | `s.Length`, `Text.Sub(s, start, count)`, `Text.Code(s, i)` | Lengths and positions count characters, so `"café".Length` is 4. `Upper`/`Lower` know accented Latin letters, Greek and Cyrillic. |
 | `Text.Contains(s, part)`, `Text.IndexOf(s, part, from)`, `Text.Replace(s, old, new)` | Search and replace (`IndexOf` gives the length when not found) |
 | `Text.ToInt(s)`, `Text.ToFloat(s)` | Text to numbers; bad text raises an error you can `catch` |
+| `Text.StartsWith`, `EndsWith`, `PadLeft`, `TrimStart`, `TrimEnd`, `Reverse`, `LastIndexOf`, `Lines` | More text handling |
+| `Text.Char(code)`, `Text.IsDigit(c)`, `IsLetter(c)`, `IsSpace(c)` | Characters from codes, and tests for parsers |
 | `System.ReadLines(path)`, `System.ReadText(path)` | Read a file as lines (Windows line endings handled) or as one string |
 | `System.WriteText(path, text)`, `System.AppendText(path, text)`, `System.FileExists(path)` | Write and check files |
 | `System.Fail(message)` | Raise an error; `try ... catch e` receives the message |

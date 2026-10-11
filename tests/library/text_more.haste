@@ -1,0 +1,25 @@
+// more Text: ends, padding on the left, characters from codes, trimming one side, reversing, last match,
+// lines, and character tests for parsers
+need Text
+print("{Text.StartsWith("hello", "he")} {Text.EndsWith("hello", "lo")} {Text.EndsWith("lo", "hello")}")
+print("[" + Text.PadLeft("7", 3) + "][" + Text.PadLeft("café", 6) + "]")
+print(Text.Char(65) + Text.Char(233) + Text.Char(10003))
+print("[" + Text.TrimStart("  a  ") + "][" + Text.TrimEnd("  a  ") + "]")
+print(Text.Reverse("café ✓"))
+print("{Text.LastIndexOf("a-b-c", "-")} {Text.LastIndexOf("abc", "x")} {Text.LastIndexOf("é-é", "é")}")
+print(Text.Lines("one\r\ntwo\nthree"))
+print("{Text.IsDigit(Text.Code("7", 0))} {Text.IsLetter(Text.Code("é", 0))} {Text.IsLetter(Text.Code("7", 0))} {Text.IsSpace(9)}")
+try
+  print(Text.Char(-1))
+catch e
+  print(e)
+end
+// out: true true false
+// out: [  7][  café]
+// out: Aé✓
+// out: [a  ][  a]
+// out: ✓ éfac
+// out: 3 -1 2
+// out: ["one", "two", "three"]
+// out: true true false true
+// out: -1 is not a character code

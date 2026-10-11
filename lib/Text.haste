@@ -14,6 +14,18 @@ extern fn Trim(s: string): string = "hs_trim"
 extern fn Replace(s: string, old: string, new: string): string = "hs_replace"
 extern fn ToInt(s: string): int = "hs_to_int"
 extern fn ToFloat(s: string): float = "hs_to_float"
+extern fn StartsWith(s: string, prefix: string): bool = "hs_starts_with"
+extern fn EndsWith(s: string, suffix: string): bool = "hs_ends_with"
+extern fn PadLeft(s: string, width: int): string = "hs_pad_left"           // spaces before s up to width
+extern fn Char(code: int): string = "hs_encode"                              // the character with this code
+extern fn TrimStart(s: string): string = "hs_trim_start"
+extern fn TrimEnd(s: string): string = "hs_trim_end"
+extern fn Reverse(s: string): string = "hs_reverse"                          // by characters
+extern fn LastIndexOf(s: string, part: string): int = "hs_last_index_of"     // -1 when not there
+extern fn Lines(s: string): [string] = "hs_lines"                            // \n or \r\n
+extern fn IsDigit(code: int): bool = "hs_is_digit"                           // 0 to 9
+extern fn IsSpace(code: int): bool = "hs_is_space"                           // space, tab, line breaks
+extern fn IsLetter(code: int): bool = "hs_is_letter"                         // ASCII, accented Latin, Greek, Cyrillic
 
 fn Banner(title: string): string = "== {Upper(title)} =="
 fn Line(width: int): string = Repeat("-", width)

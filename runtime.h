@@ -961,6 +961,64 @@ static hs_str hs_join(void *list, hs_str sep) {
     }
     return r;
 }
+static bool hs_ends_with(hs_str s, hs_str suffix) {
+    size_t n = strlen(s), m = strlen(suffix);
+    return m <= n && memcmp(s + n - m, suffix, m) == 0;
+}
+static hs_str hs_pad_left(hs_str s, long long width) {    /* spaces before s until it is width characters */
+    long long have = (long long)hs_len(s), n = (long long)hs_bytes(s);
+    if (width <= have) return s;
+    size_t pad = hs_size(width - have, 1);
+    char *r = hs_alloc_atomic((size_t)n + pad + 1);
+    memset(r, ' ', pad); memcpy(r + pad, s, (size_t)n);
+    return r;
+}
+static hs_str hs_trim_start(hs_str s) {
+    while (*s && isspace((unsigned char)*s)) s++;
+    return hs_dup(s, strlen(s));
+}
+static hs_str hs_trim_end(hs_str s) {
+    const char *e = s + strlen(s);
+    while (e > s && isspace((unsigned char)e[-1])) e--;
+    return hs_dup(s, (size_t)(e - s));
+}
+static hs_str hs_reverse(hs_str s) {                       /* characters stay whole: "café" is "éfac" */
+    size_t n = strlen(s);
+    char *r = hs_alloc_atomic(n + 1), *w = r + n;
+    for (const unsigned char *p = (const unsigned char *)s; *p;) {
+        int k = hs_u8len(p);
+        w -= k; memcpy(w, p, (size_t)k); p += k;
+    }
+    return r;
+}
+static long long hs_last_index_of(hs_str s, hs_str part) {
+    size_t n = strlen(s), m = strlen(part);
+    if (m > n) return -1;
+    for (const char *p = s + n - m;; p--) {
+        if (!memcmp(p, part, m)) return hs_chars_before(s, p);
+        if (p == s) return -1;
+    }
+}
+static void *hs_lines(hs_str s) {
+    hs_strs *l = hs_alloc(sizeof *l);
+    const char *b = s, *e = s + strlen(s), *p;
+    while (b < e) {
+        p = memchr(b, '\n', (size_t)(e - b));
+        const char *end = p ? p : e;
+        size_t n = (size_t)(end - b);
+        if (n && b[n - 1] == '\r') n--;
+        hs_strs_add(l, hs_dup(b, n));
+        if (!p) break;
+        b = p + 1;
+    }
+    return l;
+}
+static bool hs_is_digit(long long c) { return c >= '0' && c <= '9'; }
+static bool hs_is_space(long long c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v'; }
+static bool hs_is_letter(long long c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 0xC0 && c <= 0x24F && c != 0xD7 && c != 0xF7)
+        || (c >= 0x370 && c <= 0x3FF && c != 0x37E && c != 0x387) || (c >= 0x400 && c <= 0x4FF);
+}
 static hs_str hs_trim(hs_str s) {
     const char *b = s, *e = s + strlen(s);
     while (b < e && isspace((unsigned char)*b)) b++;

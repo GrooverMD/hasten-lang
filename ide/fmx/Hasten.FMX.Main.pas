@@ -12,7 +12,7 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
   System.RegularExpressions, System.Actions, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
-  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, Hasten.Runner,
+  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, Hasten.Runner,
   Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Syntax.Code.Haste;
 
 type
@@ -26,6 +26,21 @@ type
     CloseItem: TMenuItem;
     FileSep: TMenuItem;
     ExitItem: TMenuItem;
+    EditMenu: TMenuItem;
+    UndoItem: TMenuItem;
+    RedoItem: TMenuItem;
+    EditSep1: TMenuItem;
+    CutItem: TMenuItem;
+    CopyItem: TMenuItem;
+    PasteItem: TMenuItem;
+    DeleteItem: TMenuItem;
+    EditSep2: TMenuItem;
+    SelectAllItem: TMenuItem;
+    EditSep3: TMenuItem;
+    FindItem: TMenuItem;
+    FindNextItem: TMenuItem;
+    FindPrevItem: TMenuItem;
+    GoToLineItem: TMenuItem;
     RunMenu: TMenuItem;
     RunItem: TMenuItem;
     BuildItem: TMenuItem;
@@ -67,6 +82,26 @@ type
     OptionsAction: TAction;
     SettingsAction: TAction;
     InsightAction: TAction;
+    UndoAction: TAction;
+    RedoAction: TAction;
+    CutAction: TAction;
+    CopyAction: TAction;
+    PasteAction: TAction;
+    DeleteAction: TAction;
+    SelectAllAction: TAction;
+    FindAction: TAction;
+    FindNextAction: TAction;
+    FindPrevAction: TAction;
+    GoToLineAction: TAction;
+    FindBar: TLayout;
+    FindLabel: TLabel;
+    FindEdit: TEdit;
+    MatchCaseCheck: TCheckBox;
+    WholeWordCheck: TCheckBox;
+    FindPrevButton: TButton;
+    FindNextButton: TButton;
+    FindStatus: TLabel;
+    FindCloseButton: TButton;
     ProjectTree: TTreeView;
     TreeSplitter: TSplitter;
     TreePopup: TPopupMenu;
@@ -111,6 +146,13 @@ type
     procedure SaveProjectAsActionExecute(Sender: TObject);
     procedure SettingsActionExecute(Sender: TObject);
     procedure InsightActionExecute(Sender: TObject);
+    procedure EditActionExecute(Sender: TObject);
+    procedure FindActionExecute(Sender: TObject);
+    procedure FindNextActionExecute(Sender: TObject);
+    procedure FindPrevActionExecute(Sender: TObject);
+    procedure GoToLineActionExecute(Sender: TObject);
+    procedure FindEditKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    procedure FindCloseButtonClick(Sender: TObject);
     procedure CloseProjectActionExecute(Sender: TObject);
     procedure OptionsActionExecute(Sender: TObject);
     procedure ProjectTreeDblClick(Sender: TObject);
@@ -186,6 +228,7 @@ type
     procedure LoadSettings;
     procedure SaveSettings;
     function EditorFocused: TEditorTab;
+    procedure FindAgain(Backwards: Boolean);
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
@@ -248,6 +291,10 @@ begin
   RunAction.ShortCut := vkF9;
   BuildAction.ShortCut := CmdKey or vkF9;
   StopAction.ShortCut := CmdKey or vkF2;
+  FindAction.ShortCut := CmdKey or Ord('F');    // the edit actions have none: the editors take those keys
+  FindNextAction.ShortCut := vkF3;
+  FindPrevAction.ShortCut := scShift or vkF3;
+  GoToLineAction.ShortCut := CmdKey or Ord('G');
   ShowTree;
   LoadSettings;
   if Tabs.TabCount = 0 then
@@ -333,6 +380,10 @@ begin
   SaveProjectAsAction.Enabled := (FProject <> nil) and not Running;
   CloseProjectAction.Enabled := FProject <> nil;
   OptionsAction.Enabled := (FProject <> nil) or (ActiveTab <> nil);
+  FindAction.Enabled := ActiveTab <> nil;
+  FindNextAction.Enabled := ActiveTab <> nil;
+  FindPrevAction.Enabled := ActiveTab <> nil;
+  GoToLineAction.Enabled := ActiveTab <> nil;
   if FProject <> nil then
     OptionsAction.Text := 'Project &Options...'
   else
@@ -775,6 +826,111 @@ begin
     ApplySettings(TEditorTab(Tabs.Tabs[I]));
   Output.TextSettings.Font.Family := FFontFamily;
   Output.TextSettings.Font.Size := FFontSize - 1;
+end;
+
+{ ---- Edit: on the editor or edit box with the focus (the output too); the keys are the controls' own ---- }
+
+procedure TMainForm.EditActionExecute(Sender: TObject);
+var
+  O: TFmxObject;
+begin
+  if Focused = nil then Exit;
+  O := Focused.GetObject;
+  while (O <> nil) and not (O is TCustomMemo) and not (O is TCustomEdit) do
+    O := O.Parent;
+  if O is TCustomMemo then
+    case TComponent(Sender).Tag of
+      1: TCustomMemo(O).Undo;
+      2: if (ActiveTab <> nil) and (O = ActiveTab.Memo) then ActiveTab.Redo;
+      3: TCustomMemo(O).CutToClipboard;
+      4: TCustomMemo(O).CopyToClipboard;
+      5: TCustomMemo(O).PasteFromClipboard;
+      6: TCustomMemo(O).DeleteSelection;
+      7: TCustomMemo(O).SelectAll;
+    end
+  else if O is TCustomEdit then
+    case TComponent(Sender).Tag of
+      3: TCustomEdit(O).CutToClipboard;
+      4: TCustomEdit(O).CopyToClipboard;
+      5: TCustomEdit(O).PasteFromClipboard;
+      7: TCustomEdit(O).SelectAll;
+    end;
+end;
+
+{ ---- Find: a bar above the editor; Enter finds the next, Shift+Enter the one before, Esc closes it ---- }
+
+procedure TMainForm.FindActionExecute(Sender: TObject);
+begin
+  if ActiveTab = nil then Exit;
+  if ActiveTab.SelectedLineText <> '' then
+    FindEdit.Text := ActiveTab.SelectedLineText;
+  FindStatus.Text := '';
+  FindBar.Visible := True;
+  FindEdit.SetFocus;
+  FindEdit.SelectAll;
+end;
+
+procedure TMainForm.FindNextActionExecute(Sender: TObject);
+begin
+  FindAgain(False);
+end;
+
+procedure TMainForm.FindPrevActionExecute(Sender: TObject);
+begin
+  FindAgain(True);
+end;
+
+procedure TMainForm.FindAgain(Backwards: Boolean);
+var
+  Wrapped: Boolean;
+begin
+  if ActiveTab = nil then Exit;
+  if FindEdit.Text = '' then
+  begin
+    FindActionExecute(nil);
+    Exit;
+  end;
+  if ActiveTab.Find(FindEdit.Text, MatchCaseCheck.IsChecked, WholeWordCheck.IsChecked, Backwards, Wrapped) then
+  begin
+    if Wrapped then FindStatus.Text := 'Wrapped round' else FindStatus.Text := '';
+  end
+  else
+    FindStatus.Text := '"' + FindEdit.Text + '" not found';
+  StatusLabel.Text := FindStatus.Text;
+end;
+
+procedure TMainForm.FindEditKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  case Key of
+    vkReturn:
+      begin
+        FindAgain(ssShift in Shift);
+        Key := 0;
+      end;
+    vkEscape:
+      begin
+        FindCloseButtonClick(nil);
+        Key := 0;
+      end;
+  end;
+end;
+
+procedure TMainForm.FindCloseButtonClick(Sender: TObject);
+begin
+  FindBar.Visible := False;
+  if (ActiveTab <> nil) and ActiveTab.Memo.CanFocus then
+    ActiveTab.Memo.SetFocus;
+end;
+
+procedure TMainForm.GoToLineActionExecute(Sender: TObject);
+var
+  Values: TArray<string>;
+begin
+  if ActiveTab = nil then Exit;
+  Values := [(ActiveTab.Memo.CaretPosition.Line + 1).ToString];
+  if TDialogServiceSync.InputQuery('Go to Line', [Format('Line (1 - %d):', [ActiveTab.Memo.Lines.Count])],
+    Values) then
+    ActiveTab.GoToLine(StrToIntDef(Values[0].Trim, 0));
 end;
 
 procedure TMainForm.InsightActionExecute(Sender: TObject);

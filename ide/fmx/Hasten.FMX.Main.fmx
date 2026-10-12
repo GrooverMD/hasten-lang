@@ -39,6 +39,51 @@ object MainForm: TMainForm
         Action = ExitAction
       end
     end
+    object EditMenu: TMenuItem
+      Text = '&Edit'
+      object UndoItem: TMenuItem
+        Action = UndoAction
+      end
+      object RedoItem: TMenuItem
+        Action = RedoAction
+      end
+      object EditSep1: TMenuItem
+        Text = '-'
+      end
+      object CutItem: TMenuItem
+        Action = CutAction
+      end
+      object CopyItem: TMenuItem
+        Action = CopyAction
+      end
+      object PasteItem: TMenuItem
+        Action = PasteAction
+      end
+      object DeleteItem: TMenuItem
+        Action = DeleteAction
+      end
+      object EditSep2: TMenuItem
+        Text = '-'
+      end
+      object SelectAllItem: TMenuItem
+        Action = SelectAllAction
+      end
+      object EditSep3: TMenuItem
+        Text = '-'
+      end
+      object FindItem: TMenuItem
+        Action = FindAction
+      end
+      object FindNextItem: TMenuItem
+        Action = FindNextAction
+      end
+      object FindPrevItem: TMenuItem
+        Action = FindPrevAction
+      end
+      object GoToLineItem: TMenuItem
+        Action = GoToLineAction
+      end
+    end
     object ProjectMenu: TMenuItem
       Text = '&Project'
       object NewProjectItem: TMenuItem
@@ -181,6 +226,57 @@ object MainForm: TMainForm
       Text = '&Help Insight'
       OnExecute = InsightActionExecute
     end
+    object UndoAction: TAction
+      Tag = 1
+      Text = '&Undo'
+      OnExecute = EditActionExecute
+    end
+    object RedoAction: TAction
+      Tag = 2
+      Text = '&Redo'
+      OnExecute = EditActionExecute
+    end
+    object CutAction: TAction
+      Tag = 3
+      Text = 'Cu&t'
+      OnExecute = EditActionExecute
+    end
+    object CopyAction: TAction
+      Tag = 4
+      Text = '&Copy'
+      OnExecute = EditActionExecute
+    end
+    object PasteAction: TAction
+      Tag = 5
+      Text = '&Paste'
+      OnExecute = EditActionExecute
+    end
+    object DeleteAction: TAction
+      Tag = 6
+      Text = '&Delete'
+      OnExecute = EditActionExecute
+    end
+    object SelectAllAction: TAction
+      Tag = 7
+      Text = 'Select &All'
+      OnExecute = EditActionExecute
+    end
+    object FindAction: TAction
+      Text = '&Find...'
+      OnExecute = FindActionExecute
+    end
+    object FindNextAction: TAction
+      Text = 'Find &Next'
+      OnExecute = FindNextActionExecute
+    end
+    object FindPrevAction: TAction
+      Text = 'Find &Previous'
+      OnExecute = FindPrevActionExecute
+    end
+    object GoToLineAction: TAction
+      Text = '&Go to Line...'
+      OnExecute = GoToLineActionExecute
+    end
     object SettingsAction: TAction
       Text = '&Settings...'
       OnExecute = SettingsActionExecute
@@ -226,6 +322,107 @@ object MainForm: TMainForm
     Size.Width = 1100.000000000000000000
     Size.Height = 4.000000000000000000
     Size.PlatformDefault = False
+  end
+  object FindBar: TLayout
+    Align = Top
+    Padding.Left = 6.000000000000000000
+    Padding.Top = 6.000000000000000000
+    Padding.Right = 6.000000000000000000
+    Padding.Bottom = 6.000000000000000000
+    Size.Width = 1100.000000000000000000
+    Size.Height = 38.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 5
+    Visible = False
+    object FindLabel: TLabel
+      Align = Left
+      Text = 'Find:'
+      Margins.Right = 6.000000000000000000
+      Position.X = 6.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 40.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+    end
+    object FindEdit: TEdit
+      Align = Left
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      OnKeyDown = FindEditKeyDown
+      Margins.Right = 6.000000000000000000
+      Position.X = 52.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 260.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+    end
+    object MatchCaseCheck: TCheckBox
+      Align = Left
+      Text = 'Match case'
+      Margins.Right = 6.000000000000000000
+      Position.X = 318.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 100.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+    end
+    object WholeWordCheck: TCheckBox
+      Align = Left
+      Text = 'Whole word'
+      Margins.Right = 6.000000000000000000
+      Position.X = 424.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 110.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+    end
+    object FindPrevButton: TButton
+      Align = Left
+      Action = FindPrevAction
+      Margins.Right = 6.000000000000000000
+      Position.X = 540.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 110.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 4
+    end
+    object FindNextButton: TButton
+      Align = Left
+      Action = FindNextAction
+      Margins.Right = 6.000000000000000000
+      Position.X = 656.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 100.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 5
+    end
+    object FindCloseButton: TButton
+      Align = Right
+      Text = 'Close'
+      OnClick = FindCloseButtonClick
+      Margins.Right = 6.000000000000000000
+      Position.X = 1028.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 60.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 7
+    end
+    object FindStatus: TLabel
+      Align = Client
+      Margins.Right = 6.000000000000000000
+      Position.X = 762.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 260.000000000000000000
+      Size.Height = 26.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 6
+    end
   end
   object ProjectTree: TTreeView
     Align = Right

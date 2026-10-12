@@ -16,7 +16,10 @@ out (as SynEdit's eoTabsToSpaces in Hasten for VCL: FMX draws a tab character at
 the editor never puts one in). On a Mac the shortcuts use Cmd.
 Help Insight: rest the mouse on a name for its declaration, help comment and file:line, and after a Run or
 Build the types it was compiled with (View > Help Insight turns it off).
-**Next**: Find and the toolbar. Not in FMX: VCL styles.
+Edit menu: Undo, Redo, Cut, Copy, Paste, Delete, Select All (on the editor or box with the focus, the output
+too), Find (Ctrl+F: a bar above the editor with Match case and Whole word; Enter, F3 the next, Shift+Enter,
+Shift+F3 the one before, wrapping round; Esc closes it) and Go to Line (Ctrl+G).
+**Next**: the toolbar. Not in FMX: VCL styles.
 
 ## Build
 

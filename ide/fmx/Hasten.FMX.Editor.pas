@@ -69,6 +69,7 @@ type
     procedure SetLineNumbers(Value: Boolean);
     procedure FontChanged;
     function CharWidth: Single;
+    function GetSelectedLineText: string;
   public
     constructor Create(AOwner: TComponent); override;
     function Configure: Boolean;                 // True once the presentation exists and is set up
@@ -76,6 +77,11 @@ type
     procedure Load(const Path: string);
     procedure Save(const Path: string);
     procedure GoToLine(Line: Integer);
+    procedure Redo;
+    { The next (or, Backwards, the previous) What from the selection, wrapping round past the end; it is
+      selected. Wrapped: it was found only after wrapping round. }
+    function Find(const What: string; MatchCase, WholeWord, Backwards: Boolean; out Wrapped: Boolean): Boolean;
+    property SelectedLineText: string read GetSelectedLineText;   // the selection within one line, else ''
     { The name under a point in form coordinates (as Hasten.Names.NameAt finds it), where a tip for it goes
       (below the start of the name, in form coordinates) and the line's height; '' if none. }
     function NameAtPoint(const FormPoint: TPointF; out TipAt: TPointF; out LineHeight: Single): string;
@@ -236,6 +242,7 @@ begin
   FBlink.Interval := 530;
   FBlink.OnTimer := BlinkTimer;
   FMemo.OnChangeTracking := MemoChange;
+  FMemo.HideSelectionOnExit := False;          // a find shows its match while the focus is in the find bar
   FLineNumbers := True;
   UpdateText;
 end;
@@ -486,6 +493,91 @@ begin
   if (Line < 1) or (Line > FMemo.Lines.Count) then Exit;
   FMemo.CaretPosition := TCaretPosition.Create(Line - 1, 0);
   if FMemo.CanFocus then FMemo.SetFocus;
+end;
+
+procedure TEditorTab.Redo;
+begin
+  if FReady then TRichEditAccess(Rich).UndoManager.Redo;     // TMemo has Undo but no Redo
+end;
+
+function TEditorTab.GetSelectedLineText: string;
+var
+  Start, Stop: TCaretPosition;
+begin
+  Result := '';
+  if FMemo.SelLength = 0 then Exit;
+  Start := FMemo.TextPosToPos(FMemo.SelStart);
+  Stop := FMemo.TextPosToPos(FMemo.SelStart + FMemo.SelLength);
+  if Start.Line = Stop.Line then
+    Result := Copy(FMemo.Lines[Start.Line], Start.Pos + 1, Stop.Pos - Start.Pos);
+end;
+
+{ Line by line, so a match never spans lines; at most every line once, then the one it began in again. }
+function TEditorTab.Find(const What: string; MatchCase, WholeWord, Backwards: Boolean;
+  out Wrapped: Boolean): Boolean;
+var
+  From: TCaretPosition;
+  Count, Pass, L, C, First, Last, Found: Integer;
+  Line: string;
+
+  function MatchAt(At: Integer): Boolean;        // At: 0-based
+  var
+    Part: string;
+  begin
+    Part := Copy(Line, At + 1, Length(What));
+    if MatchCase then Result := Part = What else Result := SameText(Part, What);
+    if Result and WholeWord then
+      Result := ((At = 0) or not IsNameChar(Line[At])) and
+        ((At + Length(What) >= Length(Line)) or not IsNameChar(Line[At + Length(What) + 1]));
+  end;
+
+begin
+  Result := False;
+  Wrapped := False;
+  Count := FMemo.Lines.Count;
+  if (What = '') or (Count = 0) then Exit;
+  if Backwards then
+    From := FMemo.TextPosToPos(FMemo.SelStart)
+  else
+    From := FMemo.TextPosToPos(FMemo.SelStart + FMemo.SelLength);
+  for Pass := 0 to Count do
+  begin
+    if Backwards then
+    begin
+      L := From.Line - Pass;
+      Wrapped := L < 0;
+      L := (L + Count) mod Count;
+    end
+    else
+    begin
+      L := From.Line + Pass;
+      Wrapped := L >= Count;
+      L := L mod Count;
+    end;
+    Line := FMemo.Lines[L];
+    Last := Length(Line) - Length(What);        // the last place a match can start
+    First := 0;
+    if Pass = 0 then
+      if Backwards then Last := Min(Last, From.Pos - 1) else First := From.Pos;
+    Found := -1;
+    if Backwards then
+      C := Last
+    else
+      C := First;
+    while (Found < 0) and (C >= First) and (C <= Last) do
+    begin
+      if MatchAt(C) then Found := C;
+      if Backwards then Dec(C) else Inc(C);
+    end;
+    if Found >= 0 then
+    begin
+      FMemo.CaretPosition := TCaretPosition.Create(L, Found + Length(What));    // scrolled to
+      FMemo.SelStart := FMemo.PosToTextPos(TCaretPosition.Create(L, Found));
+      FMemo.SelLength := Length(What);
+      Exit(True);
+    end;
+  end;
+  Wrapped := False;
 end;
 
 procedure TEditorTab.SetFileName(const Value: string);

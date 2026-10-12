@@ -875,7 +875,7 @@ object TStyleContainer
   end
   object TLayout
     StyleName = 'menuitemstyle'
-    Size.Height = 24.000000000000000000
+    Size.Height = 28.000000000000000000
     Size.PlatformDefault = False
     object TRectangle
       Align = Contents
@@ -885,6 +885,8 @@ object TStyleContainer
       YRadius = 2.000000000000000000
       Stroke.Kind = None
       Opacity = 0.000000000000000000
+      Margins.Left = 2.000000000000000000
+      Margins.Right = 2.000000000000000000
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'
@@ -903,6 +905,8 @@ object TStyleContainer
       YRadius = 2.000000000000000000
       Stroke.Kind = None
       Opacity = 0.000000000000000000
+      Margins.Left = 2.000000000000000000
+      Margins.Right = 2.000000000000000000
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'
@@ -915,7 +919,7 @@ object TStyleContainer
     object TLayout
       StyleName = 'glyph'
       Align = Left
-      Size.Width = 24.000000000000000000
+      Size.Width = 34.000000000000000000
       Size.PlatformDefault = False
       object TLayout
         StyleName = 'checkmark'
@@ -957,7 +961,8 @@ object TStyleContainer
       StyleName = 'shortcut'
       Align = Right
       HitTest = False
-      Margins.Left = 24.000000000000000000
+      Margins.Left = 56.000000000000000000
+      Margins.Right = 12.000000000000000000
       Size.Width = 50.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
@@ -968,7 +973,7 @@ object TStyleContainer
     object TLayout
       StyleName = 'submark'
       Align = Right
-      Size.Width = 20.000000000000000000
+      Size.Width = 24.000000000000000000
       Size.PlatformDefault = False
       object TText
         Align = Center
@@ -984,14 +989,14 @@ object TStyleContainer
   end
   object TLayout
     StyleName = 'menuseparatorstyle'
-    Size.Height = 7.000000000000000000
+    Size.Height = 9.000000000000000000
     Size.PlatformDefault = False
     object TRectangle
       Align = VertCenter
       Fill.Color = xFF55626E
       HitTest = False
       Stroke.Kind = None
-      Margins.Left = 6.000000000000000000
+      Margins.Left = 38.000000000000000000
       Margins.Right = 6.000000000000000000
       Size.Height = 1.000000000000000000
       Size.PlatformDefault = False

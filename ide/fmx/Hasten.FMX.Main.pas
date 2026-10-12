@@ -9,10 +9,11 @@ unit Hasten.FMX.Main;
 interface
 
 uses
+  FMX.Objects,                                  // first: its TPath (a shape) must not hide System.IOUtils.TPath
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
   System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
-  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, FMX.Objects, Hasten.Runner,
+  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, Hasten.Runner,
   Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
 
 type

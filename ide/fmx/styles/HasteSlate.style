@@ -1144,4 +1144,190 @@ object TStyleContainer
       TextSettings.WordWrap = False
     end
   end
+  object TLayout
+    StyleName = 'windowborderstyle'
+    object TRectangle
+      StyleName = 'caption-container'
+      Align = Top
+      Fill.Color = xFF242D36
+      HitTest = False
+      Stroke.Kind = None
+      Size.Height = 32.000000000000000000
+      Size.PlatformDefault = False
+      object TLayout
+        StyleName = 'caption'
+        Align = Contents
+        HitTest = True
+      end
+      object TLayout
+        StyleName = 'icon'
+        Align = Left
+        HitTest = True
+        Margins.Left = 8.000000000000000000
+        Margins.Top = 6.000000000000000000
+        Margins.Bottom = 6.000000000000000000
+        Size.Width = 36.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TLayout
+        StyleName = 'sysbtns'
+        Align = Client
+        object TSpeedButton
+          StyleName = 'close'
+          Align = Right
+          StyleLookup = 'closebtnstyle'
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TSpeedButton
+          StyleName = 'max'
+          Align = Right
+          StyleLookup = 'maxbtnstyle'
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TSpeedButton
+          StyleName = 'min'
+          Align = Right
+          StyleLookup = 'minbtnstyle'
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TText
+          StyleName = 'title'
+          Align = Client
+          HitTest = False
+          Margins.Left = 4.000000000000000000
+          TextSettings.Font.Size = 12.000000000000000000
+          TextSettings.FontColor = xFFE3E7EB
+          TextSettings.HorzAlign = Leading
+          TextSettings.WordWrap = False
+        end
+      end
+    end
+    object TLayout
+      StyleName = 'client'
+      Align = Client
+    end
+    object TRectangle
+      StyleName = 'left'
+      Align = Left
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Width = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TRectangle
+      StyleName = 'right'
+      Align = Right
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Width = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TRectangle
+      StyleName = 'bottom'
+      Align = Bottom
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Height = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+  object TRectangle
+    StyleName = 'closebtnstyle'
+    Fill.Color = x00000000
+    HitTest = False
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFFC42B1C
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #10005
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'maxbtnstyle'
+    Fill.Color = x00000000
+    HitTest = False
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #9633
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'minbtnstyle'
+    Fill.Color = x00000000
+    HitTest = False
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #8212
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
 end

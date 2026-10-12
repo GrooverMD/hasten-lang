@@ -299,6 +299,29 @@ def styles():
         rect(None, HOVER, None, Opacity=0).add(fade('IsMouseOver')),
         rect(None, SELECTION, None, Opacity=0).add(fade('IsSelected')),
         text('text', halign='Leading', wrap=False, Margins__Left=6)))
+    # the window's own frame: title bar, its buttons and the edges, drawn in the style (FMX on Windows)
+    title_bar = rect('caption-container', PANEL, align='Top', **sized(None, 32))
+    title_bar.add(
+        Obj('TLayout', StyleName=q('caption'), Align='Contents', HitTest=True),          # drags the window
+        Obj('TLayout', **sized(36, None, StyleName=q('icon'), Align='Left', HitTest=True,
+                               Margins__Left=8, Margins__Top=6, Margins__Bottom=6)),
+        Obj('TLayout', StyleName=q('sysbtns'), Align='Client').add(
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('close'), Align='Right', StyleLookup=q('closebtnstyle'))),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('max'), Align='Right', StyleLookup=q('maxbtnstyle'))),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('min'), Align='Right', StyleLookup=q('minbtnstyle'))),
+            text('title', halign='Leading', wrap=False, Margins__Left=4)))
+    s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
+        title_bar,
+        Obj('TLayout', StyleName=q('client'), Align='Client'),
+        rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),       # edges: 2 px, so they can be
+        rect('right', BORDER, align='Right', **sized(2, None, HitTest=True)),     # caught to resize the window
+        rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True))))
+    for name, char, hot in (('closebtnstyle', '\u2715', 'xFFC42B1C'), ('maxbtnstyle', '\u25A1', HOVER),
+                            ('minbtnstyle', '\u2014', HOVER)):
+        s.append(rect(name, CLEAR, align=None).add(
+            colour_anim('Fill.Color', CLEAR, hot, 'IsMouseOver'),
+            glyph(char, TEXT, 12),
+            text('text')))
     return s
 
 

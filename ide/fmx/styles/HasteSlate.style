@@ -637,8 +637,8 @@ object TStyleContainer
         StyleName = 'text'
         Align = Client
         HitTest = False
-        Margins.Left = 12.000000000000000000
-        Margins.Right = 12.000000000000000000
+        Margins.Left = 16.000000000000000000
+        Margins.Right = 16.000000000000000000
         TextSettings.Font.Size = 12.000000000000000000
         TextSettings.FontColor = xFFFDFDFD
         TextSettings.WordWrap = False
@@ -1182,8 +1182,8 @@ object TStyleContainer
         StyleName = 'text'
         Align = Client
         HitTest = False
-        Margins.Left = 14.000000000000000000
-        Margins.Right = 14.000000000000000000
+        Margins.Left = 20.000000000000000000
+        Margins.Right = 20.000000000000000000
         TextSettings.Font.Size = 12.000000000000000000
         TextSettings.FontColor = xFFFDFDFD
         TextSettings.WordWrap = False
@@ -1207,8 +1207,8 @@ object TStyleContainer
         StyleName = 'text'
         Align = Client
         HitTest = False
-        Margins.Left = 16.000000000000000000
-        Margins.Right = 16.000000000000000000
+        Margins.Left = 22.000000000000000000
+        Margins.Right = 22.000000000000000000
         TextSettings.Font.Size = 12.000000000000000000
         TextSettings.FontColor = xFFFDFDFD
         TextSettings.WordWrap = False

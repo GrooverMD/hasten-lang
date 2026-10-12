@@ -10,7 +10,7 @@ interface
 
 uses
   FMX.Objects,                                  // first: its TPath (a shape) must not hide System.IOUtils.TPath
-  System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
+  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Math, System.IOUtils, System.IniFiles,
   System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, Hasten.Runner,
@@ -99,13 +99,16 @@ type
     Ribbon: TTabControl;                       // Freestyler's ribbon: File opens FileView, the others are pages
     FileTab: TTabItem;
     HomeTab: TTabItem;
-    HomeBar: TToolBar;
+    HomeBar: TToolBar;                         // the start page: new, open and the recent projects
+    EditTab: TTabItem;
+    EditBar: TToolBar;
     ProjectTab: TTabItem;
     ProjectBar: TToolBar;
     RunTab: TTabItem;
     RunBar: TToolBar;
     ViewTab: TTabItem;
     ViewBar: TToolBar;
+    Body: TLayout;                             // all below the ribbon: the File panel drops down over it
     FileView: TMultiView;                      // the File panel, its master button FileTab
     Backstage: TPanel;
     BackstageTitle: TLabel;
@@ -210,6 +213,7 @@ type
     FClearOutput: Boolean;                     // on each Run, Build and Run Tests
     FReopen: Boolean;                          // last session's files at start
     FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
+    FRecentTiles: TLayout;                     // Home's recent projects, made anew by BuildRecentMenu
     FRibbonPage: TTabItem;                     // the ribbon page on show: File only opens the File panel
     FOptionsButton: TSpeedButton;
     function OpenProject(const Path: string): Boolean;
@@ -963,11 +967,13 @@ begin
 end;
 
 procedure TMainForm.SetUpRibbon;
+var
+  Y: Single;                                    // the File panel's next command, top down
 
   { A page: groups of buttons left to right, each group named below its buttons, a line between groups. An
     item with no action starts a group, its Name the group's. Position.X puts them in order (Align Left goes
     by it), so they are made as they come. }
-  procedure Page(Bar: TToolBar; const Items: array of TRibbonItem);
+  function Page(Bar: TToolBar; const Items: array of TRibbonItem): TLayout;
   var
     I, N: Integer;
     X: Single;
@@ -1043,22 +1049,38 @@ procedure TMainForm.SetUpRibbon;
         Inc(N);
       end;
     if Group <> nil then Group.Width := N * 65;
+    Result := Group;
   end;
 
-  procedure Command(Action: TAction; Glyph: Char; const Name: string; Parent: TControl;
-    Align: TAlignLayout);
+  { A File panel command, or with no action a line between commands. Align Top and Bottom stack by
+    Position.Y, so they are made top down with Y counting up. }
+  procedure Command(Action: TAction; Glyph: Char; const Name: string; Align: TAlignLayout);
   var
     B: TSpeedButton;
     Icon: TText;
+    Line: TPanel;
   begin
+    Y := Y + 10;
+    if Action = nil then
+    begin
+      Line := TPanel.Create(Self);
+      Line.StyleLookup := 'ribbonseparatorstyle';
+      Line.Align := Align;
+      Line.Height := 1;
+      Line.Margins.Rect := RectF(20, 8, 20, 8);
+      Line.Position.Y := Y;
+      Line.Parent := Backstage;
+      Exit;
+    end;
     B := TSpeedButton.Create(Self);
     B.StyleLookup := 'backstagebuttonstyle';
     B.Action := Action;
     B.Text := Name;
     B.Align := Align;
-    B.Height := 44;
+    B.Height := 42;
+    B.Position.Y := Y;
     B.OnClick := BackstageClick;               // closes the panel, then runs the action
-    B.Parent := Parent;
+    B.Parent := Backstage;
 {$IFDEF MSWINDOWS}
     Icon := TText.Create(B);
     Icon.Parent := B;
@@ -1080,7 +1102,10 @@ var
   FindButtons: TArray<TButton>;
   I: Integer;
 begin
-  Page(HomeBar, [RB(nil, ' ', 'Undo'), RB(UndoAction, #$E7A7, 'Undo'), RB(RedoAction, #$E7A6, 'Redo'),
+  Y := 100;                                     // below the File panel's title
+  FRecentTiles := Page(HomeBar, [RB(nil, ' ', 'Project'), RB(NewProjectAction, #$E710, 'New'),
+    RB(OpenProjectAction, #$E838, 'Open'), RB(nil, ' ', 'Recent Projects')]);   // BuildRecentMenu fills it
+  Page(EditBar, [RB(nil, ' ', 'Undo'), RB(UndoAction, #$E7A7, 'Undo'), RB(RedoAction, #$E7A6, 'Redo'),
     RB(nil, ' ', 'Clipboard'), RB(CutAction, #$E8C6, 'Cut'), RB(CopyAction, #$E8C8, 'Copy'),
     RB(PasteAction, #$E77F, 'Paste'), RB(SelectAllAction, #$E8B3, 'Select All'),
     RB(nil, ' ', 'Find'), RB(FindAction, #$E721, 'Find'), RB(FindNextAction, #$E72A, 'Next'),
@@ -1109,13 +1134,16 @@ begin
     FindButtons[I].ShowHint := True;
   end;
   // the File panel, top down; Align Top stacks the last made lowest, Bottom the last made highest
-  Command(CloseAction, #$E711, 'Close', Backstage, TAlignLayout.Top);
-  Command(SaveAsAction, #$E792, 'Save As...', Backstage, TAlignLayout.Top);
-  Command(SaveAction, #$E74E, 'Save', Backstage, TAlignLayout.Top);
-  Command(OpenAction, #$E8E5, 'Open...', Backstage, TAlignLayout.Top);
-  Command(NewAction, #$E8A5, 'New', Backstage, TAlignLayout.Top);
-  Command(SettingsAction, #$E713, 'Settings', Backstage, TAlignLayout.Bottom);
-  Command(ExitAction, #$E7E8, 'Exit', Backstage, TAlignLayout.Bottom);
+  Command(NewAction, #$E8A5, 'New', TAlignLayout.Top);
+  Command(OpenAction, #$E8E5, 'Open...', TAlignLayout.Top);
+  Command(nil, ' ', '', TAlignLayout.Top);
+  Command(SaveAction, #$E74E, 'Save', TAlignLayout.Top);
+  Command(SaveAsAction, #$E792, 'Save As...', TAlignLayout.Top);
+  Command(nil, ' ', '', TAlignLayout.Top);
+  Command(CloseAction, #$E711, 'Close', TAlignLayout.Top);
+  Command(nil, ' ', '', TAlignLayout.Bottom);
+  Command(SettingsAction, #$E713, 'Settings', TAlignLayout.Bottom);
+  Command(ExitAction, #$E7E8, 'Exit', TAlignLayout.Bottom);
   FRibbonPage := HomeTab;
   Ribbon.ActiveTab := HomeTab;
   FitRibbon;
@@ -1183,14 +1211,16 @@ var
   Compact: Boolean;
   I, J: Integer;
 begin
-  Bars := [HomeBar, ProjectBar, RunBar, ViewBar];
+  Bars := [HomeBar, EditBar, ProjectBar, RunBar, ViewBar];
   for Bar in Bars do
   begin
     Need := 0;                                  // the full width: 65 a button, 13 a line
     for I := 0 to Bar.ChildrenCount - 1 do
     begin
       Group := Bar.Children[I];
-      if Group is TLayout then
+      if Group = FRecentTiles then
+        Need := Need + FRecentTiles.Width
+      else if Group is TLayout then
         for J := 0 to Group.ChildrenCount - 1 do
           if Group.Children[J] is TSpeedButton then Need := Need + 65;
       if Group is TPanel then Need := Need + 13;
@@ -1199,7 +1229,7 @@ begin
     for I := 0 to Bar.ChildrenCount - 1 do
     begin
       Group := Bar.Children[I];
-      if not (Group is TLayout) then Continue;
+      if not (Group is TLayout) or (Group = FRecentTiles) then Continue;   // the tiles keep their size
       var N := 0;
       for J := 0 to Group.ChildrenCount - 1 do
       begin
@@ -1737,17 +1767,67 @@ begin
   BuildRecentMenu;
 end;
 
+{ The recent projects, in three places: Project > Recent Projects on a Mac's menu bar, tiles on the ribbon's
+  Home page (two rows of them, as many as fit), and rows in the File panel: each its name over its folder. }
 procedure TMainForm.BuildRecentMenu;
+const
+  TileWidth = 230;
+  TileHeight = 30;
+  MaxTiles = 8;
+{$IFDEF MSWINDOWS}
+  ProjectGlyph = #$E8B7;                        // a folder (Segoe MDL2 Assets)
+{$ENDIF}
+
+  function Line(Parent: TFmxObject; const Text: string; Size: Single; Color: TAlphaColor;
+    Align: TAlignLayout): TLabel;
+  begin
+    Result := TLabel.Create(Self);
+    Result.Parent := Parent;
+    Result.Align := Align;
+    Result.HitTest := False;
+    Result.StyledSettings := Result.StyledSettings - [TStyledSetting.Size, TStyledSetting.FontColor];
+    Result.TextSettings.Font.Size := Size;
+    Result.TextSettings.FontColor := Color;
+    Result.TextSettings.WordWrap := False;
+    Result.TextSettings.Trimming := TTextTrimming.Character;
+    Result.Text := Text;
+    Result.Height := Size + 10;
+  end;
+
+  procedure Picture(Parent: TFmxObject; Width, Size: Single);
+{$IFDEF MSWINDOWS}
+  var
+    Icon: TText;
+  begin
+    Icon := TText.Create(Self);
+    Icon.Parent := Parent;
+    Icon.Align := TAlignLayout.Left;
+    Icon.Width := Width;
+    Icon.HitTest := False;
+    Icon.Text := ProjectGlyph;
+    Icon.TextSettings.Font.Family := 'Segoe MDL2 Assets';
+    Icon.TextSettings.Font.Size := Size;
+    Icon.TextSettings.FontColor := $FF0F90CA;  // HasteSlate's accent
+  end;
+{$ELSE}
+  begin
+  end;
+{$ENDIF}
+
 var
   Ini: TMemIniFile;
   List: TStringList;
   Item: TMenuItem;
-  Shown: TListBoxItem;
-  I: Integer;
+  Row: TListBoxItem;
+  Tile: TSpeedButton;
+  Title, Folder: string;
+  I, Shown: Integer;
 begin
   while RecentMenu.ItemsCount > 0 do
     RecentMenu.Items[0].Free;
   RecentList.Clear;
+  for I := FRecentTiles.ChildrenCount - 1 downto 0 do
+    if FRecentTiles.Children[I] is TSpeedButton then FRecentTiles.Children[I].Free;
   FRecent := nil;
   Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
   List := TStringList.Create;
@@ -1756,26 +1836,46 @@ begin
     for I := 0 to List.Count - 1 do
     begin
       FRecent := FRecent + [List.ValueFromIndex[I]];
+      Title := ChangeFileExt(ExtractFileName(FRecent[I]), '');
+      Folder := ExtractFileDir(FRecent[I]);
       Item := TMenuItem.Create(Self);
-      Item.Text := Format('%d  %s    %s', [I + 1, ChangeFileExt(ExtractFileName(FRecent[I]), ''),
-        ExtractFileDir(FRecent[I])]);
+      Item.Text := Format('%d  %s    %s', [I + 1, Title, Folder]);
       Item.Tag := I;
       Item.OnClick := RecentClick;
       RecentMenu.AddObject(Item);
-      Shown := TListBoxItem.Create(RecentList);   // and in the File panel
-      Shown.Text := ChangeFileExt(ExtractFileName(FRecent[I]), '');
-      Shown.Hint := FRecent[I];
-      Shown.ShowHint := True;
-      Shown.Tag := I;
-      Shown.Height := 32;
-      RecentList.AddObject(Shown);
-      UseTextSize(Shown);
+
+      Row := TListBoxItem.Create(RecentList);  // the File panel
+      Row.Height := 52;
+      Row.Hint := FRecent[I];
+      Row.ShowHint := True;
+      Row.Tag := I;
+      RecentList.AddObject(Row);
+      Picture(Row, 44, 20);
+      Line(Row, Title, TextSize + 2, $FFFDFDFD, TAlignLayout.Top).Margins.Rect := RectF(4, 7, 8, 0);
+      Line(Row, Folder, TextSize - 1, $FFA8B3C2, TAlignLayout.Client).Margins.Rect := RectF(4, 0, 8, 7);
+
+      if I >= MaxTiles then Continue;          // Home: two rows of tiles, column by column
+      Tile := TSpeedButton.Create(Self);
+      Tile.StyleLookup := 'ribbonbuttonstyle';
+      Tile.Text := '';
+      Tile.Tag := I;
+      Tile.Hint := FRecent[I];
+      Tile.ShowHint := True;
+      Tile.SetBounds(I div 2 * (TileWidth + 2), I mod 2 * (TileHeight + 2), TileWidth, TileHeight);
+      Tile.OnClick := RecentClick;
+      Tile.Parent := FRecentTiles;
+      Picture(Tile, 30, 14);
+      Line(Tile, Title, TextSize, $FFFDFDFD, TAlignLayout.Left).AutoSize := True;
+      Line(Tile, Folder, TextSize - 1, $FFA8B3C2, TAlignLayout.Client).Margins.Rect := RectF(10, 0, 6, 0);
     end;
   finally
     List.Free;
     Ini.Free;
   end;
+  Shown := Min(Length(FRecent), MaxTiles);
+  FRecentTiles.Width := Max(1, (Shown + 1) div 2) * (TileWidth + 2);
   RecentMenu.Enabled := Length(FRecent) > 0;
+  FitRibbon;
 end;
 
 procedure TMainForm.RecentClick(Sender: TObject);

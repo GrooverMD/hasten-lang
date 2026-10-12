@@ -250,7 +250,7 @@ def styles():
         rect('top', PANEL, None).add(
             colour_anim('Fill.Color', PANEL, HOVER, 'IsMouseOver'),
             colour_anim('Fill.Color', PANEL, INPUT, 'IsSelected'),
-            text('text', Margins__Left=12, Margins__Right=12, wrap=False)),
+            text('text', Margins__Left=16, Margins__Right=16, wrap=False)),
         Obj('TLayout', StyleName=q('bottom'), Align='Contents', Visible=False)))
 
     # the Options grid
@@ -320,10 +320,10 @@ def styles():
         rect('top', CHROME, None).add(
             colour_anim('Fill.Color', CHROME, HOVER, 'IsMouseOver'),
             colour_anim('Fill.Color', CHROME, PANEL, 'IsSelected'),
-            text('text', Margins__Left=14, Margins__Right=14, wrap=False)),
+            text('text', Margins__Left=20, Margins__Right=20, wrap=False)),
         Obj('TLayout', StyleName=q('bottom'), Align='Contents', Visible=False)))
     s.append(Obj('TLayout', StyleName=q('filetabstyle')).add(
-        rect('top', HOT, None).add(text('text', Margins__Left=16, Margins__Right=16, wrap=False)),
+        rect('top', HOT, None).add(text('text', Margins__Left=22, Margins__Right=22, wrap=False)),
         Obj('TLayout', StyleName=q('bottom'), Align='Contents', Visible=False)))
     # a ribbon button: its picture (a character of the icon font, added by Hasten) above, its name below
     s.append(rect('ribbonbuttonstyle', CLEAR, None, 3, align=None).add(

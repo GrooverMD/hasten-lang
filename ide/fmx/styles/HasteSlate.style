@@ -383,7 +383,7 @@ object TStyleContainer
         Align = Right
         SmallChange = 0.000000000000000000
         Orientation = Vertical
-        Size.Width = 12.000000000000000000
+        Size.Width = 9.000000000000000000
         Size.PlatformDefault = False
       end
       object TScrollBar
@@ -391,7 +391,7 @@ object TStyleContainer
         Align = Bottom
         SmallChange = 0.000000000000000000
         Orientation = Horizontal
-        Size.Height = 12.000000000000000000
+        Size.Height = 9.000000000000000000
         Size.PlatformDefault = False
       end
     end
@@ -429,7 +429,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'scrollbarhtrackstyle'
-    Fill.Color = xFF2C3340
+    Fill.Color = x00000000
     HitTest = False
     Stroke.Kind = None
     object TThumb
@@ -441,8 +441,8 @@ object TStyleContainer
     StyleName = 'hthumbstyle'
     Fill.Color = xFF58677C
     HitTest = False
-    XRadius = 3.000000000000000000
-    YRadius = 3.000000000000000000
+    XRadius = 2.500000000000000000
+    YRadius = 2.500000000000000000
     Stroke.Kind = None
     Margins.Left = 2.000000000000000000
     Margins.Top = 2.000000000000000000
@@ -459,7 +459,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'scrollbarvtrackstyle'
-    Fill.Color = xFF2C3340
+    Fill.Color = x00000000
     HitTest = False
     Stroke.Kind = None
     object TThumb
@@ -471,8 +471,8 @@ object TStyleContainer
     StyleName = 'vthumbstyle'
     Fill.Color = xFF58677C
     HitTest = False
-    XRadius = 3.000000000000000000
-    YRadius = 3.000000000000000000
+    XRadius = 2.500000000000000000
+    YRadius = 2.500000000000000000
     Stroke.Kind = None
     Margins.Left = 2.000000000000000000
     Margins.Top = 2.000000000000000000
@@ -516,7 +516,7 @@ object TStyleContainer
         Align = Right
         SmallChange = 0.000000000000000000
         Orientation = Vertical
-        Size.Width = 12.000000000000000000
+        Size.Width = 9.000000000000000000
         Size.PlatformDefault = False
       end
       object TScrollBar
@@ -524,7 +524,7 @@ object TStyleContainer
         Align = Bottom
         SmallChange = 0.000000000000000000
         Orientation = Horizontal
-        Size.Height = 12.000000000000000000
+        Size.Height = 9.000000000000000000
         Size.PlatformDefault = False
       end
     end
@@ -697,7 +697,7 @@ object TStyleContainer
         Align = Right
         SmallChange = 0.000000000000000000
         Orientation = Vertical
-        Size.Width = 12.000000000000000000
+        Size.Width = 9.000000000000000000
         Size.PlatformDefault = False
       end
       object TScrollBar
@@ -705,7 +705,7 @@ object TStyleContainer
         Align = Bottom
         SmallChange = 0.000000000000000000
         Orientation = Horizontal
-        Size.Height = 12.000000000000000000
+        Size.Height = 9.000000000000000000
         Size.PlatformDefault = False
       end
     end
@@ -1098,7 +1098,7 @@ object TStyleContainer
         Align = Right
         SmallChange = 0.000000000000000000
         Orientation = Vertical
-        Size.Width = 12.000000000000000000
+        Size.Width = 9.000000000000000000
         Size.PlatformDefault = False
       end
       object TScrollBar
@@ -1106,7 +1106,7 @@ object TStyleContainer
         Align = Bottom
         SmallChange = 0.000000000000000000
         Orientation = Horizontal
-        Size.Height = 12.000000000000000000
+        Size.Height = 9.000000000000000000
         Size.PlatformDefault = False
       end
     end
@@ -1321,7 +1321,7 @@ object TStyleContainer
         Align = Right
         SmallChange = 0.000000000000000000
         Orientation = Vertical
-        Size.Width = 12.000000000000000000
+        Size.Width = 9.000000000000000000
         Size.PlatformDefault = False
       end
       object TScrollBar
@@ -1329,7 +1329,7 @@ object TStyleContainer
         Align = Bottom
         SmallChange = 0.000000000000000000
         Orientation = Horizontal
-        Size.Height = 12.000000000000000000
+        Size.Height = 9.000000000000000000
         Size.PlatformDefault = False
       end
     end

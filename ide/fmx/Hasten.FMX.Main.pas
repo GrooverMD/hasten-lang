@@ -133,6 +133,7 @@ type
     TreeSep2: TMenuItem;
     TreeRescanItem: TMenuItem;
     OpenProjectDialog: TOpenDialog;
+    EditorArea: TLayout;                       // the tabs, with the find bar at their foot
     Tabs: TTabControl;
     Splitter: TSplitter;
     Output: TMemo;
@@ -144,6 +145,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure FormResize(Sender: TObject);
     procedure ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
     procedure NewActionExecute(Sender: TObject);
     procedure OpenActionExecute(Sender: TObject);
@@ -256,6 +258,7 @@ type
     procedure FindAgain(Backwards: Boolean);
     procedure SetUpRibbon;
     procedure WireCaptionButtons;
+    procedure FitRibbon;
     procedure BackstageClick(Sender: TObject);
     function ShortCutAction(Key: Word; Shift: TShiftState): TAction;
     procedure LoadStyle;
@@ -961,22 +964,51 @@ end;
 
 procedure TMainForm.SetUpRibbon;
 
-  procedure Page(Bar: TToolBar; const Items: array of TRibbonItem);   // a nil Action: a separator
+  { A page: groups of buttons left to right, each group named below its buttons, a line between groups. An
+    item with no action starts a group, its Name the group's. Position.X puts them in order (Align Left goes
+    by it), so they are made as they come. }
+  procedure Page(Bar: TToolBar; const Items: array of TRibbonItem);
   var
-    I: Integer;
+    I, N: Integer;
+    X: Single;
     B: TSpeedButton;
+    Group: TLayout;
+    Caption: TLabel;
     Line: TPanel;
     Icon: TText;
   begin
-    for I := High(Items) downto 0 do          // Align Left puts the last made first: make them from the end
+    X := 0;
+    Group := nil;
+    N := 0;
+    for I := 0 to High(Items) do
       if Items[I].Action = nil then
       begin
-        Line := TPanel.Create(Self);
-        Line.StyleLookup := 'ribbonseparatorstyle';
-        Line.Align := TAlignLayout.Left;
-        Line.Width := 1;
-        Line.Margins.Rect := RectF(6, 6, 6, 6);
-        Line.Parent := Bar;
+        if Group <> nil then
+        begin
+          Group.Width := N * 65;
+          Line := TPanel.Create(Self);
+          Line.StyleLookup := 'ribbonseparatorstyle';
+          Line.Align := TAlignLayout.Left;
+          Line.Width := 1;
+          Line.Margins.Rect := RectF(6, 4, 6, 4);
+          X := X + 100;
+          Line.Position.X := X;
+          Line.Parent := Bar;
+        end;
+        Group := TLayout.Create(Self);
+        Group.Align := TAlignLayout.Left;
+        X := X + 100;
+        Group.Position.X := X;
+        Group.Parent := Bar;
+        Caption := TLabel.Create(Self);           // the group's name, dim, under its buttons
+        Caption.Align := TAlignLayout.Bottom;
+        Caption.Height := 16;
+        Caption.Text := Items[I].Name;
+        Caption.StyledSettings := Caption.StyledSettings - [TStyledSetting.FontColor];
+        Caption.TextSettings.FontColor := $FFA8B3C2;
+        Caption.TextSettings.HorzAlign := TTextAlign.Center;
+        Caption.Parent := Group;
+        N := 0;
       end
       else
       begin
@@ -984,15 +1016,17 @@ procedure TMainForm.SetUpRibbon;
         B.StyleLookup := 'ribbonbuttonstyle';
         B.Action := Items[I].Action;
         B.Text := Items[I].Name;
+        B.TagString := Items[I].Name;            // FitRibbon takes the name away when room is short
         B.Align := TAlignLayout.Left;
         B.Width := 64;
         B.Margins.Left := 1;
+        B.Position.X := N * 100;
         B.Hint := Items[I].Action.Text.Replace('&', '');
         if Items[I].Action.ShortCut <> 0 then
           B.Hint := B.Hint + ' (' + KeysText(Items[I].Action.ShortCut) + ')';
         B.ShowHint := True;
         B.StaysPressed := Items[I].Action.AutoCheck;  // Help Insight shows whether it is on
-        B.Parent := Bar;
+        B.Parent := Group;
 {$IFDEF MSWINDOWS}
         Icon := TText.Create(B);
         Icon.Parent := B;
@@ -1003,9 +1037,12 @@ procedure TMainForm.SetUpRibbon;
         Icon.TextSettings.Font.Family := 'Segoe MDL2 Assets';
         Icon.TextSettings.Font.Size := 20;
         Icon.TextSettings.FontColor := EditorText;
+        B.TagObject := Icon;
 {$ENDIF}
         if Items[I].Action = OptionsAction then FOptionsButton := B;
+        Inc(N);
       end;
+    if Group <> nil then Group.Width := N * 65;
   end;
 
   procedure Command(Action: TAction; Glyph: Char; const Name: string; Parent: TControl;
@@ -1035,20 +1072,42 @@ procedure TMainForm.SetUpRibbon;
 {$ENDIF}
   end;
 
+const
+  FindGlyphs: array[0..2] of Char = (#$E70E, #$E70D, #$E8BB);    // up, down, close (Segoe MDL2 Assets)
+  FindChars: array[0..2] of Char = (#$25B2, #$25BC, #$2715);
+  FindHints: array[0..2] of string = ('Previous (Shift+F3)', 'Next (F3)', 'Close (Esc)');
+var
+  FindButtons: TArray<TButton>;
+  I: Integer;
 begin
-  Page(HomeBar, [RB(UndoAction, #$E7A7, 'Undo'), RB(RedoAction, #$E7A6, 'Redo'), RB(nil, ' ', ''),
-    RB(CutAction, #$E8C6, 'Cut'), RB(CopyAction, #$E8C8, 'Copy'), RB(PasteAction, #$E77F, 'Paste'),
-    RB(SelectAllAction, #$E8B3, 'Select All'), RB(nil, ' ', ''),
-    RB(FindAction, #$E721, 'Find'), RB(FindNextAction, #$E72A, 'Next'), RB(FindPrevAction, #$E72B, 'Previous'),
-    RB(GoToLineAction, #$E8FD, 'Go to Line')]);
-  Page(ProjectBar, [RB(NewProjectAction, #$E710, 'New'), RB(OpenProjectAction, #$E838, 'Open'),
+  Page(HomeBar, [RB(nil, ' ', 'Undo'), RB(UndoAction, #$E7A7, 'Undo'), RB(RedoAction, #$E7A6, 'Redo'),
+    RB(nil, ' ', 'Clipboard'), RB(CutAction, #$E8C6, 'Cut'), RB(CopyAction, #$E8C8, 'Copy'),
+    RB(PasteAction, #$E77F, 'Paste'), RB(SelectAllAction, #$E8B3, 'Select All'),
+    RB(nil, ' ', 'Find'), RB(FindAction, #$E721, 'Find'), RB(FindNextAction, #$E72A, 'Next'),
+    RB(FindPrevAction, #$E72B, 'Previous'), RB(GoToLineAction, #$E8FD, 'Go to Line')]);
+  Page(ProjectBar, [RB(nil, ' ', 'Project'), RB(NewProjectAction, #$E710, 'New'), RB(OpenProjectAction, #$E838, 'Open'),
     RB(SaveProjectAction, #$E78C, 'Save'), RB(SaveProjectAsAction, #$E792, 'Save As'),
-    RB(CloseProjectAction, #$E711, 'Close'), RB(nil, ' ', ''), RB(OptionsAction, #$E9E9, 'Options')]);
-  Page(RunBar, [RB(RunAction, #$E768, 'Run'), RB(BuildAction, #$E90F, 'Build'), RB(StopAction, #$E71A, 'Stop'),
-    RB(nil, ' ', ''), RB(TestsAction, #$E9D5, 'Tests'), RB(nil, ' ', ''),
-    RB(HastePyAction, #$E8B7, 'haste.py')]);
-  Page(ViewBar, [RB(InsightAction, #$E946, 'Insight'), RB(FullScreenAction, #$E740, 'Full Screen'), RB(nil, ' ', ''),
-    RB(SettingsAction, #$E713, 'Settings')]);
+    RB(CloseProjectAction, #$E711, 'Close'), RB(nil, ' ', 'Build'), RB(OptionsAction, #$E9E9, 'Options')]);
+  Page(RunBar, [RB(nil, ' ', 'Run'), RB(RunAction, #$E768, 'Run'), RB(BuildAction, #$E90F, 'Build'),
+    RB(StopAction, #$E71A, 'Stop'), RB(nil, ' ', 'Test'), RB(TestsAction, #$E9D5, 'Tests'),
+    RB(nil, ' ', 'Haste'), RB(HastePyAction, #$E8B7, 'haste.py')]);
+  Page(ViewBar, [RB(nil, ' ', 'Show'), RB(InsightAction, #$E946, 'Insight'), RB(FullScreenAction, #$E740, 'Full Screen'),
+    RB(nil, ' ', 'Hasten'), RB(SettingsAction, #$E713, 'Settings')]);
+  // the find bar's buttons: pictures, the words in their hints
+  FindButtons := [FindPrevButton, FindNextButton, FindCloseButton];
+  for I := 0 to High(FindButtons) do
+  begin
+{$IFDEF MSWINDOWS}
+    FindButtons[I].StyledSettings := FindButtons[I].StyledSettings - [TStyledSetting.Family, TStyledSetting.Size];
+    FindButtons[I].TextSettings.Font.Family := 'Segoe MDL2 Assets';
+    FindButtons[I].TextSettings.Font.Size := 11;
+    FindButtons[I].Text := FindGlyphs[I];
+{$ELSE}
+    FindButtons[I].Text := FindChars[I];
+{$ENDIF}
+    FindButtons[I].Hint := FindHints[I];
+    FindButtons[I].ShowHint := True;
+  end;
   // the File panel, top down; Align Top stacks the last made lowest, Bottom the last made highest
   Command(CloseAction, #$E711, 'Close', Backstage, TAlignLayout.Top);
   Command(SaveAsAction, #$E792, 'Save As...', Backstage, TAlignLayout.Top);
@@ -1059,6 +1118,7 @@ begin
   Command(ExitAction, #$E7E8, 'Exit', Backstage, TAlignLayout.Bottom);
   FRibbonPage := HomeTab;
   Ribbon.ActiveTab := HomeTab;
+  FitRibbon;
 {$IFNDEF MACOS}
   MainMenu.Visible := False;                    // the ribbon has it all; a Mac keeps its menus in the menu bar
 {$ENDIF}
@@ -1109,6 +1169,68 @@ begin
     TSpeedButton(Button).Hint := 'Full Screen (F11)';
     TSpeedButton(Button).ShowHint := True;
   end;
+end;
+
+{ When a page's buttons are wider than the window, they shrink to their pictures alone (on Windows; elsewhere
+  there are no pictures), the names in their hints; with room again, the names come back. }
+procedure TMainForm.FitRibbon;
+{$IFDEF MSWINDOWS}
+var
+  Bars: TArray<TToolBar>;
+  Bar: TToolBar;
+  Group, Child: TFmxObject;
+  Need: Single;
+  Compact: Boolean;
+  I, J: Integer;
+begin
+  Bars := [HomeBar, ProjectBar, RunBar, ViewBar];
+  for Bar in Bars do
+  begin
+    Need := 0;                                  // the full width: 65 a button, 13 a line
+    for I := 0 to Bar.ChildrenCount - 1 do
+    begin
+      Group := Bar.Children[I];
+      if Group is TLayout then
+        for J := 0 to Group.ChildrenCount - 1 do
+          if Group.Children[J] is TSpeedButton then Need := Need + 65;
+      if Group is TPanel then Need := Need + 13;
+    end;
+    Compact := Need > Ribbon.Width - 12;
+    for I := 0 to Bar.ChildrenCount - 1 do
+    begin
+      Group := Bar.Children[I];
+      if not (Group is TLayout) then Continue;
+      var N := 0;
+      for J := 0 to Group.ChildrenCount - 1 do
+      begin
+        Child := Group.Children[J];
+        if not (Child is TSpeedButton) then Continue;
+        Inc(N);
+        if Compact then
+        begin
+          TSpeedButton(Child).Text := '';
+          TSpeedButton(Child).Width := 36;
+          if TSpeedButton(Child).TagObject is TText then TText(TSpeedButton(Child).TagObject).Margins.Bottom := 0;
+        end
+        else
+        begin
+          TSpeedButton(Child).Text := TSpeedButton(Child).TagString;
+          TSpeedButton(Child).Width := 64;
+          if TSpeedButton(Child).TagObject is TText then TText(TSpeedButton(Child).TagObject).Margins.Bottom := 20;
+        end;
+      end;
+      if Compact then TLayout(Group).Width := N * 37 else TLayout(Group).Width := N * 65;
+    end;
+  end;
+end;
+{$ELSE}
+begin
+end;
+{$ENDIF}
+
+procedure TMainForm.FormResize(Sender: TObject);
+begin
+  if HomeBar <> nil then FitRibbon;
 end;
 
 { File is the File panel's master button, not a page: the page on show stays. }

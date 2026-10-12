@@ -159,9 +159,9 @@ def input_box(name='background', **more):
 
 
 def scrollbars():
-    return [Obj('TScrollBar', **sized(12, None, StyleName=q('vscrollbar'), Align='Right', SmallChange=0,
-                                      Orientation='Vertical')),
-            Obj('TScrollBar', **sized(None, 12, StyleName=q('hscrollbar'), Align='Bottom', SmallChange=0,
+    return [Obj('TScrollBar', **sized(9, None, StyleName=q('vscrollbar'), Align='Right', SmallChange=0,
+                                      Orientation='Vertical')),          # thin: 9 px, the thumb 5 px within
+            Obj('TScrollBar', **sized(None, 9, StyleName=q('hscrollbar'), Align='Bottom', SmallChange=0,
                                       Orientation='Horizontal'))]
 
 
@@ -222,9 +222,9 @@ def styles():
         Obj('TTrack', StyleName=q('htrack'), Align='Client', Orientation='Horizontal', StyleLookup=q('scrollbarhtrackstyle')),
         Obj('TTrack', StyleName=q('vtrack'), Align='Client', Orientation='Vertical', StyleLookup=q('scrollbarvtrackstyle'))))
     for o, lookup in (('h', 'hthumbstyle'), ('v', 'vthumbstyle')):
-        s.append(rect(f'scrollbar{o}trackstyle', INPUT, align=None).add(
+        s.append(rect(f'scrollbar{o}trackstyle', CLEAR, align=None).add(
             Obj('TThumb', StyleName=q('thumb'), StyleLookup=q(lookup))))
-        s.append(rect(lookup, THUMB, None, 3, align=None, Margins__Left=2, Margins__Top=2, Margins__Right=2,
+        s.append(rect(lookup, THUMB, None, 2.5, align=None, Margins__Left=2, Margins__Top=2, Margins__Right=2,
                       Margins__Bottom=2).add(colour_anim('Fill.Color', THUMB, DIVIDER, 'IsMouseOver')))
 
     # the Project Manager

@@ -78,10 +78,12 @@ def q(s):
     return ''.join(out)
 
 
-def glyph(char, color, size=TEXT_SIZE, **more):
+def glyph(char, color, size=TEXT_SIZE, family=None, **more):
     """A character drawn as a shape (a TPath's outline only loads from binary in a style)."""
     p = sized(16, 16, Align='Center', HitTest=False, Text=q(char))
     p.update(more)
+    if family:
+        p['TextSettings__Font__Family'] = q(family)
     p['TextSettings__Font__Size'] = size
     p['TextSettings__FontColor'] = color
     return Obj('TText', **p)
@@ -357,8 +359,10 @@ def styles():
                                         Position__X=0)),
             Obj('TSpeedButton', **sized(46, None, StyleName=q('max'), Align='Right', StyleLookup=q('maxbtnstyle'),
                                         Position__X=46)),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('fullscreen'), Align='Right',
+                                        StyleLookup=q('fullscreenbtnstyle'), Position__X=92)),   # Hasten's own
             Obj('TSpeedButton', **sized(46, None, StyleName=q('close'), Align='Right', StyleLookup=q('closebtnstyle'),
-                                        Position__X=92)),
+                                        Position__X=138)),
             text('title', halign='Leading', wrap=False, Margins__Left=4)))
     s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
         rect('mask', CHROME, None, 6, Visible=False),
@@ -367,11 +371,12 @@ def styles():
         Obj('TLayout', StyleName=q('client'), Align='Client', HitTest=True),   # see above
         rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
         rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
-    for name, char, hot in (('closebtnstyle', '\u2715', 'xFFC42B1C'), ('maxbtnstyle', '\u25A1', HOVER),
-                            ('minbtnstyle', '\u2014', HOVER)):
+    # the caption buttons' pictures are Windows' own, from its icon font (FMX draws the frame only on Windows)
+    for name, char, hot in (('closebtnstyle', '\uE8BB', 'xFFC42B1C'), ('maxbtnstyle', '\uE922', HOVER),
+                            ('minbtnstyle', '\uE921', HOVER), ('fullscreenbtnstyle', '\uE740', HOVER)):
         s.append(rect(name, CLEAR, align=None).add(
             colour_anim('Fill.Color', CLEAR, hot, 'IsMouseOver'),
-            glyph(char, TEXT, 12),
+            glyph(char, TEXT, 10, 'Segoe MDL2 Assets'),
             text('text')))
     return s
 

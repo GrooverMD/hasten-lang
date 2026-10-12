@@ -284,6 +284,10 @@ object MainForm: TMainForm
       Text = '&Go to Line...'
       OnExecute = GoToLineActionExecute
     end
+    object FullScreenAction: TAction
+      Text = '&Full Screen'
+      OnExecute = FullScreenActionExecute
+    end
     object SettingsAction: TAction
       Text = '&Settings...'
       OnExecute = SettingsActionExecute

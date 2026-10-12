@@ -84,6 +84,7 @@ type
     OptionsAction: TAction;
     SettingsAction: TAction;
     InsightAction: TAction;
+    FullScreenAction: TAction;
     UndoAction: TAction;
     RedoAction: TAction;
     CutAction: TAction;
@@ -164,6 +165,7 @@ type
     procedure SaveProjectAsActionExecute(Sender: TObject);
     procedure SettingsActionExecute(Sender: TObject);
     procedure InsightActionExecute(Sender: TObject);
+    procedure FullScreenActionExecute(Sender: TObject);
     procedure RibbonChange(Sender: TObject);
     procedure RecentListItemClick(const Sender: TCustomListBox; const Item: TListBoxItem);
     procedure EditActionExecute(Sender: TObject);
@@ -208,6 +210,7 @@ type
     FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
     FRibbonPage: TTabItem;                     // the ribbon page on show: File only opens the File panel
     FOptionsButton: TSpeedButton;
+    FCaptionWired: Boolean;                    // the frame's fullscreen button is connected
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -253,6 +256,7 @@ type
     function EditorFocused: TEditorTab;
     procedure FindAgain(Backwards: Boolean);
     procedure SetUpRibbon;
+    procedure WireCaptionButtons;
     procedure BackstageClick(Sender: TObject);
     function ShortCutAction(Key: Word; Shift: TShiftState): TAction;
     procedure LoadStyle;
@@ -323,6 +327,7 @@ begin
   FindNextAction.ShortCut := vkF3;
   FindPrevAction.ShortCut := scShift or vkF3;
   GoToLineAction.ShortCut := CmdKey or Ord('G');
+  FullScreenAction.ShortCut := vkF11;
 {$IFDEF MACOS}
   MainMenu.UseOSMenu := True;                   // a Mac app's menus belong in the bar at the top of the screen
 {$ENDIF}
@@ -416,6 +421,7 @@ procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
 var
   S: string;
 begin
+  if not FCaptionWired then WireCaptionButtons;   // once the frame's style is in place
   SaveAction.Enabled := ActiveTab <> nil;
   SaveAsAction.Enabled := ActiveTab <> nil;
   CloseAction.Enabled := ActiveTab <> nil;
@@ -1042,7 +1048,8 @@ begin
   Page(RunBar, [RB(RunAction, #$E768, 'Run'), RB(BuildAction, #$E90F, 'Build'), RB(StopAction, #$E71A, 'Stop'),
     RB(nil, ' ', ''), RB(TestsAction, #$E9D5, 'Tests'), RB(nil, ' ', ''),
     RB(HastePyAction, #$E8B7, 'haste.py')]);
-  Page(ViewBar, [RB(InsightAction, #$E946, 'Insight'), RB(nil, ' ', ''), RB(SettingsAction, #$E713, 'Settings')]);
+  Page(ViewBar, [RB(InsightAction, #$E946, 'Insight'), RB(FullScreenAction, #$E740, 'Full Screen'), RB(nil, ' ', ''),
+    RB(SettingsAction, #$E713, 'Settings')]);
   // the File panel, top down; Align Top stacks the last made lowest, Bottom the last made highest
   Command(CloseAction, #$E711, 'Close', Backstage, TAlignLayout.Top);
   Command(SaveAsAction, #$E792, 'Save As...', Backstage, TAlignLayout.Top);
@@ -1056,6 +1063,43 @@ begin
 {$IFNDEF MACOS}
   MainMenu.Visible := False;                    // the ribbon has it all; a Mac keeps its menus in the menu bar
 {$ENDIF}
+end;
+
+{ Full screen: no title bar or edges; F11 or the ribbon's View > Full Screen comes back. }
+procedure TMainForm.FullScreenActionExecute(Sender: TObject);
+begin
+  FullScreen := not FullScreen;
+end;
+
+{ The frame (HasteSlate's windowborderstyle) has a fullscreen button beside FMX's own three. FMX does not know
+  it, so it is found in the frame by its style name and given the Full Screen action. }
+procedure TMainForm.WireCaptionButtons;
+
+  function Find(Root: TFmxObject): TFmxObject;
+  var
+    I: Integer;
+  begin
+    Result := nil;
+    for I := 0 to Root.ChildrenCount - 1 do
+    begin
+      if SameText(Root.Children[I].StyleName, 'fullscreen') then Exit(Root.Children[I]);
+      Result := Find(Root.Children[I]);
+      if Result <> nil then Exit;
+    end;
+  end;
+
+var
+  Button: TFmxObject;
+begin
+  if not (TObject(Border.WindowBorder) is TFmxObject) then Exit;
+  Button := Find(TFmxObject(Border.WindowBorder));
+  if Button is TSpeedButton then
+  begin
+    TSpeedButton(Button).OnClick := FullScreenActionExecute;
+    TSpeedButton(Button).Hint := 'Full Screen (F11)';
+    TSpeedButton(Button).ShowHint := True;
+    FCaptionWired := True;
+  end;
 end;
 
 { File is the File panel's master button, not a page: the page on show stays. }

@@ -1398,10 +1398,18 @@ object TStyleContainer
           Size.PlatformDefault = False
         end
         object TSpeedButton
+          StyleName = 'fullscreen'
+          Align = Right
+          StyleLookup = 'fullscreenbtnstyle'
+          Position.X = 92.000000000000000000
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TSpeedButton
           StyleName = 'close'
           Align = Right
           StyleLookup = 'closebtnstyle'
-          Position.X = 92.000000000000000000
+          Position.X = 138.000000000000000000
           Size.Width = 46.000000000000000000
           Size.PlatformDefault = False
         end
@@ -1457,11 +1465,12 @@ object TStyleContainer
     object TText
       Align = Center
       HitTest = False
-      Text = #10005
+      Text = #59579
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
-      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.Font.Family = 'Segoe MDL2 Assets'
+      TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
     end
     object TText
@@ -1488,11 +1497,12 @@ object TStyleContainer
     object TText
       Align = Center
       HitTest = False
-      Text = #9633
+      Text = #59682
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
-      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.Font.Family = 'Segoe MDL2 Assets'
+      TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
     end
     object TText
@@ -1519,11 +1529,44 @@ object TStyleContainer
     object TText
       Align = Center
       HitTest = False
-      Text = #8212
+      Text = #59681
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      TextSettings.Font.Family = 'Segoe MDL2 Assets'
+      TextSettings.Font.Size = 10.000000000000000000
+      TextSettings.FontColor = xFFFDFDFD
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFFDFDFD
+    end
+  end
+  object TRectangle
+    StyleName = 'fullscreenbtnstyle'
+    Fill.Color = x00000000
+    HitTest = False
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF454F61
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #59200
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Family = 'Segoe MDL2 Assets'
+      TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
     end
     object TText

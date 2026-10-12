@@ -187,6 +187,11 @@ var
 
 implementation
 
+{$IFDEF MSWINDOWS}
+uses
+  Winapi.Windows;                               // so the inline RenameFile and DeleteFile are expanded (H2443)
+{$ENDIF}
+
 {$R *.fmx}
 
 const

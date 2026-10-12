@@ -13,7 +13,7 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, FMX.Types, FMX.Controls, FMX.Graphics,
   FMX.TabControl, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox, FMX.Controls.Presentation, FMX.Text,
-  FMX.Text.TextEditor, FMX.Text.LinesLayout, FMX.RichEdit.Style, Syntax.Code.Haste;
+  FMX.Text.TextEditor, FMX.Text.LinesLayout, FMX.RichEdit.Style, Syntax.Code.Haste, Hasten.Names;
 
 type
   { A memo always drawn by FMXRichMemo: one made in code may choose its presentation before an
@@ -68,6 +68,7 @@ type
     procedure SetFontSize(Value: Single);
     procedure SetLineNumbers(Value: Boolean);
     procedure FontChanged;
+    function CharWidth: Single;
   public
     constructor Create(AOwner: TComponent); override;
     function Configure: Boolean;                 // True once the presentation exists and is set up
@@ -75,6 +76,9 @@ type
     procedure Load(const Path: string);
     procedure Save(const Path: string);
     procedure GoToLine(Line: Integer);
+    { The name under a point in form coordinates (as Hasten.Names.NameAt finds it), where a tip for it goes
+      (below the start of the name, in form coordinates) and the line's height; '' if none. }
+    function NameAtPoint(const FormPoint: TPointF; out TipAt: TPointF; out LineHeight: Single): string;
     property Memo: THasteMemo read FMemo;
     property Rich: TRichEditStyled read GetRich;  // nil until the presentation exists
     property FileName: string read FFileName write SetFileName;
@@ -347,8 +351,7 @@ begin
   Layout := TRichEditAccess(Rich).Editor.LinesLayout;
   Line := Max(0, Layout.FirstVisibleLineIndex);
   if (Line >= Layout.Count) or Layout[Line].IsInvalidPosition then Exit;
-  ACanvas.Font.Assign(FMemo.TextSettings.Font);
-  X := Layout[Line].Rect.Left + FRightEdge * ACanvas.TextWidth('0000000000') / 10;
+  X := Layout[Line].Rect.Left + FRightEdge * CharWidth;
   ACanvas.Stroke.Kind := TBrushKind.Solid;
   ACanvas.Stroke.Color := MarginColour;
   ACanvas.Stroke.Thickness := 1;
@@ -392,6 +395,48 @@ begin
   FBlink.Enabled := False;
   FBlink.Enabled := True;
   if Assigned(FOnCaret) then FOnCaret(Sender, ACaretPosition);
+end;
+
+{ The width of a character in the editor's fixed-pitch font. }
+function TEditorTab.CharWidth: Single;
+var
+  C: TCanvas;
+begin
+  C := TCanvasManager.MeasureCanvas;
+  C.Font.Assign(FMemo.TextSettings.Font);
+  Result := C.TextWidth('0000000000') / 10;
+end;
+
+function TEditorTab.NameAtPoint(const FormPoint: TPointF; out TipAt: TPointF; out LineHeight: Single): string;
+var
+  Content: TControl;
+  Layout: TLinesLayout;
+  P: TPointF;
+  R: TRectF;
+  I, Start: Integer;
+  W: Single;
+begin
+  Result := '';
+  if not FReady then Exit;
+  Content := TRichEditAccess(Rich).Content;     // the lines are laid out in its coordinates
+  P := Content.AbsoluteToLocal(FormPoint);
+  if not Content.LocalRect.Contains(P) then Exit;
+  Layout := TRichEditAccess(Rich).Editor.LinesLayout;
+  W := CharWidth;
+  for I := Max(0, Layout.FirstVisibleLineIndex) to Min(Layout.LastVisibleLineIndex, Layout.Count - 1) do
+  begin
+    if Layout[I].IsInvalidPosition then Continue;
+    R := Layout[I].Rect;
+    if (P.Y < R.Top) or (P.Y >= R.Top + Layout[I].Size.Height) then Continue;
+    if (W <= 0) or (P.X < R.Left) then Exit;
+    Result := NameAt(FMemo.Lines[I], Trunc((P.X - R.Left) / W) + 1, Start);
+    if Result <> '' then
+    begin
+      LineHeight := Layout[I].Size.Height;
+      TipAt := Content.LocalToAbsolute(PointF(R.Left + (Start - 1) * W, R.Top + LineHeight + 2));
+    end;
+    Exit;
+  end;
 end;
 
 procedure TEditorTab.PaintBackground(Sender: TObject; ACanvas: TCanvas);

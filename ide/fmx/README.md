@@ -14,7 +14,9 @@ width, the right margin, line numbers, Python, `haste.py`, clearing the output o
 time's files. Tab puts in spaces to the next tab stop, or indents the selected lines; Shift+Tab takes them back
 out (as SynEdit's eoTabsToSpaces in Hasten for VCL: FMX draws a tab character at the platform's own width, so
 the editor never puts one in). On a Mac the shortcuts use Cmd.
-**Next**: Help Insight, Find and the toolbar. Not in FMX: VCL styles.
+Help Insight: rest the mouse on a name for its declaration, help comment and file:line, and after a Run or
+Build the types it was compiled with (View > Help Insight turns it off).
+**Next**: Find and the toolbar. Not in FMX: VCL styles.
 
 ## Build
 
@@ -37,5 +39,7 @@ the editor never puts one in). On a Mac the shortcuts use Cmd.
 | `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
 | `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
+| `Hasten.FMX.Insight.pas` | Help Insight: watches the mouse and draws the tip |
+| `../common/Hasten.Names.pas` | What each name is, from `haste.py words` and a build's `specialised:` line (shared with VCL) |
 | `../common/Hasten.Project.pas` | Projects (`.hproj`), switches read from a program, module names and renames (shared with VCL) |
 | `FMXRichMemo-Delphi12.patch` | Lets FMXRichMemo build with Delphi 12 |

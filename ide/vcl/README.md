@@ -53,7 +53,8 @@ there. Settings, each program's module options, the editor font and the files yo
 | `Hasten.Settings.pas` | The Settings dialog, also built in code; each setting is a property |
 | `Hasten.ModuleOptions.pas` | The Module Options dialog: build targets and switch values for one program, read from its source |
 | `Hasten.ProjectTree.pas` | The Project Manager: a tree view of the project's folder |
-| `Hasten.Insight.pas` | Help Insight: the tips, from the `insight` lines of `haste.py words` and a build's `specialised:` line |
+| `Hasten.Insight.pas` | Help Insight: the name under a still mouse and its tip |
+| `../common/Hasten.Names.pas` | What each name is, from the `insight` lines of `haste.py words` and a build's `specialised:` line (shared with FMX) |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |
 | `../common/Hasten.Project.pas` | Projects (`.hproj`), switches read from a program, module names and renames (shared with FMX) |

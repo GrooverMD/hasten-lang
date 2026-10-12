@@ -66,6 +66,12 @@ object MainForm: TMainForm
         Action = OptionsAction
       end
     end
+    object ViewMenu: TMenuItem
+      Text = '&View'
+      object InsightItem: TMenuItem
+        Action = InsightAction
+      end
+    end
     object RunMenu: TMenuItem
       Text = '&Run'
       object RunItem: TMenuItem
@@ -168,6 +174,12 @@ object MainForm: TMainForm
     object OptionsAction: TAction
       Text = 'Module &Options...'
       OnExecute = OptionsActionExecute
+    end
+    object InsightAction: TAction
+      AutoCheck = True
+      Checked = True
+      Text = '&Help Insight'
+      OnExecute = InsightActionExecute
     end
     object SettingsAction: TAction
       Text = '&Settings...'

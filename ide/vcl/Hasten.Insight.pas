@@ -4,7 +4,7 @@ unit Hasten.Insight;
   comment, where it is declared, and, once the program has been run or built, the types it was compiled
   with. Everything comes from haste.py: the "insight" lines of "haste.py words" (modules, functions, classes
   and their members, switches, aliases, built-ins, list members and keywords) and the "specialised:" line a
-  build prints. The IDE keeps no lists of its own.
+  build prints, kept by Hasten.Names (shared with Hasten for FMX). The IDE keeps no lists of its own.
 
   It watches the mouse with a timer rather than hooking every editor: a name under a still mouse for
   Delay milliseconds gets its tip, and the tip goes as soon as the mouse leaves the name or the text moves. }
@@ -12,18 +12,13 @@ unit Hasten.Insight;
 interface
 
 uses
-  Winapi.Windows, System.SysUtils, System.Classes, System.Types, System.Generics.Collections, Vcl.Controls,
-  Vcl.Forms, Vcl.ExtCtrls, SynEdit, SynEditTypes, SynEditHighlighter, SynHighlighterHaste;
+  Winapi.Windows, System.SysUtils, System.Classes, System.Types, Vcl.Controls,
+  Vcl.Forms, Vcl.ExtCtrls, SynEdit, SynEditTypes, SynEditHighlighter, SynHighlighterHaste, Hasten.Names;
 
 type
-  TInsightEntry = record
-    Name, Kind, Signature, Help, Place, Target: string;
-  end;
-
   THasteInsight = class(TComponent)
   private
-    FEntries: TDictionary<string, TInsightEntry>;
-    FCompiled: TDictionary<string, string>;     // Name or Class.Method -> how a build compiled it
+    FNames: THasteNames;
     FTimer: TTimer;
     FHint: THintWindow;
     FHighlighter: TSynHasteSyn;
@@ -37,8 +32,6 @@ type
     FShownTop: Integer;
     procedure TimerFire(Sender: TObject);
     function WordAt(E: TSynEdit; const ScreenPos: TPoint; out Start: TDisplayCoord): string;
-    function Describe(const E: TInsightEntry): string;
-    function CompiledFor(const E: TInsightEntry): string;
     function GetDelay: Integer;
     procedure SetDelay(Value: Integer);
     procedure SetEnabled(Value: Boolean);
@@ -61,16 +54,10 @@ implementation
 const
   Tick = 100;                                   // ms between looks at the mouse
 
-function IsNameChar(C: Char): Boolean;
-begin
-  Result := CharInSet(C, ['A'..'Z', 'a'..'z', '0'..'9', '_']);
-end;
-
 constructor THasteInsight.Create(AOwner: TComponent);
 begin
   inherited;
-  FEntries := TDictionary<string, TInsightEntry>.Create;
-  FCompiled := TDictionary<string, string>.Create;
+  FNames := THasteNames.Create;
   FHint := THintWindow.Create(Self);
   FTimer := TTimer.Create(Self);
   FTimer.Interval := Tick;
@@ -82,144 +69,23 @@ end;
 destructor THasteInsight.Destroy;
 begin
   FTimer.Enabled := False;
-  FEntries.Free;
-  FCompiled.Free;
+  FNames.Free;
   inherited;
 end;
 
-{ insight<TAB>name<TAB>kind<TAB>signature<TAB>help<TAB>place<TAB>target; line breaks in help come as \n. }
 procedure THasteInsight.LoadWords(Lines: TStrings);
-var
-  Line: string;
-  F: TArray<string>;
-  E: TInsightEntry;
 begin
-  FEntries.Clear;
-  for Line in Lines do
-  begin
-    if not Line.StartsWith('insight'#9) then Continue;
-    F := Line.Split([#9]);
-    if Length(F) < 7 then Continue;
-    E.Name := F[1];
-    E.Kind := F[2];
-    E.Signature := F[3];
-    E.Help := F[4].Replace('\n', sLineBreak);
-    E.Place := F[5];
-    E.Target := F[6];
-    FEntries.AddOrSetValue(E.Name, E);
-  end;
+  FNames.LoadWords(Lines);
 end;
 
-{ "  specialised: Iterations(float, float, int) -> int, Bitmap.SetPixel(int, int, int) -> void, ...": split at
-  the commas between entries, not those inside brackets. A function compiled for several types has several. }
 procedure THasteInsight.LoadCompiled(const Line: string);
-var
-  S, Item, Key, Was: string;
-  I, Depth, From: Integer;
-
-  procedure Add(const Text: string);
-  var
-    P: Integer;
-  begin
-    Item := Text.Trim;
-    P := Item.IndexOf('(');
-    if P <= 0 then Exit;
-    Key := Item.Substring(0, P);
-    if FCompiled.TryGetValue(Key, Was) then
-      FCompiled[Key] := Was + sLineBreak + Item
-    else
-      FCompiled.Add(Key, Item);
-  end;
-
 begin
-  S := Line.Trim;
-  if not S.StartsWith('specialised:') then Exit;
-  FCompiled.Clear;
-  S := S.Substring(Length('specialised:'));
-  Depth := 0;
-  From := 1;
-  for I := 1 to Length(S) do
-    case S[I] of
-      '(', '[', '{': Inc(Depth);
-      ')', ']', '}': Dec(Depth);
-      ',': if Depth = 0 then
-           begin
-             Add(Copy(S, From, I - From));
-             From := I + 1;
-           end;
-    end;
-  Add(Copy(S, From, MaxInt));
+  FNames.LoadCompiled(Line);
 end;
 
-{ A method is compiled as Class.Method, anything else by its own name. }
-function THasteInsight.CompiledFor(const E: TInsightEntry): string;
-var
-  Parts: TArray<string>;
-  Key: string;
-begin
-  Result := '';
-  Parts := E.Name.Split(['.']);
-  if Length(Parts) = 0 then Exit;
-  Key := Parts[High(Parts)];
-  if (E.Kind = 'method') and (Length(Parts) >= 2) then
-    Key := Parts[High(Parts) - 1] + '.' + Key
-  else if E.Kind <> 'function' then
-    Exit;
-  FCompiled.TryGetValue(Key, Result);
-end;
-
-function THasteInsight.Describe(const E: TInsightEntry): string;
-var
-  Compiled: string;
-begin
-  Result := E.Signature;
-  if E.Help <> '' then
-    Result := Result + sLineBreak + sLineBreak + E.Help;
-  Compiled := CompiledFor(E);
-  if Compiled <> '' then
-    Result := Result + sLineBreak + sLineBreak + 'Compiled as:' + sLineBreak + Compiled;
-  if E.Place <> '' then
-    Result := Result + sLineBreak + sLineBreak + E.Place;
-end;
-
-{ The name as written, e.g. "Text.Upper", "Bmp.Save" (an alias) or "img.SetPixel" (a member of something
-  whose type only the compiler knows: every member of that name is shown). }
 function THasteInsight.TextFor(const Word: string): string;
-var
-  W, Last: string;
-  Parts: TArray<string>;
-  E, A: TInsightEntry;
-  Found: Integer;
 begin
-  Result := '';
-  W := Word.Trim(['.']);
-  if W = '' then Exit;
-  Parts := W.Split(['.']);
-  if FEntries.TryGetValue(Parts[0], A) and (A.Kind = 'alias') and (A.Target <> '') then
-  begin
-    if Length(Parts) = 1 then                   // the alias itself: it, then what it stands for
-    begin
-      Result := Describe(A);
-      if FEntries.TryGetValue(A.Target, E) then
-        Result := Result + sLineBreak + '--------' + sLineBreak + Describe(E);
-      Exit;
-    end;
-    W := A.Target + W.Substring(Length(Parts[0]));
-  end;
-  if FEntries.TryGetValue(W, E) then
-    Exit(Describe(E));
-  if (Length(Parts) < 2) and not Word.StartsWith('.') then Exit;
-  Last := Parts[High(Parts)];
-  if FEntries.TryGetValue('.' + Last, E) then   // a list, dictionary or text member
-    Result := Describe(E);
-  Found := 0;
-  for E in FEntries.Values do
-    if ((E.Kind = 'method') or (E.Kind = 'property')) and E.Name.EndsWith('.' + Last) and (Found < 3) then
-    begin
-      if Result <> '' then Result := Result + sLineBreak + '--------' + sLineBreak;
-      Result := Result + E.Name + sLineBreak + Describe(E);
-      Inc(Found);
-    end;
+  Result := FNames.TextFor(Word);
 end;
 
 { The name under the mouse, with the dotted names before it: on "Upper" in Text.Upper(s) it is "Text.Upper",
@@ -331,7 +197,7 @@ end;
 
 function THasteInsight.GetCount: Integer;
 begin
-  Result := FEntries.Count;
+  Result := FNames.Count;
 end;
 
 end.

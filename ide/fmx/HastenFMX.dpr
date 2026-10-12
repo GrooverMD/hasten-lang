@@ -9,8 +9,10 @@ uses
   Hasten.FMX.Editor in 'Hasten.FMX.Editor.pas',
   Hasten.FMX.Options in 'Hasten.FMX.Options.pas' {OptionsForm},
   Hasten.FMX.Settings in 'Hasten.FMX.Settings.pas' {SettingsForm},
+  Hasten.FMX.Insight in 'Hasten.FMX.Insight.pas',
   Hasten.Runner in '..\common\Hasten.Runner.pas',
   Hasten.Project in '..\common\Hasten.Project.pas',
+  Hasten.Names in '..\common\Hasten.Names.pas',
   Syntax.Code.Haste in 'Syntax.Code.Haste.pas';
 
 {$R *.res}

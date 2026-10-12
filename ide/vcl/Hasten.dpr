@@ -3,6 +3,7 @@ program Hasten;
 uses
   Vcl.Forms,
   Hasten.Runner in '..\common\Hasten.Runner.pas',
+  Hasten.Names in '..\common\Hasten.Names.pas',
   Hasten.Project in '..\common\Hasten.Project.pas',
   Hasten.Main in 'Hasten.Main.pas',
   SynHighlighterHaste in 'SynHighlighterHaste.pas',

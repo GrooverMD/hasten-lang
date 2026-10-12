@@ -13,7 +13,7 @@ uses
   System.RegularExpressions, System.Actions, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, Hasten.Runner,
-  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Syntax.Code.Haste;
+  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Syntax.Code.Haste;
 
 type
   TMainForm = class(TForm)
@@ -43,6 +43,8 @@ type
     CloseProjectItem: TMenuItem;
     ProjectSep: TMenuItem;
     OptionsItem: TMenuItem;
+    ViewMenu: TMenuItem;
+    InsightItem: TMenuItem;
     ToolsMenu: TMenuItem;
     SettingsItem: TMenuItem;
     Actions: TActionList;
@@ -64,6 +66,7 @@ type
     CloseProjectAction: TAction;
     OptionsAction: TAction;
     SettingsAction: TAction;
+    InsightAction: TAction;
     ProjectTree: TTreeView;
     TreeSplitter: TSplitter;
     TreePopup: TPopupMenu;
@@ -107,6 +110,7 @@ type
     procedure SaveProjectActionExecute(Sender: TObject);
     procedure SaveProjectAsActionExecute(Sender: TObject);
     procedure SettingsActionExecute(Sender: TObject);
+    procedure InsightActionExecute(Sender: TObject);
     procedure CloseProjectActionExecute(Sender: TObject);
     procedure OptionsActionExecute(Sender: TObject);
     procedure ProjectTreeDblClick(Sender: TObject);
@@ -138,6 +142,7 @@ type
     FRightEdge: Integer;                       // 0: no margin line
     FClearOutput: Boolean;                     // on each Run, Build and Run Tests
     FReopen: Boolean;                          // last session's files at start
+    FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -224,6 +229,7 @@ begin
   FIniName := TPath.Combine(TPath.Combine(TPath.GetHomePath, '.hasten'), 'HastenFMX.ini');
 {$ENDIF}
   FWordLines := TStringList.Create;
+  FInsight := THasteInsight.Create(Self, Tabs);
   FPython := DefaultPython;
   FFontFamily := MonoFont;
   FFontSize := 14;
@@ -380,6 +386,7 @@ end;
 
 procedure TMainForm.TabsChange(Sender: TObject);
 begin
+  FInsight.Hide;
   if (ActiveTab <> nil) and TCodeSyntaxHaste.ScanAliases(ActiveTab.Memo.Lines) then
     ActiveTab.Recolour;                          // the aliases are those of the file on show
   UpdateStatus;
@@ -628,6 +635,8 @@ end;
 procedure TMainForm.RunnerLine(const Line: string);
 begin
   OutputAdd(Line);
+  if Line.TrimLeft.StartsWith('specialised:') then
+    FInsight.Names.LoadCompiled(Line);          // the types each function was compiled with, for the tips
   if Line.StartsWith('Cannot start: ') then
     OutputAdd('Python could not be started. Check that "' + FPython + ' --version" works in a terminal.');
   if not FJumped and (Line.StartsWith('error:') or Line.StartsWith('  in ')) then
@@ -730,6 +739,7 @@ begin
   if (ExitCode = 0) and not Stopped then
   begin
     TCodeSyntaxHaste.LoadWords(FWordLines);
+    FInsight.Names.LoadWords(FWordLines);
     if ActiveTab <> nil then
       TCodeSyntaxHaste.ScanAliases(ActiveTab.Memo.Lines);
     for I := 0 to Tabs.TabCount - 1 do
@@ -765,6 +775,11 @@ begin
     ApplySettings(TEditorTab(Tabs.Tabs[I]));
   Output.TextSettings.Font.Family := FFontFamily;
   Output.TextSettings.Font.Size := FFontSize - 1;
+end;
+
+procedure TMainForm.InsightActionExecute(Sender: TObject);
+begin
+  FInsight.Enabled := InsightAction.Checked;    // AutoCheck: already toggled when this runs
 end;
 
 procedure TMainForm.SettingsActionExecute(Sender: TObject);
@@ -822,6 +837,8 @@ begin
     FRightEdge := Ini.ReadInteger('Editor', 'RightEdge', FRightEdge);
     FClearOutput := Ini.ReadBool('Run', 'ClearOutput', FClearOutput);
     FReopen := Ini.ReadBool('Start', 'Reopen', FReopen);
+    InsightAction.Checked := Ini.ReadBool('View', 'HelpInsight', True);
+    InsightActionExecute(nil);
     ApplySettings(nil);
     BuildRecentMenu;
     if not FReopen then Exit;
@@ -856,6 +873,7 @@ begin
     Ini.WriteInteger('Editor', 'RightEdge', FRightEdge);
     Ini.WriteBool('Run', 'ClearOutput', FClearOutput);
     Ini.WriteBool('Start', 'Reopen', FReopen);
+    Ini.WriteBool('View', 'HelpInsight', InsightAction.Checked);
     SaveOpenFiles(Ini, 'Open');
     if FProject <> nil then
     begin

@@ -52,6 +52,7 @@ there. Settings, each program's module options, the editor font and the files yo
 | `Hasten.Main.pas` | The main window, built entirely in code (no .dfm) |
 | `Hasten.Settings.pas` | The Settings dialog, also built in code; each setting is a property |
 | `Hasten.ModuleOptions.pas` | The Module Options dialog: build targets and switch values for one program, read from its source |
+| `fmx-test/` | A test of FMXRichMemo as the editor for a cross-platform FMX Hasten; see its README |
 | `Hasten.ProjectTree.pas` | The Project Manager: a tree view of the project's folder |
 | `Hasten.Insight.pas` | Help Insight: the tips, from the `insight` lines of `haste.py words` and a build's `specialised:` line |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |

@@ -894,6 +894,24 @@ object TStyleContainer
         TriggerInverse = 'IsSelected=false'
       end
     end
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = x804F8CC9
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsMouseOver=true'
+        TriggerInverse = 'IsMouseOver=false'
+      end
+    end
     object TLayout
       StyleName = 'glyph'
       Align = Left

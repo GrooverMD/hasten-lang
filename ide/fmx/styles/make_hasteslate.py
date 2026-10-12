@@ -272,7 +272,8 @@ def styles():
     check = Obj('TLayout', StyleName=q('checkmark'), Align='Contents', Opacity=0).add(
         glyph('\u2713', ACCENT), fade('IsChecked'))
     s.append(Obj('TLayout', **sized(None, 24, StyleName=q('menuitemstyle'))).add(
-        rect(None, SELECTION, None, 2, Opacity=0).add(fade('IsSelected')),
+        rect(None, SELECTION, None, 2, Opacity=0).add(fade('IsSelected')),      # by the keys, or its submenu open
+        rect('background', SELECTION, None, 2, Opacity=0).add(fade('IsMouseOver')),   # under the mouse
         Obj('TLayout', **sized(24, None, StyleName=q('glyph'), Align='Left')).add(check),
         # a menu item is as wide as its parts: the text and shortcut at their own width, left and right
         text('text', halign='Leading', wrap=False, align='Left', **sized(50, None, Margins__Left=4)),

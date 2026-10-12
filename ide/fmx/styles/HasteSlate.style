@@ -1147,10 +1147,29 @@ object TStyleContainer
   object TLayout
     StyleName = 'windowborderstyle'
     object TRectangle
+      StyleName = 'mask'
+      Align = Contents
+      Fill.Color = xFF242D36
+      HitTest = False
+      XRadius = 6.000000000000000000
+      YRadius = 6.000000000000000000
+      Stroke.Kind = None
+      Visible = False
+    end
+    object TRectangle
+      StyleName = 'bottom'
+      Align = Bottom
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Height = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TRectangle
       StyleName = 'caption-container'
       Align = Top
       Fill.Color = xFF242D36
-      HitTest = False
+      HitTest = True
       Stroke.Kind = None
       Size.Height = 32.000000000000000000
       Size.PlatformDefault = False
@@ -1173,9 +1192,10 @@ object TStyleContainer
         StyleName = 'sysbtns'
         Align = Client
         object TSpeedButton
-          StyleName = 'close'
+          StyleName = 'min'
           Align = Right
-          StyleLookup = 'closebtnstyle'
+          StyleLookup = 'minbtnstyle'
+          Position.X = 0.000000000000000000
           Size.Width = 46.000000000000000000
           Size.PlatformDefault = False
         end
@@ -1183,13 +1203,15 @@ object TStyleContainer
           StyleName = 'max'
           Align = Right
           StyleLookup = 'maxbtnstyle'
+          Position.X = 46.000000000000000000
           Size.Width = 46.000000000000000000
           Size.PlatformDefault = False
         end
         object TSpeedButton
-          StyleName = 'min'
+          StyleName = 'close'
           Align = Right
-          StyleLookup = 'minbtnstyle'
+          StyleLookup = 'closebtnstyle'
+          Position.X = 92.000000000000000000
           Size.Width = 46.000000000000000000
           Size.PlatformDefault = False
         end
@@ -1225,15 +1247,6 @@ object TStyleContainer
       HitTest = True
       Stroke.Kind = None
       Size.Width = 2.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object TRectangle
-      StyleName = 'bottom'
-      Align = Bottom
-      Fill.Color = xFF55626E
-      HitTest = True
-      Stroke.Kind = None
-      Size.Height = 2.000000000000000000
       Size.PlatformDefault = False
     end
   end

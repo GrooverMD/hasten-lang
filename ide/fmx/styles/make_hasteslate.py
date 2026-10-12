@@ -23,6 +23,7 @@ DIM = 'xFFA9B3BC'
 THUMB = 'xFF5E6B77'
 CLEAR = 'x00000000'
 TEXT_SIZE = 12
+WINDOW_FRAME = True       # False: no windowborderstyle, so the system draws the window's title bar and edges
 
 
 def f(v):
@@ -299,23 +300,31 @@ def styles():
         rect(None, HOVER, None, Opacity=0).add(fade('IsMouseOver')),
         rect(None, SELECTION, None, Opacity=0).add(fade('IsSelected')),
         text('text', halign='Leading', wrap=False, Margins__Left=6)))
-    # the window's own frame: title bar, its buttons and the edges, drawn in the style (FMX on Windows)
-    title_bar = rect('caption-container', PANEL, align='Top', **sized(None, 32))
+    # the window's own frame: title bar, its buttons and the edges, drawn in the style (FMX on Windows). The
+    # parts are in the order FMX's own styles give them: the mask, the bottom edge, the title bar, the client
+    # area, the side edges. The title bar and the edges take the mouse (to drag and to resize); the client
+    # area does not, so the form below gets it.
+    title_bar = rect('caption-container', PANEL, align='Top', **sized(None, 32, HitTest=True))
     title_bar.add(
         Obj('TLayout', StyleName=q('caption'), Align='Contents', HitTest=True),          # drags the window
         Obj('TLayout', **sized(36, None, StyleName=q('icon'), Align='Left', HitTest=True,
                                Margins__Left=8, Margins__Top=6, Margins__Bottom=6)),
         Obj('TLayout', StyleName=q('sysbtns'), Align='Client').add(
-            Obj('TSpeedButton', **sized(46, None, StyleName=q('close'), Align='Right', StyleLookup=q('closebtnstyle'))),
-            Obj('TSpeedButton', **sized(46, None, StyleName=q('max'), Align='Right', StyleLookup=q('maxbtnstyle'))),
-            Obj('TSpeedButton', **sized(46, None, StyleName=q('min'), Align='Right', StyleLookup=q('minbtnstyle'))),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('min'), Align='Right', StyleLookup=q('minbtnstyle'),
+                                        Position__X=0)),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('max'), Align='Right', StyleLookup=q('maxbtnstyle'),
+                                        Position__X=46)),
+            Obj('TSpeedButton', **sized(46, None, StyleName=q('close'), Align='Right', StyleLookup=q('closebtnstyle'),
+                                        Position__X=92)),
             text('title', halign='Leading', wrap=False, Margins__Left=4)))
-    s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
-        title_bar,
-        Obj('TLayout', StyleName=q('client'), Align='Client'),
-        rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),       # edges: 2 px, so they can be
-        rect('right', BORDER, align='Right', **sized(2, None, HitTest=True)),     # caught to resize the window
-        rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True))))
+    if WINDOW_FRAME:
+        s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
+            rect('mask', PANEL, None, 6, Visible=False),
+            rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True)),   # edges: 2 px, so they can be
+            title_bar,                                                                  # caught to resize the window
+            Obj('TLayout', StyleName=q('client'), Align='Client'),
+            rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
+            rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
     for name, char, hot in (('closebtnstyle', '\u2715', 'xFFC42B1C'), ('maxbtnstyle', '\u25A1', HOVER),
                             ('minbtnstyle', '\u2014', HOVER)):
         s.append(rect(name, CLEAR, align=None).add(

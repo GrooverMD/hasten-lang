@@ -62,6 +62,8 @@ type
     procedure SetClearOutput(Value: Boolean);
     function GetReopen: Boolean;
     procedure SetReopen(Value: Boolean);
+  protected
+    procedure CreateHandle; override;
   public
     function Execute: Boolean;
     property FontFamily: string read GetFontFamily write SetFontFamily;
@@ -79,9 +81,15 @@ type
 implementation
 
 uses
-  Hasten.FMX.Main;                              // MainForm.StyleBook1, the style of every Hasten window
+  Hasten.FMX.Main, Hasten.FMX.TitleBar;         // MainForm.StyleBook1 (the style of every window); the title bar
 
 {$R *.fmx}
+
+procedure TSettingsForm.CreateHandle;
+begin
+  inherited;
+  ColourTitleBar(Self);
+end;
 
 const
 {$IF Defined(MSWINDOWS)}

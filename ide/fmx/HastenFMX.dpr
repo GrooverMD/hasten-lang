@@ -11,6 +11,7 @@ uses
   Hasten.FMX.Settings in 'Hasten.FMX.Settings.pas' {SettingsForm},
   Hasten.FMX.Insight in 'Hasten.FMX.Insight.pas',
   Hasten.FMX.Text in 'Hasten.FMX.Text.pas',
+  Hasten.FMX.TitleBar in 'Hasten.FMX.TitleBar.pas',
   Hasten.Runner in '..\common\Hasten.Runner.pas',
   Hasten.Project in '..\common\Hasten.Project.pas',
   Hasten.Names in '..\common\Hasten.Names.pas',

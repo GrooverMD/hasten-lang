@@ -23,7 +23,8 @@ DIM = 'xFFA9B3BC'
 THUMB = 'xFF5E6B77'
 CLEAR = 'x00000000'
 TEXT_SIZE = 12
-WINDOW_FRAME = True       # False: no windowborderstyle, so the system draws the window's title bar and edges
+WINDOW_FRAME = False      # True: windowborderstyle, FMX draws the title bar and edges. Off: with it the form took
+                          # no clicks (FMX); Windows draws the frame, coloured to match (Hasten.FMX.TitleBar)
 
 
 def f(v):

@@ -55,7 +55,28 @@ class Obj:
 
 
 def q(s):
-    return "'" + s + "'"
+    """A Delphi string: ASCII in quotes, anything else as #code (the tick, the arrows)."""
+    out, run = [], ''
+    for ch in s:
+        if 32 <= ord(ch) < 127:
+            run += ch
+        else:
+            if run:
+                out.append("'" + run.replace("'", "''") + "'")
+                run = ''
+            out.append('#' + str(ord(ch)))
+    if run or not out:
+        out.append("'" + run.replace("'", "''") + "'")
+    return ''.join(out)
+
+
+def glyph(char, color, size=TEXT_SIZE, **more):
+    """A character drawn as a shape (a TPath's outline only loads from binary in a style)."""
+    p = sized(16, 16, Align='Center', HitTest=False, Text=q(char))
+    p.update(more)
+    p['TextSettings__Font__Size'] = size
+    p['TextSettings__FontColor'] = color
+    return Obj('TText', **p)
 
 
 def sized(w=None, h=None, **props):
@@ -153,9 +174,7 @@ def styles():
 
     box = Obj('TLayout', **sized(22, None, Align='Left'))
     box.add(rect(None, INPUT, BORDER, 2, align='Center', **sized(16, 16)).add(
-        Obj('TPath', **sized(10, 8, Align='Center', HitTest=False, Opacity=0, Fill__Color=ACCENT,
-                             Stroke__Kind='None', WrapMode='Fit', Data__Path=q('M 0,4 L 1.5,2.5 L 4,5 L 8.5,0 L 10,1.5 L 4,8 Z'))
-            ).add(fade('IsChecked'))))
+        glyph('\u2713', ACCENT, 13, Opacity=0).add(fade('IsChecked'))))
     s.append(Obj('TLayout', StyleName=q('checkboxstyle')).add(box, text('text', halign='Leading', Margins__Left=4)))
 
     dot = Obj('TLayout', **sized(22, None, Align='Left'))
@@ -206,10 +225,8 @@ def styles():
             Obj('TCheckBox', **sized(20, None, StyleName=q('check'), Align='Left', Visible=False)),
             text('text', halign='Leading', wrap=False))))
     s.append(Obj('TLayout', StyleName=q('treeviewexpanderbuttonstyle')).add(
-        Obj('TPath', **sized(5, 9, Align='Center', HitTest=False, Fill__Color=DIM, Stroke__Kind='None', WrapMode='Fit',
-                             Data__Path=q('M 0,0 L 5,4.5 L 0,9 Z'))).add(fade('IsExpanded', show=False)),
-        Obj('TPath', **sized(9, 5, Align='Center', HitTest=False, Opacity=0, Fill__Color=DIM, Stroke__Kind='None',
-                             WrapMode='Fit', Data__Path=q('M 0,0 L 9,0 L 4.5,5 Z'))).add(fade('IsExpanded'))))
+        glyph('\u25B8', DIM).add(fade('IsExpanded', show=False)),
+        glyph('\u25BE', DIM, Opacity=0).add(fade('IsExpanded'))))
 
     # editor tabs: the one on show joins the editor below it
     s.append(rect('tabcontrolstyle', PANEL, align=None).add(

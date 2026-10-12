@@ -146,17 +146,16 @@ object TStyleContainer
         Size.Width = 16.000000000000000000
         Size.Height = 16.000000000000000000
         Size.PlatformDefault = False
-        object TPath
+        object TText
           Align = Center
           HitTest = False
-          Opacity = 0.000000000000000000
-          Fill.Color = xFF4F8CC9
-          Stroke.Kind = None
-          WrapMode = Fit
-          Data.Path = 'M 0,4 L 1.5,2.5 L 4,5 L 8.5,0 L 10,1.5 L 4,8 Z'
-          Size.Width = 10.000000000000000000
-          Size.Height = 8.000000000000000000
+          Text = #10003
+          Size.Width = 16.000000000000000000
+          Size.Height = 16.000000000000000000
           Size.PlatformDefault = False
+          Opacity = 0.000000000000000000
+          TextSettings.Font.Size = 13.000000000000000000
+          TextSettings.FontColor = xFF4F8CC9
           object TFloatAnimation
             Duration = 0.100000000000000000
             PropertyName = 'Opacity'
@@ -560,16 +559,15 @@ object TStyleContainer
   end
   object TLayout
     StyleName = 'treeviewexpanderbuttonstyle'
-    object TPath
+    object TText
       Align = Center
       HitTest = False
-      Fill.Color = xFFA9B3BC
-      Stroke.Kind = None
-      WrapMode = Fit
-      Data.Path = 'M 0,0 L 5,4.5 L 0,9 Z'
-      Size.Width = 5.000000000000000000
-      Size.Height = 9.000000000000000000
+      Text = #9656
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'
@@ -579,17 +577,16 @@ object TStyleContainer
         TriggerInverse = 'IsExpanded=false'
       end
     end
-    object TPath
+    object TText
       Align = Center
       HitTest = False
-      Opacity = 0.000000000000000000
-      Fill.Color = xFFA9B3BC
-      Stroke.Kind = None
-      WrapMode = Fit
-      Data.Path = 'M 0,0 L 9,0 L 4.5,5 Z'
-      Size.Width = 9.000000000000000000
-      Size.Height = 5.000000000000000000
+      Text = #9662
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      Opacity = 0.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'

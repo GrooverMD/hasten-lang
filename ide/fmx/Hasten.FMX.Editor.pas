@@ -1,7 +1,7 @@
 unit Hasten.FMX.Editor;
 
 { An editor tab: a memo drawn by FMXRichMemo (github.com/HemulGM/FMXRichMemo) with Haste colours, line numbers,
-  the current line and a right margin, on a dark background whatever the platform's style. The memo's
+  the current line, a right margin and a caret drawn here, on a dark background whatever the platform's style. The memo's
   presentation is made some time after the tab; Configure is called until it says it is ready.
 
   Tab width works as in Hasten for VCL (SynEdit's eoTabsToSpaces): Tab puts in spaces to the next tab stop,
@@ -45,9 +45,15 @@ type
     FRightEdge: Integer;
     FOnChange: TNotifyEvent;
     FOnCaret: TCaretPositionChanged;
+    FBlink: TTimer;
+    FCaretOn: Boolean;                           // the drawn caret's half of its blink
     procedure MemoChange(Sender: TObject);
     procedure PaintBackground(Sender: TObject; ACanvas: TCanvas);
-    procedure PaintMargin(Sender: TObject; ACanvas: TCanvas);
+    procedure PaintAfter(Sender: TObject; ACanvas: TCanvas);
+    procedure PaintMargin(ACanvas: TCanvas);
+    procedure PaintCaret(ACanvas: TCanvas);
+    procedure BlinkTimer(Sender: TObject);
+    procedure CaretChanged(Sender: TObject; const ACaretPosition: TCaretPosition);
     function GetTabWidth: Integer;
     procedure SetTabWidth(Value: Integer);
     procedure SetRightEdge(Value: Integer);
@@ -220,8 +226,11 @@ begin
   FMemo.TextSettings.Font.Family := MonoFont;
   FMemo.TextSettings.Font.Size := 14;
   FMemo.TextSettings.FontColor := EditorText;
-  FMemo.Caret.Color := EditorText;            // the style's caret is dark: unseen on the dark background
-  FMemo.Caret.Width := 2;
+  FMemo.Caret.Visible := False;                // FMX's caret is not seen over FMXRichMemo's painting: PaintCaret
+  FBlink := TTimer.Create(Self);
+  FBlink.Enabled := False;
+  FBlink.Interval := 530;
+  FBlink.OnTimer := BlinkTimer;
   FMemo.OnChangeTracking := MemoChange;
   FLineNumbers := True;
   UpdateText;
@@ -245,8 +254,10 @@ begin
   Rich.ColorLineNumberNormal := $FF808080;
   Rich.ColorLineNumberActive := EditorText;
   Rich.OnDrawBefore := PaintBackground;
-  Rich.OnDrawAfter := PaintMargin;
-  Rich.OnChangeCaretPos := FOnCaret;
+  Rich.OnDrawAfter := PaintAfter;
+  Rich.OnChangeCaretPos := CaretChanged;
+  FCaretOn := True;
+  FBlink.Enabled := True;
   FReady := True;
   FontChanged;
   Result := True;
@@ -317,15 +328,22 @@ begin
   FMemo.Repaint;
 end;
 
+procedure TEditorTab.PaintAfter(Sender: TObject; ACanvas: TCanvas);
+begin
+  if not FReady then Exit;
+  PaintMargin(ACanvas);
+  PaintCaret(ACanvas);
+end;
+
 { A line down the editor at column RightEdge, measured from where the visible lines' text starts (so it moves
   with horizontal scrolling) in the editor's fixed-pitch font. }
-procedure TEditorTab.PaintMargin(Sender: TObject; ACanvas: TCanvas);
+procedure TEditorTab.PaintMargin(ACanvas: TCanvas);
 var
   Layout: TLinesLayout;
   Line: Integer;
   X: Single;
 begin
-  if (FRightEdge = 0) or not FReady then Exit;
+  if FRightEdge = 0 then Exit;
   Layout := TRichEditAccess(Rich).Editor.LinesLayout;
   Line := Max(0, Layout.FirstVisibleLineIndex);
   if (Line >= Layout.Count) or Layout[Line].IsInvalidPosition then Exit;
@@ -335,6 +353,45 @@ begin
   ACanvas.Stroke.Color := MarginColour;
   ACanvas.Stroke.Thickness := 1;
   ACanvas.DrawLine(PointF(Round(X) + 0.5, -100000), PointF(Round(X) + 0.5, 10000000), 1);
+end;
+
+{ The caret, drawn here: a bar 2 pixels wide in the text colour, after the text before it on its line,
+  blinking while the editor has the focus. }
+procedure TEditorTab.PaintCaret(ACanvas: TCanvas);
+var
+  Layout: TLinesLayout;
+  P: TCaretPosition;
+  Top, X: Single;
+begin
+  if not FCaretOn or not FMemo.IsFocused then Exit;
+  Layout := TRichEditAccess(Rich).Editor.LinesLayout;
+  P := FMemo.CaretPosition;
+  if (P.Line < 0) or (P.Line >= Layout.Count) or Layout[P.Line].IsInvalidPosition then Exit;
+  Top := Layout[P.Line].Rect.Top;
+  X := Layout[P.Line].Rect.Left;
+  if P.Pos > 0 then
+  begin
+    var Region := Layout.GetRegionForRange(TCaretPosition.Create(P.Line, 0), P.Pos);
+    if Length(Region) > 0 then X := Region[High(Region)].Right;
+  end;
+  ACanvas.Fill.Kind := TBrushKind.Solid;
+  ACanvas.Fill.Color := EditorText;
+  ACanvas.FillRect(RectF(Round(X), Top, Round(X) + 2, Top + Layout[P.Line].Size.Height), 0, 0, AllCorners, 1);
+end;
+
+procedure TEditorTab.BlinkTimer(Sender: TObject);
+begin
+  FCaretOn := not FCaretOn;
+  if FMemo.IsFocused then FMemo.Repaint;
+end;
+
+{ A moved caret shows at once and starts its blink again. }
+procedure TEditorTab.CaretChanged(Sender: TObject; const ACaretPosition: TCaretPosition);
+begin
+  FCaretOn := True;
+  FBlink.Enabled := False;
+  FBlink.Enabled := True;
+  if Assigned(FOnCaret) then FOnCaret(Sender, ACaretPosition);
 end;
 
 procedure TEditorTab.PaintBackground(Sender: TObject; ACanvas: TCanvas);

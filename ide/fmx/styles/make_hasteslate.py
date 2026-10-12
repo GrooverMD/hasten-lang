@@ -264,7 +264,7 @@ def styles():
     s.append(Obj('TLayout', StyleName=q('menubaritemstyle')).add(
         rect(None, HOVER, None, 2, Opacity=0).add(fade('IsMouseOver')),
         rect(None, PRESSED, None, 2, Opacity=0).add(fade('IsSelected')),
-        text('text', Margins__Left=8, Margins__Right=8, wrap=False)))
+        text('text', halign='Center', wrap=False, align='Left', **sized(40, None, Margins__Left=8, Margins__Right=8))))
     s.append(Obj('TLayout', StyleName=q('menuviewstyle')).add(
         rect(None, PANEL, BORDER, align='Client'),
         Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=2, Margins__Top=2,
@@ -274,10 +274,11 @@ def styles():
     s.append(Obj('TLayout', **sized(None, 24, StyleName=q('menuitemstyle'))).add(
         rect(None, SELECTION, None, 2, Opacity=0).add(fade('IsSelected')),
         Obj('TLayout', **sized(24, None, StyleName=q('glyph'), Align='Left')).add(check),
-        text('text', halign='Leading', wrap=False, Margins__Left=2),
-        text('shortcut', color=DIM, halign='Trailing', wrap=False, align='Right',
-             **sized(110, None, Margins__Left=16, Margins__Right=4)),
-        Obj('TLayout', **sized(16, None, StyleName=q('submark'), Align='Right')).add(glyph('\u25B8', DIM))))
+        # a menu item is as wide as its parts: the text and shortcut at their own width, left and right
+        text('text', halign='Leading', wrap=False, align='Left', **sized(50, None, Margins__Left=4)),
+        text('shortcut', color=DIM, halign='Leading', wrap=False, align='Right',
+             **sized(50, None, Margins__Left=24)),
+        Obj('TLayout', **sized(20, None, StyleName=q('submark'), Align='Right')).add(glyph('\u25B8', DIM))))
     s.append(Obj('TLayout', **sized(None, 7, StyleName=q('menuseparatorstyle'))).add(
         rect(None, BORDER, None, align='VertCenter', **sized(None, 1, Margins__Left=6, Margins__Right=6))))
 

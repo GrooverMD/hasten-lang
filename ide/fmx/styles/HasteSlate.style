@@ -844,12 +844,15 @@ object TStyleContainer
     end
     object TText
       StyleName = 'text'
-      Align = Client
+      Align = Left
       HitTest = False
       Margins.Left = 8.000000000000000000
       Margins.Right = 8.000000000000000000
+      Size.Width = 40.000000000000000000
+      Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
       TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Center
       TextSettings.WordWrap = False
     end
   end
@@ -922,9 +925,11 @@ object TStyleContainer
     end
     object TText
       StyleName = 'text'
-      Align = Client
+      Align = Left
       HitTest = False
-      Margins.Left = 2.000000000000000000
+      Margins.Left = 4.000000000000000000
+      Size.Width = 50.000000000000000000
+      Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
       TextSettings.FontColor = xFFE3E7EB
       TextSettings.HorzAlign = Leading
@@ -934,19 +939,18 @@ object TStyleContainer
       StyleName = 'shortcut'
       Align = Right
       HitTest = False
-      Margins.Left = 16.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Size.Width = 110.000000000000000000
+      Margins.Left = 24.000000000000000000
+      Size.Width = 50.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
       TextSettings.FontColor = xFFA9B3BC
-      TextSettings.HorzAlign = Trailing
+      TextSettings.HorzAlign = Leading
       TextSettings.WordWrap = False
     end
     object TLayout
       StyleName = 'submark'
       Align = Right
-      Size.Width = 16.000000000000000000
+      Size.Width = 20.000000000000000000
       Size.PlatformDefault = False
       object TText
         Align = Center

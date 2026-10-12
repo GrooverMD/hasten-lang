@@ -339,7 +339,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 0
     end
     object OpenButton: TSpeedButton
       Action = OpenAction
@@ -349,7 +348,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 1
     end
     object SaveButton: TSpeedButton
       Action = SaveAction
@@ -359,7 +357,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 2
     end
     object UndoButton: TSpeedButton
       Action = UndoAction
@@ -370,7 +367,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 3
     end
     object RedoButton: TSpeedButton
       Action = RedoAction
@@ -380,7 +376,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 4
     end
     object CutButton: TSpeedButton
       Action = CutAction
@@ -390,7 +385,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 5
     end
     object CopyButton: TSpeedButton
       Action = CopyAction
@@ -400,7 +394,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 6
     end
     object PasteButton: TSpeedButton
       Action = PasteAction
@@ -410,7 +403,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 7
     end
     object FindButton: TSpeedButton
       Action = FindAction
@@ -421,7 +413,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 8
     end
     object RunButton: TSpeedButton
       Action = RunAction
@@ -432,7 +423,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 9
     end
     object BuildButton: TSpeedButton
       Action = BuildAction
@@ -442,7 +432,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 10
     end
     object StopButton: TSpeedButton
       Action = StopAction
@@ -452,7 +441,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 11
     end
     object TestsButton: TSpeedButton
       Action = TestsAction
@@ -462,7 +450,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 12
     end
     object OptionsButton: TSpeedButton
       Action = OptionsAction
@@ -472,7 +459,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 13
     end
     object SettingsButton: TSpeedButton
       Action = SettingsAction
@@ -483,7 +469,6 @@ object MainForm: TMainForm
       Size.Width = 32.000000000000000000
       Size.Height = 30.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 14
     end
   end
   object FindBar: TLayout

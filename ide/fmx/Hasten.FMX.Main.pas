@@ -1070,29 +1070,39 @@ begin
   FullScreen := not FullScreen;
 end;
 
-{ The frame (HasteSlate's windowborderstyle) has a fullscreen button beside FMX's own three. FMX does not know
+{ The frame (HasteSlate's windowborderstyle) has a fullscreen button beside FMX's own three, and its maximise
+  button shows restore's picture while the window is maximised. FMX does not know
   it, so it is found in the frame by its style name and given the Full Screen action. Leaving full screen makes
   the frame, and the button, anew, so this looks each time the actions are updated and connects a new one. }
 procedure TMainForm.WireCaptionButtons;
 
-  function Find(Root: TFmxObject): TFmxObject;
+  function Find(Root: TFmxObject; const Name: string): TFmxObject;
   var
     I: Integer;
   begin
     Result := nil;
     for I := 0 to Root.ChildrenCount - 1 do
     begin
-      if SameText(Root.Children[I].StyleName, 'fullscreen') then Exit(Root.Children[I]);
-      Result := Find(Root.Children[I]);
+      if SameText(Root.Children[I].StyleName, Name) then Exit(Root.Children[I]);
+      Result := Find(Root.Children[I], Name);
       if Result <> nil then Exit;
     end;
   end;
 
+const
+  MaxGlyph: array[Boolean] of Char = (#$E922, #$E923);   // maximise; restore (Segoe MDL2 Assets)
 var
-  Button: TFmxObject;
+  Button, Glyph: TFmxObject;
 begin
   if not (TObject(Border.WindowBorder) is TFmxObject) then Exit;
-  Button := Find(TFmxObject(Border.WindowBorder));
+  Button := Find(TFmxObject(Border.WindowBorder), 'max');     // restore's picture while maximised
+  if Button <> nil then
+  begin
+    Glyph := Find(Button, 'glyph');
+    if (Glyph is TText) and (TText(Glyph).Text <> MaxGlyph[WindowState = TWindowState.wsMaximized]) then
+      TText(Glyph).Text := MaxGlyph[WindowState = TWindowState.wsMaximized];
+  end;
+  Button := Find(TFmxObject(Border.WindowBorder), 'fullscreen');
   if (Button is TSpeedButton) and not Assigned(TSpeedButton(Button).OnClick) then
   begin
     TSpeedButton(Button).OnClick := FullScreenActionExecute;

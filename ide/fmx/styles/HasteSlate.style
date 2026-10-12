@@ -1469,6 +1469,7 @@ object TStyleContainer
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      StyleName = 'glyph'
       TextSettings.Font.Family = 'Segoe MDL2 Assets'
       TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
@@ -1501,6 +1502,7 @@ object TStyleContainer
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      StyleName = 'glyph'
       TextSettings.Font.Family = 'Segoe MDL2 Assets'
       TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
@@ -1533,6 +1535,7 @@ object TStyleContainer
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
+      StyleName = 'glyph'
       TextSettings.Font.Family = 'Segoe MDL2 Assets'
       TextSettings.Font.Size = 10.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
@@ -1561,12 +1564,13 @@ object TStyleContainer
     object TText
       Align = Center
       HitTest = False
-      Text = #59200
+      Text = #9974
       Size.Width = 16.000000000000000000
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
-      TextSettings.Font.Family = 'Segoe MDL2 Assets'
-      TextSettings.Font.Size = 10.000000000000000000
+      StyleName = 'glyph'
+      TextSettings.Font.Family = 'Segoe UI Symbol'
+      TextSettings.Font.Size = 13.000000000000000000
       TextSettings.FontColor = xFFFDFDFD
     end
     object TText

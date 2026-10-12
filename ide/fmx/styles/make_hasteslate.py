@@ -372,11 +372,16 @@ def styles():
         rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
         rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
     # the caption buttons' pictures are Windows' own, from its icon font (FMX draws the frame only on Windows)
-    for name, char, hot in (('closebtnstyle', '\uE8BB', 'xFFC42B1C'), ('maxbtnstyle', '\uE922', HOVER),
-                            ('minbtnstyle', '\uE921', HOVER), ('fullscreenbtnstyle', '\uE740', HOVER)):
+    # (fullscreen: the four corners, from Segoe UI Symbol; MDL2's is diagonal arrows). The glyph is named, so
+    # Hasten can show maximise's restore picture while the window is maximised.
+    for name, char, hot, size, family in (
+            ('closebtnstyle', '\uE8BB', 'xFFC42B1C', 10, 'Segoe MDL2 Assets'),
+            ('maxbtnstyle', '\uE922', HOVER, 10, 'Segoe MDL2 Assets'),
+            ('minbtnstyle', '\uE921', HOVER, 10, 'Segoe MDL2 Assets'),
+            ('fullscreenbtnstyle', '\u26F6', HOVER, 13, 'Segoe UI Symbol')):
         s.append(rect(name, CLEAR, align=None).add(
             colour_anim('Fill.Color', CLEAR, hot, 'IsMouseOver'),
-            glyph(char, TEXT, 10, 'Segoe MDL2 Assets'),
+            glyph(char, TEXT, size, family, StyleName=q('glyph')),
             text('text')))
     return s
 

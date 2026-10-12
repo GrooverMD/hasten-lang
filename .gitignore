@@ -95,6 +95,7 @@ tools/
 # Private projects: never pushed
 examples/BlastCalculator/
 
-# FMX styles are loaded from beside the program (Hasten for FMX's LoadStyle), never kept here:
-# styles such as Embarcadero's are licensed to the computer they are installed on.
+# FMX styles are loaded from beside the program (Hasten for FMX's LoadStyle). Others' styles (Embarcadero's
+# are licensed to the computer they are installed on) are never kept here; HasteSlate is Hasten's own.
 *.style
+!ide/fmx/styles/HasteSlate.style

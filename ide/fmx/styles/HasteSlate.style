@@ -1,0 +1,726 @@
+object TStyleContainer
+  object TStyleDescription
+    StyleName = 'Description'
+    Author = 'Mark S Day'
+    AuthorEMail = ''
+    AuthorURL = 'https://github.com/GrooverMD/hasten-lang'
+    PlatformTarget = '[MSWINDOWS][MACOS][LINUX][DEFINEFONTSTYLES]'
+    MobilePlatform = False
+    Title = 'HasteSlate'
+    Version = '1.0'
+  end
+  object TRectangle
+    StyleName = 'backgroundstyle'
+    Fill.Color = xFF2B3640
+    HitTest = False
+    Stroke.Kind = None
+  end
+  object TLayout
+    StyleName = 'labelstyle'
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'buttonstyle'
+    Fill.Color = xFF3A4652
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Color = xFF55626E
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = xFF3A4652
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = xFF46535F
+      StopValue = xFF52606D
+      Trigger = 'IsPressed=true'
+      TriggerInverse = 'IsPressed=false'
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'speedbuttonstyle'
+    Fill.Color = x00000000
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = xFF46535F
+      StopValue = xFF52606D
+      Trigger = 'IsPressed=true'
+      TriggerInverse = 'IsPressed=false'
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'toolbarstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Kind = None
+  end
+  object TRectangle
+    StyleName = 'statusbarstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Kind = None
+  end
+  object TRectangle
+    StyleName = 'splitterstyle'
+    Fill.Color = xFF2B3640
+    HitTest = False
+    Stroke.Kind = None
+  end
+  object TLayout
+    StyleName = 'groupboxstyle'
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = x00000000
+      HitTest = False
+      XRadius = 4.000000000000000000
+      YRadius = 4.000000000000000000
+      Stroke.Color = xFF55626E
+      Margins.Top = 9.000000000000000000
+    end
+    object TText
+      StyleName = 'text'
+      Align = None
+      HitTest = False
+      Position.X = 10.000000000000000000
+      Position.Y = 0.000000000000000000
+      Size.Width = 300.000000000000000000
+      Size.Height = 18.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
+    end
+  end
+  object TLayout
+    StyleName = 'checkboxstyle'
+    object TLayout
+      Align = Left
+      Size.Width = 22.000000000000000000
+      Size.PlatformDefault = False
+      object TRectangle
+        Align = Center
+        Fill.Color = xFF1F262D
+        HitTest = False
+        XRadius = 2.000000000000000000
+        YRadius = 2.000000000000000000
+        Stroke.Color = xFF55626E
+        Size.Width = 16.000000000000000000
+        Size.Height = 16.000000000000000000
+        Size.PlatformDefault = False
+        object TPath
+          Align = Center
+          HitTest = False
+          Opacity = 0.000000000000000000
+          Fill.Color = xFF4F8CC9
+          Stroke.Kind = None
+          WrapMode = Fit
+          Data.Path = 'M 0,4 L 1.5,2.5 L 4,5 L 8.5,0 L 10,1.5 L 4,8 Z'
+          Size.Width = 10.000000000000000000
+          Size.Height = 8.000000000000000000
+          Size.PlatformDefault = False
+          object TFloatAnimation
+            Duration = 0.100000000000000000
+            PropertyName = 'Opacity'
+            StartValue = 0.000000000000000000
+            StopValue = 1.000000000000000000
+            Trigger = 'IsChecked=true'
+            TriggerInverse = 'IsChecked=false'
+          end
+        end
+      end
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 4.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Leading
+    end
+  end
+  object TLayout
+    StyleName = 'radiobuttonstyle'
+    object TLayout
+      Align = Left
+      Size.Width = 22.000000000000000000
+      Size.PlatformDefault = False
+      object TCircle
+        Align = Center
+        HitTest = False
+        Fill.Color = xFF1F262D
+        Stroke.Color = xFF55626E
+        Size.Width = 16.000000000000000000
+        Size.Height = 16.000000000000000000
+        Size.PlatformDefault = False
+        object TCircle
+          Align = Center
+          HitTest = False
+          Opacity = 0.000000000000000000
+          Fill.Color = xFF4F8CC9
+          Stroke.Kind = None
+          Size.Width = 8.000000000000000000
+          Size.Height = 8.000000000000000000
+          Size.PlatformDefault = False
+          object TFloatAnimation
+            Duration = 0.100000000000000000
+            PropertyName = 'Opacity'
+            StartValue = 0.000000000000000000
+            StopValue = 1.000000000000000000
+            Trigger = 'IsChecked=true'
+            TriggerInverse = 'IsChecked=false'
+          end
+        end
+      end
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 4.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Leading
+    end
+  end
+  object TLayout
+    StyleName = 'editstyle'
+    FixedHeight = 24
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Color = xFF55626E
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Stroke.Color'
+        StartValue = xFF55626E
+        StopValue = xFF4F8CC9
+        Trigger = 'IsFocused=true'
+        TriggerInverse = 'IsFocused=false'
+      end
+    end
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+    end
+    object TLayout
+      StyleName = 'buttons'
+      Align = Right
+      Size.Width = 0.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TColorObject
+      StyleName = 'caretcolor'
+      Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'foreground'
+      Brush.Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'selection'
+      Brush.Color = x804F8CC9
+    end
+    object TFontObject
+      StyleName = 'font'
+      Font.Size = 12.000000000000000000
+    end
+  end
+  object TLayout
+    StyleName = 'spinboxstyle'
+    FixedHeight = 24
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Color = xFF55626E
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Stroke.Color'
+        StartValue = xFF55626E
+        StopValue = xFF4F8CC9
+        Trigger = 'IsFocused=true'
+        TriggerInverse = 'IsFocused=false'
+      end
+    end
+    object TButton
+      StyleName = 'minusbutton'
+      Align = Left
+      Text = '-'
+      CanFocus = False
+      Size.Width = 22.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TButton
+      StyleName = 'plusbutton'
+      Align = Right
+      Text = '+'
+      CanFocus = False
+      Size.Width = 22.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+    end
+    object TColorObject
+      StyleName = 'caretcolor'
+      Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'foreground'
+      Brush.Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'selection'
+      Brush.Color = x804F8CC9
+    end
+    object TFontObject
+      StyleName = 'font'
+      Font.Size = 12.000000000000000000
+    end
+  end
+  object TLayout
+    StyleName = 'textcellstyle'
+    object TLayout
+      StyleName = 'content'
+      Align = Contents
+    end
+    object TColorObject
+      StyleName = 'caretcolor'
+      Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'foreground'
+      Brush.Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'selection'
+      Brush.Color = x804F8CC9
+    end
+    object TFontObject
+      StyleName = 'font'
+      Font.Size = 12.000000000000000000
+    end
+  end
+  object TLayout
+    StyleName = 'memostyle'
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Color = xFF55626E
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Stroke.Color'
+        StartValue = xFF55626E
+        StopValue = xFF4F8CC9
+        Trigger = 'IsFocused=true'
+        TriggerInverse = 'IsFocused=false'
+      end
+      object TLayout
+        StyleName = 'content'
+        Align = Client
+        Margins.Left = 2.000000000000000000
+        Margins.Top = 2.000000000000000000
+      end
+      object TScrollBar
+        StyleName = 'vscrollbar'
+        Align = Right
+        SmallChange = 0.000000000000000000
+        Orientation = Vertical
+        Size.Width = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TScrollBar
+        StyleName = 'hscrollbar'
+        Align = Bottom
+        SmallChange = 0.000000000000000000
+        Orientation = Horizontal
+        Size.Height = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+    object TColorObject
+      StyleName = 'caretcolor'
+      Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'foreground'
+      Brush.Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'selection'
+      Brush.Color = x804F8CC9
+    end
+    object TFontObject
+      StyleName = 'font'
+      Font.Size = 12.000000000000000000
+    end
+  end
+  object TLayout
+    StyleName = 'scrollbarstyle'
+    object TTrack
+      StyleName = 'htrack'
+      Align = Client
+      Orientation = Horizontal
+      StyleLookup = 'scrollbarhtrackstyle'
+    end
+    object TTrack
+      StyleName = 'vtrack'
+      Align = Client
+      Orientation = Vertical
+      StyleLookup = 'scrollbarvtrackstyle'
+    end
+  end
+  object TRectangle
+    StyleName = 'scrollbarhtrackstyle'
+    Fill.Color = xFF1F262D
+    HitTest = False
+    Stroke.Kind = None
+    object TThumb
+      StyleName = 'thumb'
+      StyleLookup = 'hthumbstyle'
+    end
+  end
+  object TRectangle
+    StyleName = 'hthumbstyle'
+    Fill.Color = xFF5E6B77
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Kind = None
+    Margins.Left = 2.000000000000000000
+    Margins.Top = 2.000000000000000000
+    Margins.Right = 2.000000000000000000
+    Margins.Bottom = 2.000000000000000000
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = xFF5E6B77
+      StopValue = xFF55626E
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+  end
+  object TRectangle
+    StyleName = 'scrollbarvtrackstyle'
+    Fill.Color = xFF1F262D
+    HitTest = False
+    Stroke.Kind = None
+    object TThumb
+      StyleName = 'thumb'
+      StyleLookup = 'vthumbstyle'
+    end
+  end
+  object TRectangle
+    StyleName = 'vthumbstyle'
+    Fill.Color = xFF5E6B77
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Kind = None
+    Margins.Left = 2.000000000000000000
+    Margins.Top = 2.000000000000000000
+    Margins.Right = 2.000000000000000000
+    Margins.Bottom = 2.000000000000000000
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = xFF5E6B77
+      StopValue = xFF55626E
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+  end
+  object TLayout
+    StyleName = 'treeviewstyle'
+    object TBrushObject
+      StyleName = 'AlternatingRowBackground'
+      Brush.Color = xFF1F262D
+    end
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      Stroke.Kind = None
+      object TLayout
+        StyleName = 'content'
+        Align = Client
+        object TRectangle
+          StyleName = 'selection'
+          Fill.Color = x804F8CC9
+          HitTest = False
+          XRadius = 2.000000000000000000
+          YRadius = 2.000000000000000000
+          Stroke.Kind = None
+        end
+      end
+      object TScrollBar
+        StyleName = 'vscrollbar'
+        Align = Right
+        SmallChange = 0.000000000000000000
+        Orientation = Vertical
+        Size.Width = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TScrollBar
+        StyleName = 'hscrollbar'
+        Align = Bottom
+        SmallChange = 0.000000000000000000
+        Orientation = Horizontal
+        Size.Height = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+  end
+  object TLayout
+    StyleName = 'treeviewitemstyle'
+    object TSpeedButton
+      StyleName = 'button'
+      Align = Left
+      StyleLookup = 'treeviewexpanderbuttonstyle'
+      Size.Width = 19.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TLayout
+      Align = Contents
+      Margins.Left = 20.000000000000000000
+      object TCheckBox
+        StyleName = 'check'
+        Align = Left
+        Visible = False
+        Size.Width = 20.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TText
+        StyleName = 'text'
+        Align = Client
+        HitTest = False
+        TextSettings.Font.Size = 12.000000000000000000
+        TextSettings.FontColor = xFFE3E7EB
+        TextSettings.HorzAlign = Leading
+        TextSettings.WordWrap = False
+      end
+    end
+  end
+  object TLayout
+    StyleName = 'treeviewexpanderbuttonstyle'
+    object TPath
+      Align = Center
+      HitTest = False
+      Fill.Color = xFFA9B3BC
+      Stroke.Kind = None
+      WrapMode = Fit
+      Data.Path = 'M 0,0 L 5,4.5 L 0,9 Z'
+      Size.Width = 5.000000000000000000
+      Size.Height = 9.000000000000000000
+      Size.PlatformDefault = False
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 1.000000000000000000
+        StopValue = 0.000000000000000000
+        Trigger = 'IsExpanded=true'
+        TriggerInverse = 'IsExpanded=false'
+      end
+    end
+    object TPath
+      Align = Center
+      HitTest = False
+      Opacity = 0.000000000000000000
+      Fill.Color = xFFA9B3BC
+      Stroke.Kind = None
+      WrapMode = Fit
+      Data.Path = 'M 0,0 L 9,0 L 4.5,5 Z'
+      Size.Width = 9.000000000000000000
+      Size.Height = 5.000000000000000000
+      Size.PlatformDefault = False
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsExpanded=true'
+        TriggerInverse = 'IsExpanded=false'
+      end
+    end
+  end
+  object TRectangle
+    StyleName = 'tabcontrolstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Kind = None
+    object TBrushObject
+      StyleName = 'scrollbackground'
+      Brush.Color = xFF242D36
+    end
+  end
+  object TLayout
+    StyleName = 'tabitemstyle'
+    object TRectangle
+      StyleName = 'top'
+      Align = Contents
+      Fill.Color = xFF242D36
+      HitTest = False
+      Stroke.Kind = None
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Fill.Color'
+        StartValue = xFF242D36
+        StopValue = xFF46535F
+        Trigger = 'IsMouseOver=true'
+        TriggerInverse = 'IsMouseOver=false'
+      end
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Fill.Color'
+        StartValue = xFF242D36
+        StopValue = xFF1F262D
+        Trigger = 'IsSelected=true'
+        TriggerInverse = 'IsSelected=false'
+      end
+      object TText
+        StyleName = 'text'
+        Align = Client
+        HitTest = False
+        Margins.Left = 12.000000000000000000
+        Margins.Right = 12.000000000000000000
+        TextSettings.Font.Size = 12.000000000000000000
+        TextSettings.FontColor = xFFE3E7EB
+        TextSettings.WordWrap = False
+      end
+    end
+    object TLayout
+      StyleName = 'bottom'
+      Align = Contents
+      Visible = False
+    end
+  end
+  object TLayout
+    StyleName = 'gridstyle'
+    object TBrushObject
+      StyleName = 'AlternatingRowBackground'
+      Brush.Color = xFF252E37
+    end
+    object TBrushObject
+      StyleName = 'linefill'
+      Brush.Color = xFF55626E
+    end
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      Stroke.Color = xFF55626E
+      object THeader
+        StyleName = 'header'
+        Align = Top
+        Size.Height = 24.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TLayout
+        StyleName = 'content'
+        Align = Client
+        object TRectangle
+          StyleName = 'selection'
+          Fill.Color = x804F8CC9
+          HitTest = False
+          Stroke.Kind = None
+        end
+        object TRectangle
+          StyleName = 'focus'
+          Fill.Color = x00000000
+          HitTest = False
+          Stroke.Color = xFF4F8CC9
+        end
+      end
+      object TScrollBar
+        StyleName = 'vscrollbar'
+        Align = Right
+        SmallChange = 0.000000000000000000
+        Orientation = Vertical
+        Size.Width = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TScrollBar
+        StyleName = 'hscrollbar'
+        Align = Bottom
+        SmallChange = 0.000000000000000000
+        Orientation = Horizontal
+        Size.Height = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+  end
+  object TRectangle
+    StyleName = 'headeritemstyle'
+    Fill.Color = xFF3A4652
+    HitTest = False
+    Stroke.Color = xFF55626E
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 6.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Leading
+      TextSettings.WordWrap = False
+    end
+  end
+end

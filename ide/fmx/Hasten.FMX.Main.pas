@@ -868,14 +868,25 @@ end;
   pictures are characters of its icon font (Segoe MDL2 Assets): no image files, sharp at any size. macOS and
   Linux have no such font, so there the buttons show short words. }
 
-{ The style, from a .style file beside the program (the first by name), into StyleBook1, which every Hasten
-  window uses. The repository's StyleBook1 is empty: a style made by someone else (Embarcadero's, say) stays
-  on the computer it is licensed for, out of Hasten.FMX.Main.fmx and out of the repository. }
+{ The style, into StyleBook1, which every Hasten window uses: the first .style file beside the program, or
+  else the first in a styles folder above it (ide/fmx/styles/HasteSlate.style, Hasten's own, when it runs from
+  where Delphi built it). The StyleBook stays empty in the designer, so no style is kept in the .fmx. }
 procedure TMainForm.LoadStyle;
 var
+  Folder: string;
   Files: TArray<string>;
+  Level: Integer;
 begin
-  Files := TDirectory.GetFiles(ExtractFilePath(ParamStr(0)), '*.style');
+  Folder := ExtractFileDir(ParamStr(0));
+  Files := TDirectory.GetFiles(Folder, '*.style');
+  Level := 0;
+  while (Length(Files) = 0) and (Level < 5) and (ExtractFileDir(Folder) <> Folder) do
+  begin
+    Folder := ExtractFileDir(Folder);
+    if DirectoryExists(TPath.Combine(Folder, 'styles')) then
+      Files := TDirectory.GetFiles(TPath.Combine(Folder, 'styles'), '*.style');
+    Inc(Level);
+  end;
   if Length(Files) = 0 then Exit;
   TArray.Sort<string>(Files);
   try

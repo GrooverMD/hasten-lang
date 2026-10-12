@@ -4,7 +4,7 @@ object TStyleContainer
     Author = 'Mark S Day'
     AuthorEMail = ''
     AuthorURL = 'https://github.com/GrooverMD/hasten-lang'
-    PlatformTarget = '[MSWINDOWS][MACOS][LINUX][DEFINEFONTSTYLES]'
+    PlatformTarget = ''
     MobilePlatform = False
     Title = 'HasteSlate'
     Version = '1.0'

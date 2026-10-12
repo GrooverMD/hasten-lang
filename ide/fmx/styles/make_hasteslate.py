@@ -238,7 +238,7 @@ def styles():
 def main():
     root = Obj('TStyleContainer')
     root.add(Obj('TStyleDescription', StyleName=q('Description'), Author=q('Mark S Day'), AuthorEMail=q(''),
-                 AuthorURL=q('https://github.com/GrooverMD/hasten-lang'), PlatformTarget=q('[MSWINDOWS][MACOS][LINUX][DEFINEFONTSTYLES]'),
+                 AuthorURL=q('https://github.com/GrooverMD/hasten-lang'), PlatformTarget=q(''),
                  MobilePlatform=False, Title=q('HasteSlate'), Version=q('1.0')))
     root.add(*styles())
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HasteSlate.style')

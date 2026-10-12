@@ -8,6 +8,7 @@ uses
   Hasten.FMX.Main in 'Hasten.FMX.Main.pas' {MainForm},
   Hasten.FMX.Editor in 'Hasten.FMX.Editor.pas',
   Hasten.FMX.Options in 'Hasten.FMX.Options.pas' {OptionsForm},
+  Hasten.FMX.Settings in 'Hasten.FMX.Settings.pas' {SettingsForm},
   Hasten.Runner in '..\common\Hasten.Runner.pas',
   Hasten.Project in '..\common\Hasten.Project.pas',
   Syntax.Code.Haste in 'Syntax.Code.Haste.pas';

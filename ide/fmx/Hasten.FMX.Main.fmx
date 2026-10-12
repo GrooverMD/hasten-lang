@@ -53,6 +53,9 @@ object MainForm: TMainForm
       object SaveProjectItem: TMenuItem
         Action = SaveProjectAction
       end
+      object SaveProjectAsItem: TMenuItem
+        Action = SaveProjectAsAction
+      end
       object CloseProjectItem: TMenuItem
         Action = CloseProjectAction
       end
@@ -85,6 +88,12 @@ object MainForm: TMainForm
       end
       object HastePyItem: TMenuItem
         Action = HastePyAction
+      end
+    end
+    object ToolsMenu: TMenuItem
+      Text = '&Tools'
+      object SettingsItem: TMenuItem
+        Action = SettingsAction
       end
     end
   end
@@ -148,6 +157,10 @@ object MainForm: TMainForm
       Text = '&Save Project'
       OnExecute = SaveProjectActionExecute
     end
+    object SaveProjectAsAction: TAction
+      Text = 'Save Project &As...'
+      OnExecute = SaveProjectAsActionExecute
+    end
     object CloseProjectAction: TAction
       Text = '&Close Project'
       OnExecute = CloseProjectActionExecute
@@ -155,6 +168,10 @@ object MainForm: TMainForm
     object OptionsAction: TAction
       Text = 'Module &Options...'
       OnExecute = OptionsActionExecute
+    end
+    object SettingsAction: TAction
+      Text = '&Settings...'
+      OnExecute = SettingsActionExecute
     end
   end
   object StatusBar: TStatusBar

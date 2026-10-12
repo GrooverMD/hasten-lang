@@ -1,0 +1,205 @@
+object SettingsForm: TSettingsForm
+  Left = 0
+  Top = 0
+  BorderIcons = [biSystemMenu]
+  Caption = 'Settings'
+  ClientHeight = 380
+  ClientWidth = 500
+  Position = MainFormCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  DesignerMasterStyle = 0
+  object EditorGroup: TGroupBox
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 8.000000000000000000
+    Size.Width = 484.000000000000000000
+    Size.Height = 96.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Editor'
+    TabOrder = 0
+    object FontLabel: TLabel
+      Text = 'Font:'
+      Position.X = 14.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+    end
+    object FontCombo: TComboEdit
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      Position.X = 100.000000000000000000
+      Position.Y = 28.000000000000000000
+      Size.Width = 220.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+    end
+    object SizeLabel: TLabel
+      Text = 'Size:'
+      Position.X = 334.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+    end
+    object SizeBox: TSpinBox
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      Min = 6.000000000000000000
+      Max = 48.000000000000000000
+      Value = 14.000000000000000000
+      Position.X = 380.000000000000000000
+      Position.Y = 28.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+    end
+    object LineNumbersCheck: TCheckBox
+      Text = 'Show line numbers'
+      Position.X = 14.000000000000000000
+      Position.Y = 64.000000000000000000
+      Size.Width = 260.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 4
+    end
+  end
+  object RunningGroup: TGroupBox
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 112.000000000000000000
+    Size.Width = 484.000000000000000000
+    Size.Height = 128.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Running'
+    TabOrder = 1
+    object PythonLabel: TLabel
+      Text = 'Python:'
+      Position.X = 14.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+    end
+    object PythonEdit: TEdit
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      Hint = 'The command that runs Python (python, py, python3) or its full path'
+      ShowHint = True
+      Position.X = 100.000000000000000000
+      Position.Y = 28.000000000000000000
+      Size.Width = 220.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+    end
+    object HastePyLabel: TLabel
+      Text = 'haste.py:'
+      Position.X = 14.000000000000000000
+      Position.Y = 62.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+    end
+    object HastePyEdit: TEdit
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      Position.X = 100.000000000000000000
+      Position.Y = 60.000000000000000000
+      Size.Width = 272.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+    end
+    object BrowseButton: TButton
+      Text = 'Browse...'
+      OnClick = BrowseButtonClick
+      Position.X = 380.000000000000000000
+      Position.Y = 57.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 4
+    end
+    object ClearOutputCheck: TCheckBox
+      Text = 'Clear the output on each run'
+      Position.X = 14.000000000000000000
+      Position.Y = 96.000000000000000000
+      Size.Width = 300.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 5
+    end
+  end
+  object StartingGroup: TGroupBox
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 248.000000000000000000
+    Size.Width = 484.000000000000000000
+    Size.Height = 56.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Starting'
+    TabOrder = 2
+    object ReopenCheck: TCheckBox
+      Text = 'Reopen the files from last time'
+      Position.X = 14.000000000000000000
+      Position.Y = 28.000000000000000000
+      Size.Width = 300.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+    end
+  end
+  object ButtonBar: TLayout
+    Align = Bottom
+    Position.Y = 336.000000000000000000
+    Size.Width = 500.000000000000000000
+    Size.Height = 44.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    object CancelButton: TButton
+      Align = Right
+      Cancel = True
+      Margins.Top = 8.000000000000000000
+      Margins.Right = 8.000000000000000000
+      Margins.Bottom = 8.000000000000000000
+      ModalResult = 2
+      Position.X = 402.000000000000000000
+      Position.Y = 8.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Cancel'
+    end
+    object OKButton: TButton
+      Align = Right
+      Default = True
+      Margins.Top = 8.000000000000000000
+      Margins.Right = 8.000000000000000000
+      Margins.Bottom = 8.000000000000000000
+      ModalResult = 1
+      Position.X = 304.000000000000000000
+      Position.Y = 8.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'OK'
+    end
+  end
+end

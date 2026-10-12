@@ -13,7 +13,7 @@ uses
   System.RegularExpressions, System.Actions, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, Hasten.Runner,
-  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Syntax.Code.Haste;
+  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Syntax.Code.Haste;
 
 type
   TMainForm = class(TForm)
@@ -39,9 +39,12 @@ type
     OpenProjectItem: TMenuItem;
     RecentMenu: TMenuItem;
     SaveProjectItem: TMenuItem;
+    SaveProjectAsItem: TMenuItem;
     CloseProjectItem: TMenuItem;
     ProjectSep: TMenuItem;
     OptionsItem: TMenuItem;
+    ToolsMenu: TMenuItem;
+    SettingsItem: TMenuItem;
     Actions: TActionList;
     NewAction: TAction;
     OpenAction: TAction;
@@ -57,8 +60,10 @@ type
     NewProjectAction: TAction;
     OpenProjectAction: TAction;
     SaveProjectAction: TAction;
+    SaveProjectAsAction: TAction;
     CloseProjectAction: TAction;
     OptionsAction: TAction;
+    SettingsAction: TAction;
     ProjectTree: TTreeView;
     TreeSplitter: TSplitter;
     TreePopup: TPopupMenu;
@@ -100,6 +105,8 @@ type
     procedure NewProjectActionExecute(Sender: TObject);
     procedure OpenProjectActionExecute(Sender: TObject);
     procedure SaveProjectActionExecute(Sender: TObject);
+    procedure SaveProjectAsActionExecute(Sender: TObject);
+    procedure SettingsActionExecute(Sender: TObject);
     procedure CloseProjectActionExecute(Sender: TObject);
     procedure OptionsActionExecute(Sender: TObject);
     procedure ProjectTreeDblClick(Sender: TObject);
@@ -124,6 +131,11 @@ type
     FTreeFiles: TArray<string>;                // what the Project Manager shows
     FRecent: TArray<string>;
     FOpenAfterRun: string;                     // a project haste.py new is making
+    FFontFamily: string;                       // these and the rest are set in Tools > Settings
+    FFontSize: Single;
+    FLineNumbers: Boolean;
+    FClearOutput: Boolean;                     // on each Run, Build and Run Tests
+    FReopen: Boolean;                          // last session's files at start
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -163,6 +175,7 @@ type
     procedure EditorChanged(Sender: TObject);
     procedure CaretMoved(Sender: TObject; const ACaretPosition: TCaretPosition);
     procedure UpdateStatus;
+    procedure ApplySettings(Tab: TEditorTab);
     procedure LoadSettings;
     procedure SaveSettings;
   end;
@@ -202,6 +215,11 @@ begin
 {$ENDIF}
   FWordLines := TStringList.Create;
   FPython := DefaultPython;
+  FFontFamily := MonoFont;
+  FFontSize := 14;
+  FLineNumbers := True;
+  FClearOutput := True;
+  FReopen := True;
   NewAction.ShortCut := CmdKey or Ord('N');      // shortcuts here, not in the .fmx: Cmd or Ctrl by platform
   OpenAction.ShortCut := CmdKey or Ord('O');
   SaveAction.ShortCut := CmdKey or Ord('S');
@@ -212,7 +230,6 @@ begin
   RunAction.ShortCut := vkF9;
   BuildAction.ShortCut := CmdKey or vkF9;
   StopAction.ShortCut := CmdKey or vkF2;
-  Output.TextSettings.Font.Family := MonoFont;
   ShowTree;
   LoadSettings;
   if Tabs.TabCount = 0 then
@@ -271,6 +288,7 @@ begin
   TestsAction.Enabled := not Running;
   NewProjectAction.Enabled := not Running;
   SaveProjectAction.Enabled := FProject <> nil;
+  SaveProjectAsAction.Enabled := (FProject <> nil) and not Running;
   CloseProjectAction.Enabled := FProject <> nil;
   OptionsAction.Enabled := (FProject <> nil) or (ActiveTab <> nil);
   if FProject <> nil then
@@ -359,6 +377,7 @@ begin
   Result.OnChange := EditorChanged;
   Result.OnCaret := CaretMoved;
   Result.Parent := Tabs;
+  ApplySettings(Result);
   Tabs.ActiveTab := Result;
   SetUpTimer.Enabled := True;
   UpdateStatus;
@@ -536,7 +555,10 @@ procedure TMainForm.RunCommand(const Cmd, Folder, Busy: string);
 begin
   FRunFolder := Folder;
   FJumped := False;
-  Output.Lines.Clear;
+  if FClearOutput then
+    Output.Lines.Clear
+  else if Output.Lines.Count > 0 then
+    OutputAdd('');
   OutputAdd('> ' + Cmd);
   StatusLabel.Text := Busy;
   FRunner := TRunner.Create(Cmd, Folder, RunnerLine, RunnerDone);
@@ -689,6 +711,57 @@ end;
 
 { ---- settings: HastenFMX.ini in the user's Hasten folder ---- }
 
+{ The editor settings on one tab, or with nil on every tab and the output (a point smaller). }
+procedure TMainForm.ApplySettings(Tab: TEditorTab);
+var
+  I: Integer;
+begin
+  if Tab <> nil then
+  begin
+    Tab.FontFamily := FFontFamily;
+    Tab.FontSize := FFontSize;
+    Tab.LineNumbers := FLineNumbers;
+    Exit;
+  end;
+  for I := 0 to Tabs.TabCount - 1 do
+    ApplySettings(TEditorTab(Tabs.Tabs[I]));
+  Output.TextSettings.Font.Family := FFontFamily;
+  Output.TextSettings.Font.Size := FFontSize - 1;
+end;
+
+procedure TMainForm.SettingsActionExecute(Sender: TObject);
+var
+  Dialog: TSettingsForm;
+begin
+  Dialog := TSettingsForm.Create(nil);
+  try
+    Dialog.FontFamily := FFontFamily;
+    Dialog.FontSize := FFontSize;
+    Dialog.LineNumbers := FLineNumbers;
+    Dialog.Python := FPython;
+    Dialog.HastePy := FHastePy;
+    Dialog.ClearOutput := FClearOutput;
+    Dialog.Reopen := FReopen;
+    if not Dialog.Execute then Exit;
+    if Dialog.FontFamily <> '' then FFontFamily := Dialog.FontFamily;
+    FFontSize := Dialog.FontSize;
+    FLineNumbers := Dialog.LineNumbers;
+    FPython := Dialog.Python;
+    if FPython = '' then FPython := DefaultPython;
+    FClearOutput := Dialog.ClearOutput;
+    FReopen := Dialog.Reopen;
+    if not SameFileName(Dialog.HastePy, FHastePy) then
+    begin
+      FHastePy := Dialog.HastePy;
+      RefreshWords;                             // another haste.py may know other words
+    end;
+  finally
+    Dialog.Free;
+  end;
+  ApplySettings(nil);
+  SaveSettings;
+end;
+
 procedure TMainForm.LoadSettings;
 var
   Ini: TMemIniFile;
@@ -700,7 +773,14 @@ begin
   try
     FHastePy := Ini.ReadString('Haste', 'HastePy', '');
     FPython := Ini.ReadString('Haste', 'Python', DefaultPython);
+    FFontFamily := Ini.ReadString('Editor', 'FontFamily', FFontFamily);
+    FFontSize := Ini.ReadInteger('Editor', 'FontSize', Round(FFontSize));   // whole points, whatever the locale
+    FLineNumbers := Ini.ReadBool('Editor', 'LineNumbers', FLineNumbers);
+    FClearOutput := Ini.ReadBool('Run', 'ClearOutput', FClearOutput);
+    FReopen := Ini.ReadBool('Start', 'Reopen', FReopen);
+    ApplySettings(nil);
     BuildRecentMenu;
+    if not FReopen then Exit;
     if FileExists(Ini.ReadString('Session', 'Project', '')) then
       OpenProject(Ini.ReadString('Session', 'Project', ''))    // it reopens its own files
     else
@@ -725,6 +805,11 @@ begin
   try
     Ini.WriteString('Haste', 'HastePy', FHastePy);
     Ini.WriteString('Haste', 'Python', FPython);
+    Ini.WriteString('Editor', 'FontFamily', FFontFamily);
+    Ini.WriteInteger('Editor', 'FontSize', Round(FFontSize));
+    Ini.WriteBool('Editor', 'LineNumbers', FLineNumbers);
+    Ini.WriteBool('Run', 'ClearOutput', FClearOutput);
+    Ini.WriteBool('Start', 'Reopen', FReopen);
     SaveOpenFiles(Ini, 'Open');
     if FProject <> nil then
     begin
@@ -849,6 +934,103 @@ begin
   for I := 0 to Tabs.TabCount - 1 do
     if TEditorTab(Tabs.Tabs[I]).Modified and not SaveTab(TEditorTab(Tabs.Tabs[I]), False) then
       Exit;
+end;
+
+{ A new name and/or folder for the project. In its own folder, the project file and the program are renamed;
+  in another folder, the whole project (program, modules and project file) is copied there and opened. }
+procedure TMainForm.SaveProjectAsActionExecute(Sender: TObject);
+var
+  Dialog: TSaveDialog;
+  NewProj, NewName, NewDir, OldProj, OldDir, OldMain, NewMain, F, Dest: string;
+  Files: TArray<string>;
+  Tab: TEditorTab;
+  I: Integer;
+
+  procedure Warn(const Text: string);
+  begin
+    TDialogServiceSync.MessageDialog(Text, TMsgDlgType.mtWarning, [TMsgDlgBtn.mbOK], TMsgDlgBtn.mbOK, 0);
+  end;
+
+  function DestOf(const Source: string): string;
+  begin
+    if SameFileName(Source, OldMain) then Result := NewMain
+    else Result := TPath.Combine(NewDir, ExtractRelativePath(IncludeTrailingPathDelimiter(OldDir), Source));
+  end;
+
+begin
+  if FProject = nil then Exit;
+  SaveProjectActionExecute(nil);
+  for I := 0 to Tabs.TabCount - 1 do            // what was not saved would be left behind
+    if TEditorTab(Tabs.Tabs[I]).Modified then Exit;
+  Dialog := TSaveDialog.Create(nil);
+  try
+    Dialog.Title := 'Save Project As';
+    Dialog.Filter := OpenProjectDialog.Filter;
+    Dialog.DefaultExt := 'hproj';
+    Dialog.InitialDir := FProject.Folder;
+    Dialog.FileName := FProject.Name;
+    if not Dialog.Execute then Exit;
+    NewProj := ChangeFileExt(Dialog.FileName, '.hproj');
+  finally
+    Dialog.Free;
+  end;
+  OldProj := FProject.FileName;
+  if SameFileName(NewProj, OldProj) then Exit;
+  NewName := ChangeFileExt(ExtractFileName(NewProj), '');
+  if not THasteProject.IsValidName(NewName) then
+  begin
+    Warn('A project name is letters, digits and _, starting with a letter or _.');
+    Exit;
+  end;
+  NewDir := ExtractFileDir(NewProj);
+  OldDir := FProject.Folder;
+  OldMain := FProject.ProgramFile;
+  NewMain := ChangeFileExt(NewProj, '.haste');
+  if SameFileName(NewDir, OldDir) then
+  begin
+    if FileExists(NewProj) or (FileExists(NewMain) and not SameFileName(NewMain, OldMain)) then
+    begin
+      Warn(NewName + '.hproj or ' + NewName + '.haste is already in this folder.');
+      Exit;
+    end;
+    if not RenameFile(OldProj, NewProj) or not RenameFile(OldMain, NewMain) then
+    begin
+      TDialogServiceSync.MessageDialog('Could not rename the project.', TMsgDlgType.mtError, [TMsgDlgBtn.mbOK],
+        TMsgDlgBtn.mbOK, 0);
+      Exit;
+    end;
+    Tab := FindTab(OldMain);
+    if Tab <> nil then Tab.FileName := NewMain;
+    Tab := FindTab(OldProj);
+    if Tab <> nil then Tab.FileName := NewProj;
+    FreeAndNil(FProject);
+    FProject := THasteProject.Create(NewProj);
+    AddRecent(NewProj);
+    Rescan(True);
+    UpdateStatus;
+    RefreshWords;
+    Exit;
+  end;
+  Files := FProject.Files;
+  for F in Files do                             // copy nothing until it is sure nothing is overwritten
+    if FileExists(DestOf(F)) then
+    begin
+      Warn(DestOf(F) + ' is already there.');
+      Exit;
+    end;
+  if FileExists(NewProj) then
+  begin
+    Warn(NewProj + ' is already there.');
+    Exit;
+  end;
+  for F in Files do
+  begin
+    Dest := DestOf(F);
+    ForceDirectories(ExtractFileDir(Dest));
+    TFile.Copy(F, Dest);
+  end;
+  TFile.Copy(OldProj, NewProj);
+  OpenProject(NewProj);
 end;
 
 procedure TMainForm.CloseProjectActionExecute(Sender: TObject);

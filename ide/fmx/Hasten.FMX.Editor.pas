@@ -26,6 +26,7 @@ type
     FModified: Boolean;
     FReady: Boolean;
     FLoading: Boolean;
+    FLineNumbers: Boolean;
     FOnChange: TNotifyEvent;
     FOnCaret: TCaretPositionChanged;
     procedure MemoChange(Sender: TObject);
@@ -35,6 +36,12 @@ type
     function GetTitle: string;
     function GetRich: TRichEditStyled;
     procedure UpdateText;
+    function GetFontFamily: string;
+    procedure SetFontFamily(const Value: string);
+    function GetFontSize: Single;
+    procedure SetFontSize(Value: Single);
+    procedure SetLineNumbers(Value: Boolean);
+    procedure FontChanged;
   public
     constructor Create(AOwner: TComponent); override;
     function Configure: Boolean;                 // True once the presentation exists and is set up
@@ -48,6 +55,9 @@ type
     property Modified: Boolean read FModified write SetModified;
     property Title: string read GetTitle;
     property Ready: Boolean read FReady;
+    property FontFamily: string read GetFontFamily write SetFontFamily;
+    property FontSize: Single read GetFontSize write SetFontSize;
+    property LineNumbers: Boolean read FLineNumbers write SetLineNumbers;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property OnCaret: TCaretPositionChanged read FOnCaret write FOnCaret;
   end;
@@ -82,6 +92,7 @@ begin
   FMemo.TextSettings.Font.Size := 14;
   FMemo.TextSettings.FontColor := EditorText;
   FMemo.OnChangeTracking := MemoChange;
+  FLineNumbers := True;
   UpdateText;
 end;
 
@@ -97,17 +108,15 @@ function TEditorTab.Configure: Boolean;
 begin
   if FReady then Exit(True);
   if Rich = nil then Exit(False);
-  Rich.ShowGutter := True;
+  Rich.ShowGutter := FLineNumbers;
   Rich.ShowCurrentLine := True;
   Rich.ColorCurrentLine := $18FFFFFF;
   Rich.ColorLineNumberNormal := $FF808080;
   Rich.ColorLineNumberActive := EditorText;
-  Rich.GutterFont.Family := MonoFont;
-  Rich.GutterFont.Size := 13;
   Rich.OnDrawBefore := PaintBackground;
   Rich.OnChangeCaretPos := FOnCaret;
   FReady := True;
-  Recolour;
+  FontChanged;
   Result := True;
 end;
 
@@ -117,6 +126,45 @@ begin
   if not FReady then Exit;
   Rich.SetCodeSyntaxName('haste', FMemo.TextSettings.Font, EditorText);
   FMemo.Repaint;
+end;
+
+function TEditorTab.GetFontFamily: string;
+begin
+  Result := FMemo.TextSettings.Font.Family;
+end;
+
+procedure TEditorTab.SetFontFamily(const Value: string);
+begin
+  if (Value = '') or (Value = FontFamily) then Exit;
+  FMemo.TextSettings.Font.Family := Value;
+  FontChanged;
+end;
+
+function TEditorTab.GetFontSize: Single;
+begin
+  Result := FMemo.TextSettings.Font.Size;
+end;
+
+procedure TEditorTab.SetFontSize(Value: Single);
+begin
+  if (Value < 6) or (Value = FontSize) then Exit;
+  FMemo.TextSettings.Font.Size := Value;
+  FontChanged;
+end;
+
+procedure TEditorTab.SetLineNumbers(Value: Boolean);
+begin
+  FLineNumbers := Value;
+  if FReady then Rich.ShowGutter := Value;
+end;
+
+{ The line numbers follow the editor's font, a point smaller; the colours are made again in the new font. }
+procedure TEditorTab.FontChanged;
+begin
+  if not FReady then Exit;
+  Rich.GutterFont.Family := FontFamily;
+  Rich.GutterFont.Size := FontSize - 1;
+  Recolour;
 end;
 
 procedure TEditorTab.PaintBackground(Sender: TObject; ACanvas: TCanvas);

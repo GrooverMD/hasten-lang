@@ -12,7 +12,7 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
   System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
-  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, Hasten.Runner,
+  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, Hasten.Runner,
   Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
 
 type
@@ -94,22 +94,22 @@ type
     FindNextAction: TAction;
     FindPrevAction: TAction;
     GoToLineAction: TAction;
-    ToolBar: TToolBar;
-    NewButton: TSpeedButton;
-    OpenButton: TSpeedButton;
-    SaveButton: TSpeedButton;
-    UndoButton: TSpeedButton;
-    RedoButton: TSpeedButton;
-    CutButton: TSpeedButton;
-    CopyButton: TSpeedButton;
-    PasteButton: TSpeedButton;
-    FindButton: TSpeedButton;
-    RunButton: TSpeedButton;
-    BuildButton: TSpeedButton;
-    StopButton: TSpeedButton;
-    TestsButton: TSpeedButton;
-    OptionsButton: TSpeedButton;
-    SettingsButton: TSpeedButton;
+    Ribbon: TTabControl;                       // Freestyler's ribbon: File opens FileView, the others are pages
+    FileTab: TTabItem;
+    HomeTab: TTabItem;
+    HomeBar: TToolBar;
+    ProjectTab: TTabItem;
+    ProjectBar: TToolBar;
+    RunTab: TTabItem;
+    RunBar: TToolBar;
+    ViewTab: TTabItem;
+    ViewBar: TToolBar;
+    FileView: TMultiView;                      // the File panel, its master button FileTab
+    Backstage: TPanel;
+    BackstageTitle: TLabel;
+    BackstageRecent: TPanel;
+    RecentLabel: TLabel;
+    RecentList: TListBox;
     FindBar: TLayout;
     FindLabel: TLabel;
     FindEdit: TEdit;
@@ -163,6 +163,8 @@ type
     procedure SaveProjectAsActionExecute(Sender: TObject);
     procedure SettingsActionExecute(Sender: TObject);
     procedure InsightActionExecute(Sender: TObject);
+    procedure RibbonChange(Sender: TObject);
+    procedure RecentListItemClick(const Sender: TCustomListBox; const Item: TListBoxItem);
     procedure EditActionExecute(Sender: TObject);
     procedure FindActionExecute(Sender: TObject);
     procedure FindNextActionExecute(Sender: TObject);
@@ -203,6 +205,8 @@ type
     FClearOutput: Boolean;                     // on each Run, Build and Run Tests
     FReopen: Boolean;                          // last session's files at start
     FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
+    FRibbonPage: TTabItem;                     // the ribbon page on show: File only opens the File panel
+    FOptionsButton: TSpeedButton;
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -247,7 +251,9 @@ type
     procedure SaveSettings;
     function EditorFocused: TEditorTab;
     procedure FindAgain(Backwards: Boolean);
-    procedure SetUpToolBar;
+    procedure SetUpRibbon;
+    procedure BackstageClick(Sender: TObject);
+    function ShortCutAction(Key: Word; Shift: TShiftState): TAction;
     procedure LoadStyle;
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -320,7 +326,7 @@ begin
   MainMenu.UseOSMenu := True;                   // a Mac app's menus belong in the bar at the top of the screen
 {$ENDIF}
   LoadStyle;
-  SetUpToolBar;
+  SetUpRibbon;
   UseTextSizes(Self);                           // the style's 16-pixel text at Hasten's size
   ShowTree;
   LoadSettings;
@@ -335,9 +341,21 @@ end;
 procedure TMainForm.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 var
   Tab: TEditorTab;
+  Act: TAction;
 begin
   Tab := EditorFocused;
   if (Tab <> nil) and Tab.Memo.TabKey(Key, KeyChar, Shift) then Exit;
+{$IFNDEF MACOS}
+  Act := ShortCutAction(Key, Shift);            // a Mac's menu bar takes its keys itself
+  if Act <> nil then
+  begin
+    Key := 0;
+    KeyChar := #0;
+    Act.Update;                                 // enabled as the menus would show it
+    if Act.Enabled then Act.Execute;
+    Exit;
+  end;
+{$ENDIF}
   inherited;
 end;
 
@@ -417,7 +435,7 @@ begin
   if OptionsAction.Text <> S then
   begin
     OptionsAction.Text := S;
-    OptionsButton.Text := OptionsButton.TagString;    // the picture, not the action's text
+    FOptionsButton.Text := 'Options';           // the ribbon's word, not the action's text
   end;
   Handled := True;
 end;
@@ -865,12 +883,6 @@ begin
   Output.TextSettings.Font.Size := FFontSize - 1;
 end;
 
-{ ---- the toolbar ----
-  Speed buttons on the actions, designed in the .fmx: they follow them (Stop is enabled only while something
-  runs), and never take the focus, so Undo ... Paste act on the editor or box that has it. On Windows the
-  pictures are characters of its icon font (Segoe MDL2 Assets): no image files, sharp at any size. macOS and
-  Linux have no such font, so there the buttons show short words. }
-
 { The style, into StyleBook1, which every Hasten window uses: the first .style file beside the program, or
   else the first in a styles folder above it (ide/fmx/styles/HasteSlate.style, Hasten's own, when it runs from
   where Delphi built it). The StyleBook stays empty in the designer, so no style is kept in the .fmx. }
@@ -900,49 +912,170 @@ begin
   end;
 end;
 
-procedure TMainForm.SetUpToolBar;
-const
-{$IFDEF MACOS}
-  Cmd = 'Cmd+';
-{$ELSE}
-  Cmd = 'Ctrl+';
-{$ENDIF}
-  Glyphs: array[0..14] of Char = (#$E8A5, #$E8E5, #$E74E, #$E7A7, #$E7A6, #$E8C6, #$E8C8, #$E77F, #$E721,
-    #$E768, #$E90F, #$E71A, #$E9D5, #$E9E9, #$E713);
-  Words: array[0..14] of string = ('New', 'Open', 'Save', 'Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Find',
-    'Run', 'Build', 'Stop', 'Tests', 'Options', 'Settings');
-  Keys: array[0..14] of string = (Cmd + 'N', Cmd + 'O', Cmd + 'S', Cmd + 'Z', Cmd + 'Shift+Z', Cmd + 'X',
-    Cmd + 'C', Cmd + 'V', Cmd + 'F', 'F9', Cmd + 'F9', Cmd + 'F2', '', 'Shift+' + Cmd + 'F11', '');
-  Hints: array[0..14] of string = ('New', 'Open', 'Save', 'Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Find',
-    'Run', 'Build', 'Stop', 'Run Tests', 'Project/Module Options', 'Settings');
-var
-  Buttons: TArray<TSpeedButton>;
-  I: Integer;
-  C: TCanvas;
-begin
-  Buttons := [NewButton, OpenButton, SaveButton, UndoButton, RedoButton, CutButton, CopyButton, PasteButton, FindButton, RunButton, BuildButton, StopButton, TestsButton, OptionsButton, SettingsButton];
-  C := TCanvasManager.MeasureCanvas;
-  for I := 0 to High(Buttons) do
-  begin
-    Buttons[I].StyledSettings := Buttons[I].StyledSettings - [TStyledSetting.Family, TStyledSetting.Size];
-{$IFDEF MSWINDOWS}
-    Buttons[I].TextSettings.Font.Family := 'Segoe MDL2 Assets';
-    Buttons[I].TextSettings.Font.Size := 14;
-    Buttons[I].Text := Glyphs[I];
-    Buttons[I].Width := 32;
-{$ELSE}
-    Buttons[I].TextSettings.Font.Size := 12;
-    Buttons[I].Text := Words[I];
-    C.Font.Assign(Buttons[I].TextSettings.Font);
-    Buttons[I].Width := Round(C.TextWidth(Words[I])) + 18;
-{$ENDIF}
-    if Keys[I] <> '' then
-      Buttons[I].Hint := Hints[I] + ' (' + Keys[I] + ')'
-    else
-      Buttons[I].Hint := Hints[I];
-    Buttons[I].ShowHint := True;
-    Buttons[I].TagString := Buttons[I].Text;    // put back if its action's text changes it
+{ ---- the ribbon (Freestyler's) ----
+  Pages of large buttons in groups, each on an action: a picture (on Windows, a character of its icon font,
+  Segoe MDL2 Assets; macOS and Linux have none, so there only the name) above its name. The buttons never take
+  the focus, so the edit buttons act on the editor or box that has it. File is not a page: it opens FileView,
+  the File panel, with the file commands and the recent projects. }
+
+type
+  TRibbonItem = record
+    Action: TAction;
+    Glyph: Char;
+    Name: string;
   end;
+
+function RB(Action: TAction; Glyph: Char; const Name: string): TRibbonItem;
+begin
+  Result.Action := Action;
+  Result.Glyph := Glyph;
+  Result.Name := Name;
+end;
+
+procedure TMainForm.SetUpRibbon;
+
+  procedure Page(Bar: TToolBar; const Items: array of TRibbonItem);   // a nil Action: a separator
+  var
+    I: Integer;
+    B: TSpeedButton;
+    Line: TPanel;
+    Icon: TText;
+  begin
+    for I := High(Items) downto 0 do          // Align Left puts the last made first: make them from the end
+      if Items[I].Action = nil then
+      begin
+        Line := TPanel.Create(Self);
+        Line.StyleLookup := 'ribbonseparatorstyle';
+        Line.Align := TAlignLayout.Left;
+        Line.Width := 1;
+        Line.Margins.Rect := RectF(6, 6, 6, 6);
+        Line.Parent := Bar;
+      end
+      else
+      begin
+        B := TSpeedButton.Create(Self);
+        B.StyleLookup := 'ribbonbuttonstyle';
+        B.Action := Items[I].Action;
+        B.Text := Items[I].Name;
+        B.Align := TAlignLayout.Left;
+        B.Width := 64;
+        B.Margins.Left := 1;
+        B.Hint := Items[I].Action.Text.Replace('&', '');
+        if Items[I].Action.ShortCut <> 0 then
+          B.Hint := B.Hint + ' (' + ShortCutToText(Items[I].Action.ShortCut) + ')';
+        B.ShowHint := True;
+        B.StaysPressed := Items[I].Action.AutoCheck;  // Help Insight shows whether it is on
+        B.Parent := Bar;
+{$IFDEF MSWINDOWS}
+        Icon := TText.Create(B);
+        Icon.Parent := B;
+        Icon.Align := TAlignLayout.Client;
+        Icon.Margins.Bottom := 20;
+        Icon.HitTest := False;
+        Icon.Text := Items[I].Glyph;
+        Icon.TextSettings.Font.Family := 'Segoe MDL2 Assets';
+        Icon.TextSettings.Font.Size := 20;
+        Icon.TextSettings.FontColor := EditorText;
+{$ENDIF}
+        if Items[I].Action = OptionsAction then FOptionsButton := B;
+      end;
+  end;
+
+  procedure Command(Action: TAction; Glyph: Char; const Name: string; Parent: TControl;
+    Align: TAlignLayout);
+  var
+    B: TSpeedButton;
+    Icon: TText;
+  begin
+    B := TSpeedButton.Create(Self);
+    B.StyleLookup := 'backstagebuttonstyle';
+    B.Action := Action;
+    B.Text := Name;
+    B.Align := Align;
+    B.Height := 44;
+    B.OnClick := BackstageClick;               // closes the panel, then runs the action
+    B.Parent := Parent;
+{$IFDEF MSWINDOWS}
+    Icon := TText.Create(B);
+    Icon.Parent := B;
+    Icon.Align := TAlignLayout.Left;
+    Icon.Width := 48;
+    Icon.HitTest := False;
+    Icon.Text := Glyph;
+    Icon.TextSettings.Font.Family := 'Segoe MDL2 Assets';
+    Icon.TextSettings.Font.Size := 18;
+    Icon.TextSettings.FontColor := EditorText;
+{$ENDIF}
+  end;
+
+begin
+  Page(HomeBar, [RB(UndoAction, #$E7A7, 'Undo'), RB(RedoAction, #$E7A6, 'Redo'), RB(nil, ' ', ''),
+    RB(CutAction, #$E8C6, 'Cut'), RB(CopyAction, #$E8C8, 'Copy'), RB(PasteAction, #$E77F, 'Paste'),
+    RB(SelectAllAction, #$E8B3, 'Select All'), RB(nil, ' ', ''),
+    RB(FindAction, #$E721, 'Find'), RB(FindNextAction, #$E72A, 'Next'), RB(FindPrevAction, #$E72B, 'Previous'),
+    RB(GoToLineAction, #$E8FD, 'Go to Line')]);
+  Page(ProjectBar, [RB(NewProjectAction, #$E710, 'New'), RB(OpenProjectAction, #$E838, 'Open'),
+    RB(SaveProjectAction, #$E78C, 'Save'), RB(SaveProjectAsAction, #$E792, 'Save As'),
+    RB(CloseProjectAction, #$E711, 'Close'), RB(nil, ' ', ''), RB(OptionsAction, #$E9E9, 'Options')]);
+  Page(RunBar, [RB(RunAction, #$E768, 'Run'), RB(BuildAction, #$E90F, 'Build'), RB(StopAction, #$E71A, 'Stop'),
+    RB(nil, ' ', ''), RB(TestsAction, #$E9D5, 'Tests'), RB(nil, ' ', ''),
+    RB(HastePyAction, #$E8B7, 'haste.py')]);
+  Page(ViewBar, [RB(InsightAction, #$E946, 'Insight'), RB(nil, ' ', ''), RB(SettingsAction, #$E713, 'Settings')]);
+  // the File panel, top down; Align Top stacks the last made lowest, Bottom the last made highest
+  Command(CloseAction, #$E711, 'Close', Backstage, TAlignLayout.Top);
+  Command(SaveAsAction, #$E792, 'Save As...', Backstage, TAlignLayout.Top);
+  Command(SaveAction, #$E74E, 'Save', Backstage, TAlignLayout.Top);
+  Command(OpenAction, #$E8E5, 'Open...', Backstage, TAlignLayout.Top);
+  Command(NewAction, #$E8A5, 'New', Backstage, TAlignLayout.Top);
+  Command(SettingsAction, #$E713, 'Settings', Backstage, TAlignLayout.Bottom);
+  Command(ExitAction, #$E7E8, 'Exit', Backstage, TAlignLayout.Bottom);
+  FRibbonPage := HomeTab;
+  Ribbon.ActiveTab := HomeTab;
+{$IFNDEF MACOS}
+  MainMenu.Visible := False;                    // the ribbon has it all; a Mac keeps its menus in the menu bar
+{$ENDIF}
+end;
+
+{ File is the File panel's master button, not a page: the page on show stays. }
+procedure TMainForm.RibbonChange(Sender: TObject);
+begin
+  if Ribbon.ActiveTab = FileTab then
+    Ribbon.ActiveTab := FRibbonPage
+  else if Ribbon.ActiveTab <> nil then
+    FRibbonPage := Ribbon.ActiveTab;
+end;
+
+procedure TMainForm.BackstageClick(Sender: TObject);
+var
+  Action: TBasicAction;
+begin
+  Action := TSpeedButton(Sender).Action;
+  FileView.HideMaster;
+  if Action <> nil then Action.Execute;
+end;
+
+procedure TMainForm.RecentListItemClick(const Sender: TCustomListBox; const Item: TListBoxItem);
+begin
+  FileView.HideMaster;
+  RecentClick(Item);                            // its Tag is the index in FRecent, as a Recent Projects item's
+end;
+
+{ The action whose key this is: with the menus gone from the window, Hasten takes the shortcuts itself. }
+function TMainForm.ShortCutAction(Key: Word; Shift: TShiftState): TAction;
+var
+  SC: TShortCut;
+  I: Integer;
+begin
+  Result := nil;
+  if Key = 0 then Exit;
+  SC := Key;
+  if ssShift in Shift then SC := SC or scShift;
+  if ssCtrl in Shift then SC := SC or scCtrl;
+  if ssAlt in Shift then SC := SC or scAlt;
+  if ssCommand in Shift then SC := SC or scCommand;
+  for I := 0 to Actions.ActionCount - 1 do
+    if (Actions.Actions[I] is TAction) and (TAction(Actions.Actions[I]).ShortCut = SC) then
+      Exit(TAction(Actions.Actions[I]));
 end;
 
 { ---- Edit: on the editor or edit box with the focus (the output too); the keys are the controls' own ---- }
@@ -1412,10 +1545,12 @@ var
   Ini: TMemIniFile;
   List: TStringList;
   Item: TMenuItem;
+  Shown: TListBoxItem;
   I: Integer;
 begin
   while RecentMenu.ItemsCount > 0 do
     RecentMenu.Items[0].Free;
+  RecentList.Clear;
   FRecent := nil;
   Ini := TMemIniFile.Create(FIniName, TEncoding.UTF8);
   List := TStringList.Create;
@@ -1430,6 +1565,14 @@ begin
       Item.Tag := I;
       Item.OnClick := RecentClick;
       RecentMenu.AddObject(Item);
+      Shown := TListBoxItem.Create(RecentList);   // and in the File panel
+      Shown.Text := ChangeFileExt(ExtractFileName(FRecent[I]), '');
+      Shown.Hint := FRecent[I];
+      Shown.ShowHint := True;
+      Shown.Tag := I;
+      Shown.Height := 32;
+      RecentList.AddObject(Shown);
+      UseTextSize(Shown);
     end;
   finally
     List.Free;
@@ -1442,7 +1585,7 @@ procedure TMainForm.RecentClick(Sender: TObject);
 var
   Path: string;
 begin
-  Path := FRecent[TMenuItem(Sender).Tag];
+  Path := FRecent[TComponent(Sender).Tag];     // a Recent Projects item or the File panel's list
   if FileExists(Path) then
     OpenProject(Path)
   else

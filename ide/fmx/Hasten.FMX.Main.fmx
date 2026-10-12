@@ -330,153 +330,100 @@ object MainForm: TMainForm
     Size.Height = 4.000000000000000000
     Size.PlatformDefault = False
   end
-  object ToolBar: TToolBar
+  object Ribbon: TTabControl
+    Align = Top
     Position.Y = 24.000000000000000000
-    Padding.Left = 4.000000000000000000
-    Padding.Top = 3.000000000000000000
-    Padding.Bottom = 3.000000000000000000
     Size.Width = 1100.000000000000000000
-    Size.Height = 36.000000000000000000
+    Size.Height = 96.000000000000000000
     Size.PlatformDefault = False
+    TabIndex = 1
     TabOrder = 6
-    object NewButton: TSpeedButton
-      Action = NewAction
-      Align = Left
-      Position.X = 4.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
+    TabPosition = PlatformDefault
+    OnChange = RibbonChange
+    object FileTab: TTabItem
+      IsSelected = False
+      Size.Width = 64.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
+      StyleLookup = 'filetabstyle'
+      TabOrder = 0
+      Text = 'File'
     end
-    object OpenButton: TSpeedButton
-      Action = OpenAction
-      Align = Left
-      Position.X = 36.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
+    object HomeTab: TTabItem
+      IsSelected = True
+      Size.Width = 70.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
+      StyleLookup = 'ribbontabstyle'
+      TabOrder = 1
+      Text = 'Home'
+      object HomeBar: TToolBar
+        Align = Client
+        Padding.Left = 6.000000000000000000
+        Padding.Top = 4.000000000000000000
+        Padding.Bottom = 4.000000000000000000
+        Size.Width = 1100.000000000000000000
+        Size.Height = 70.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+      end
     end
-    object SaveButton: TSpeedButton
-      Action = SaveAction
-      Align = Left
-      Position.X = 68.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
+    object ProjectTab: TTabItem
+      IsSelected = False
+      Size.Width = 74.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
+      StyleLookup = 'ribbontabstyle'
+      TabOrder = 2
+      Text = 'Project'
+      object ProjectBar: TToolBar
+        Align = Client
+        Padding.Left = 6.000000000000000000
+        Padding.Top = 4.000000000000000000
+        Padding.Bottom = 4.000000000000000000
+        Size.Width = 1100.000000000000000000
+        Size.Height = 70.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+      end
     end
-    object UndoButton: TSpeedButton
-      Action = UndoAction
-      Align = Left
-      Margins.Left = 10.000000000000000000
-      Position.X = 110.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
+    object RunTab: TTabItem
+      IsSelected = False
+      Size.Width = 60.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
+      StyleLookup = 'ribbontabstyle'
+      TabOrder = 3
+      Text = 'Run'
+      object RunBar: TToolBar
+        Align = Client
+        Padding.Left = 6.000000000000000000
+        Padding.Top = 4.000000000000000000
+        Padding.Bottom = 4.000000000000000000
+        Size.Width = 1100.000000000000000000
+        Size.Height = 70.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+      end
     end
-    object RedoButton: TSpeedButton
-      Action = RedoAction
-      Align = Left
-      Position.X = 142.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
+    object ViewTab: TTabItem
+      IsSelected = False
+      Size.Width = 64.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
-    end
-    object CutButton: TSpeedButton
-      Action = CutAction
-      Align = Left
-      Position.X = 174.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object CopyButton: TSpeedButton
-      Action = CopyAction
-      Align = Left
-      Position.X = 206.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object PasteButton: TSpeedButton
-      Action = PasteAction
-      Align = Left
-      Position.X = 238.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object FindButton: TSpeedButton
-      Action = FindAction
-      Align = Left
-      Margins.Left = 10.000000000000000000
-      Position.X = 280.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object RunButton: TSpeedButton
-      Action = RunAction
-      Align = Left
-      Margins.Left = 10.000000000000000000
-      Position.X = 322.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object BuildButton: TSpeedButton
-      Action = BuildAction
-      Align = Left
-      Position.X = 354.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object StopButton: TSpeedButton
-      Action = StopAction
-      Align = Left
-      Position.X = 386.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object TestsButton: TSpeedButton
-      Action = TestsAction
-      Align = Left
-      Position.X = 418.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object OptionsButton: TSpeedButton
-      Action = OptionsAction
-      Align = Left
-      Position.X = 450.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
-    end
-    object SettingsButton: TSpeedButton
-      Action = SettingsAction
-      Align = Left
-      Margins.Left = 10.000000000000000000
-      Position.X = 492.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 32.000000000000000000
-      Size.Height = 30.000000000000000000
-      Size.PlatformDefault = False
+      StyleLookup = 'ribbontabstyle'
+      TabOrder = 4
+      Text = 'View'
+      object ViewBar: TToolBar
+        Align = Client
+        Padding.Left = 6.000000000000000000
+        Padding.Top = 4.000000000000000000
+        Padding.Bottom = 4.000000000000000000
+        Size.Width = 1100.000000000000000000
+        Size.Height = 70.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+      end
     end
   end
   object FindBar: TLayout
@@ -485,7 +432,7 @@ object MainForm: TMainForm
     Padding.Top = 6.000000000000000000
     Padding.Right = 6.000000000000000000
     Padding.Bottom = 6.000000000000000000
-    Position.Y = 60.000000000000000000
+    Position.Y = 120.000000000000000000
     Size.Width = 1100.000000000000000000
     Size.Height = 38.000000000000000000
     Size.PlatformDefault = False
@@ -674,5 +621,63 @@ object MainForm: TMainForm
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 520
     Top = 80
+  end
+  object FileView: TMultiView
+    MasterButton = FileTab
+    Mode = Drawer
+    Size.Width = 560.000000000000000000
+    Size.Height = 640.000000000000000000
+    Size.PlatformDefault = False
+    object Backstage: TPanel
+      Align = Left
+      Size.Width = 200.000000000000000000
+      Size.Height = 640.000000000000000000
+      Size.PlatformDefault = False
+      StyleLookup = 'backstagestyle'
+      TabOrder = 0
+      object BackstageTitle: TLabel
+        Align = Top
+        Margins.Left = 16.000000000000000000
+        Margins.Top = 12.000000000000000000
+        Size.Width = 184.000000000000000000
+        Size.Height = 28.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'File'
+        TabOrder = 0
+      end
+    end
+    object BackstageRecent: TPanel
+      Align = Client
+      Size.Width = 360.000000000000000000
+      Size.Height = 640.000000000000000000
+      Size.PlatformDefault = False
+      StyleLookup = 'backstagerecentstyle'
+      TabOrder = 1
+      object RecentLabel: TLabel
+        Align = Top
+        Margins.Left = 16.000000000000000000
+        Margins.Top = 12.000000000000000000
+        Size.Width = 344.000000000000000000
+        Size.Height = 28.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Recent Projects'
+        TabOrder = 0
+      end
+      object RecentList: TListBox
+        Align = Client
+        Margins.Left = 8.000000000000000000
+        Margins.Top = 4.000000000000000000
+        Margins.Right = 8.000000000000000000
+        Margins.Bottom = 8.000000000000000000
+        Size.Width = 344.000000000000000000
+        Size.Height = 588.000000000000000000
+        Size.PlatformDefault = False
+        StyleLookup = 'transparentlistboxstyle'
+        TabOrder = 1
+        OnItemClick = RecentListItemClick
+        Viewport.Width = 344.000000000000000000
+        Viewport.Height = 588.000000000000000000
+      end
+    end
   end
 end

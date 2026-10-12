@@ -9,23 +9,25 @@ drop-down, the grid's header bar) falls back to the platform's own FMX style.
 """
 import os
 
-# ---- the palette: TechnoGraph Freestyler's (Mark's earlier FMX app) ----
-CHROME = 'xFF181D24'      # title bar, menu bar, tab strip: the darkest
-WINDOW = 'xFF29303A'      # form background
-PANEL = 'xFF29303A'       # toolbar (the ribbon's body), drop-down menus, unselected tabs
-STATUS = 'xFF20242D'      # status bar
-SIDE = 'xFF3B4453'        # side panels: the Project Manager
+# ---- the palette: TechnoGraph Freestyler's (Mark's earlier FMX app). Exact values from its AppStyle.style
+# (the Inventor styles); the rest, which it sets on the form rather than in the style, read from a screenshot ----
+CHROME = 'xFF181D24'      # title bar, menu bar, tab strip: the darkest (screenshot: Freestyler's title bar)
+WINDOW = 'xFF222933'      # form background (backgroundstyle)
+PANEL = 'xFF29303A'       # toolbar (the ribbon's body), unselected tabs (screenshot)
+MENU = 'xFF3B4453'        # drop-down menus (menuviewstyle), edged in WINDOW
+STATUS = 'xFF2E3440'      # status bar (StatusBarstyle)
+SIDE = 'xFF3B4453'        # side panels: the Project Manager (panelStyleInventor, TreeViewStyleInventor)
 SURFACE = 'xFF3B4453'     # buttons
-HOVER = 'xFF454F61'
-PRESSED = 'xFF28303B'
-INPUT = 'xFF1F242D'       # edit boxes, memos
-BORDER = 'xFF58677C'
-DIVIDER = 'xFF7789A5'     # dividing lines
-ACCENT = 'xFF0075FF'      # focus, ticks, selection
-SELECTION = 'x800075FF'   # selected text: the accent, half seen through
-HOT = 'xFFA75B1B'         # the open menu on the menu bar: Freestyler's orange File tab
-TEXT = 'xFFFDFDFD'
-DIM = 'xFF9B9B9B'
+HOVER = 'xFF454F61'       # (screenshot: the middle panel)
+PRESSED = 'xFF28303B'     # (menubaritemstyle)
+INPUT = 'xFF2C3340'       # edit boxes, memos (editstyle, InventorComboBoxStyle)
+BORDER = 'xFF58677C'      # (screenshot)
+DIVIDER = 'xFF616B7E'     # dividing lines (inventormenuseparatorstyle)
+ACCENT = 'xFF0F90CA'      # focus (editstyle's focus animation), ticks
+SELECTION = 'x800696D7'   # selection: TreeViewStyleInventor's blue, half seen through
+HOT = 'xFFEF8227'         # the open menu on the menu bar: Freestyler's File tab (tabItemFilestyle)
+TEXT = 'xFFFDFDFD'        # (labelstyle)
+DIM = 'xFFA8B3C2'         # (InventorComboBoxStyle's arrow)
 THUMB = 'xFF58677C'
 CLEAR = 'x00000000'
 TEXT_SIZE = 12
@@ -277,7 +279,7 @@ def styles():
         rect(None, HOT, None, 2, Opacity=0).add(fade('IsSelected')),
         text('text', halign='Center', wrap=False, align='Left', **sized(40, None, Margins__Left=8, Margins__Right=8))))
     s.append(Obj('TLayout', StyleName=q('menuviewstyle')).add(
-        rect(None, PANEL, BORDER, align='Client'),
+        rect(None, MENU, WINDOW, align='Client'),
         Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=2, Margins__Top=2,
             Margins__Right=2, Margins__Bottom=2)))
     check = Obj('TLayout', StyleName=q('checkmark'), Align='Contents', Opacity=0).add(
@@ -300,7 +302,7 @@ def styles():
         input_box().add(Obj('TLayout', **sized(22, None, StyleName=q('arrow'), Align='Right')).add(glyph('\u25BE', DIM))),
         Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=4, Margins__Right=24),
         *text_parts()))
-    s.append(rect('combopopupstyle', PANEL, BORDER, align=None))
+    s.append(rect('combopopupstyle', MENU, WINDOW, align=None))
     s.append(Obj('TLayout', StyleName=q('listboxstyle')).add(
         Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color=INPUT),
         rect('background', INPUT, BORDER, **INSET).add(
@@ -310,6 +312,36 @@ def styles():
         rect(None, HOVER, None, Opacity=0).add(fade('IsMouseOver')),
         rect(None, SELECTION, None, Opacity=0).add(fade('IsSelected')),
         text('text', halign='Leading', wrap=False, Margins__Left=6)))
+    # the ribbon (Freestyler's): tabs on the dark strip, the one on show joining the ribbon's body; File, in
+    # Freestyler's orange, opens the File panel (a TMultiView) instead of a page
+    s.append(Obj('TLayout', StyleName=q('ribbontabstyle')).add(
+        rect('top', CHROME, None).add(
+            colour_anim('Fill.Color', CHROME, HOVER, 'IsMouseOver'),
+            colour_anim('Fill.Color', CHROME, PANEL, 'IsSelected'),
+            text('text', Margins__Left=14, Margins__Right=14, wrap=False)),
+        Obj('TLayout', StyleName=q('bottom'), Align='Contents', Visible=False)))
+    s.append(Obj('TLayout', StyleName=q('filetabstyle')).add(
+        rect('top', HOT, None).add(text('text', Margins__Left=16, Margins__Right=16, wrap=False)),
+        Obj('TLayout', StyleName=q('bottom'), Align='Contents', Visible=False)))
+    # a ribbon button: its picture (a character of the icon font, added by Hasten) above, its name below
+    s.append(rect('ribbonbuttonstyle', CLEAR, None, 3, align=None).add(
+        colour_anim('Fill.Color', CLEAR, HOVER, 'IsMouseOver'),
+        colour_anim('Fill.Color', HOVER, PRESSED, 'IsPressed'),
+        text('text', align='Bottom', wrap=False, **sized(None, 20, Margins__Bottom=2))))
+    s.append(rect('ribbonseparatorstyle', DIVIDER, align=None))
+    # the File panel: commands on the left, recent projects beside them
+    s.append(rect('multiviewstyle', WINDOW, align=None).add(
+        Obj('TBrushObject', StyleName=q('dropline'), Brush__Color=CHROME)))
+    s.append(rect('backstagestyle', SIDE, align=None))
+    s.append(rect('backstagerecentstyle', HOVER, align=None))
+    s.append(rect('backstagebuttonstyle', CLEAR, None, align=None).add(
+        colour_anim('Fill.Color', CLEAR, PRESSED, 'IsMouseOver'),
+        text('text', halign='Leading', wrap=False, Margins__Left=48)))
+    s.append(Obj('TLayout', StyleName=q('transparentlistboxstyle')).add(
+        Obj('TLayout', StyleName=q('background'), Align='Contents').add(
+            Obj('TLayout', StyleName=q('content'), Align='Client'),
+            *scrollbars())))
+
     # the window's own frame: title bar, its buttons and the edges, drawn in the style (FMX on Windows). The
     # parts are in the order FMX's own styles give them: the mask, the bottom edge, the title bar, the client
     # area, the side edges. Every part takes the mouse (HitTest), the client area too: FMX tells Windows what

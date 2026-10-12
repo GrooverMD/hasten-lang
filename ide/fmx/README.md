@@ -19,9 +19,11 @@ Build the types it was compiled with (View > Help Insight turns it off).
 Edit menu: Undo, Redo, Cut, Copy, Paste, Delete, Select All (on the editor or box with the focus, the output
 too), Find (Ctrl+F: a bar above the editor with Match case and Whole word; Enter, F3 the next, Shift+Enter,
 Shift+F3 the one before, wrapping round; Esc closes it) and Go to Line (Ctrl+G).
-The toolbar: New, Open, Save; Undo, Redo, Cut, Copy, Paste; Find; Run, Build, Stop, Tests, Options; Settings,
-each with its keys in its hint. On Windows the pictures are characters of Segoe MDL2 Assets; on macOS and Linux
-the buttons show words.
+The ribbon (as TechnoGraph Freestyler's): File, in orange, opens the File panel (a TMultiView: New, Open,
+Save, Save As, Close, Settings, Exit, and the recent projects); Home (Undo ... Paste, Select All, Find, Next,
+Previous, Go to Line), Project, Run and View are pages of large buttons, each with its keys in its hint. On
+Windows the pictures are characters of Segoe MDL2 Assets; on macOS and Linux the buttons show their names. The
+menu bar stays on a Mac only; elsewhere Hasten takes the shortcuts itself.
 Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX: VCL styles.
 
 ## Build

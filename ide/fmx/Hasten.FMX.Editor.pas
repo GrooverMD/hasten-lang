@@ -108,7 +108,7 @@ const
 {$ELSE}
   MonoFont = 'DejaVu Sans Mono';
 {$ENDIF}
-  EditorBackground = $FF1E1E1E;
+  EditorBackground = $FF1D2228;                 // HasteSlate (Freestyler's canvas)
   EditorText = $FFD4D4D4;
   MarginColour = $30FFFFFF;
 

@@ -34,7 +34,7 @@ Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX:
 2. Open `HastenFMX.dpr` in Delphi and add the FMXRichMemo folder to the search path.
 3. The style: Hasten loads the first `.style` file beside the program into `MainForm.StyleBook1`, which every
    Hasten window uses, or else the first in a `styles` folder above it: run from where Delphi builds it, that is
-   `styles/HasteSlate.style`, Hasten's own (slate, steel-blue accent, 12 px text; vector shapes, no bitmaps).
+   `styles/HasteSlate.style`, Hasten's own (TechnoGraph Freestyler's slate-blue palette, a blue accent, 12 px text; vector shapes, no bitmaps).
    `styles/make_hasteslate.py` writes it: change the palette there and run it again. Keep `StyleBook1` empty in
    the designer; `.gitignore` leaves out every `.style` but HasteSlate.
 4. Build for Windows 64-bit; then macOS and Linux (FMXLinux) if you have them. Hasten finds `haste.py` up to

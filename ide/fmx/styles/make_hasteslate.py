@@ -1,4 +1,5 @@
-"""Writes HasteSlate.style, Hasten's own FMX style: slate panels, a steel-blue accent, light text at 12 px.
+"""Writes HasteSlate.style, Hasten's own FMX style: TechnoGraph Freestyler's slate-blue palette, a blue accent,
+Freestyler's orange for the open menu, light text at 12 px.
 
 Everything is drawn with vector shapes (rectangles, circles, paths) in the colours below: no bitmaps, nothing
 taken from another style. It covers the controls Hasten uses; a control it does not cover (the font combo's
@@ -8,19 +9,24 @@ drop-down, the grid's header bar) falls back to the platform's own FMX style.
 """
 import os
 
-# ---- the palette ----
-WINDOW = 'xFF2B3640'      # form background
-PANEL = 'xFF242D36'       # toolbar, status bar, tab strip
-SURFACE = 'xFF3A4652'     # buttons
-HOVER = 'xFF46535F'
-PRESSED = 'xFF52606D'
-INPUT = 'xFF1F262D'       # edit boxes, memos, trees
-BORDER = 'xFF55626E'
-ACCENT = 'xFF4F8CC9'      # focus and selection
-SELECTION = 'x804F8CC9'   # selected text: the accent, half seen through
-TEXT = 'xFFE3E7EB'
-DIM = 'xFFA9B3BC'
-THUMB = 'xFF5E6B77'
+# ---- the palette: TechnoGraph Freestyler's (Mark's earlier FMX app) ----
+CHROME = 'xFF181D24'      # title bar, menu bar, tab strip: the darkest
+WINDOW = 'xFF29303A'      # form background
+PANEL = 'xFF29303A'       # toolbar (the ribbon's body), drop-down menus, unselected tabs
+STATUS = 'xFF20242D'      # status bar
+SIDE = 'xFF3B4453'        # side panels: the Project Manager
+SURFACE = 'xFF3B4453'     # buttons
+HOVER = 'xFF454F61'
+PRESSED = 'xFF28303B'
+INPUT = 'xFF1F242D'       # edit boxes, memos
+BORDER = 'xFF58677C'
+DIVIDER = 'xFF7789A5'     # dividing lines
+ACCENT = 'xFF0075FF'      # focus, ticks, selection
+SELECTION = 'x800075FF'   # selected text: the accent, half seen through
+HOT = 'xFFA75B1B'         # the open menu on the menu bar: Freestyler's orange File tab
+TEXT = 'xFFFDFDFD'
+DIM = 'xFF9B9B9B'
+THUMB = 'xFF58677C'
 CLEAR = 'x00000000'
 TEXT_SIZE = 12
 
@@ -169,11 +175,11 @@ def styles():
     s.append(button_style('buttonstyle', SURFACE, BORDER, 3))
     s.append(button_style('speedbuttonstyle', CLEAR, None, 3))
     s.append(rect('toolbarstyle', PANEL, align=None))
-    s.append(rect('statusbarstyle', PANEL, align=None))
+    s.append(rect('statusbarstyle', STATUS, align=None))
     s.append(rect('splitterstyle', WINDOW, align=None))
 
     s.append(Obj('TLayout', StyleName=q('groupboxstyle')).add(
-        rect('background', CLEAR, BORDER, 4, Margins__Top=9),
+        rect('background', CLEAR, DIVIDER, 4, Margins__Top=9),
         text('text', color=DIM, align='None', **sized(300, 18, Position__X=10, Position__Y=0)),
     ))
 
@@ -215,12 +221,12 @@ def styles():
         s.append(rect(f'scrollbar{o}trackstyle', INPUT, align=None).add(
             Obj('TThumb', StyleName=q('thumb'), StyleLookup=q(lookup))))
         s.append(rect(lookup, THUMB, None, 3, align=None, Margins__Left=2, Margins__Top=2, Margins__Right=2,
-                      Margins__Bottom=2).add(colour_anim('Fill.Color', THUMB, BORDER, 'IsMouseOver')))
+                      Margins__Bottom=2).add(colour_anim('Fill.Color', THUMB, DIVIDER, 'IsMouseOver')))
 
     # the Project Manager
     s.append(Obj('TLayout', StyleName=q('treeviewstyle')).add(
-        Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color=INPUT),
-        rect('background', INPUT, None).add(
+        Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color=SIDE),
+        rect('background', SIDE, None).add(
             Obj('TLayout', StyleName=q('content'), Align='Client').add(
                 rect('selection', SELECTION, None, 2, align=None)),
             *scrollbars())))
@@ -234,8 +240,8 @@ def styles():
         glyph('\u25BE', DIM, Opacity=0).add(fade('IsExpanded'))))
 
     # editor tabs: the one on show joins the editor below it
-    s.append(rect('tabcontrolstyle', PANEL, align=None).add(
-        Obj('TBrushObject', StyleName=q('scrollbackground'), Brush__Color=PANEL)))
+    s.append(rect('tabcontrolstyle', CHROME, align=None).add(
+        Obj('TBrushObject', StyleName=q('scrollbackground'), Brush__Color=CHROME)))
     s.append(Obj('TLayout', StyleName=q('tabitemstyle')).add(
         rect('top', PANEL, None).add(
             colour_anim('Fill.Color', PANEL, HOVER, 'IsMouseOver'),
@@ -265,10 +271,10 @@ def styles():
 
     # menus: the menu bar (TMenuBar, drawn by FMX; the Mac keeps its own), its drop-downs and Hasten's
     # right-click menus
-    s.append(rect('menubarstyle', PANEL, align=None).add(Obj('TLayout', StyleName=q('content'), Align='Client')))
+    s.append(rect('menubarstyle', CHROME, align=None).add(Obj('TLayout', StyleName=q('content'), Align='Client')))
     s.append(Obj('TLayout', StyleName=q('menubaritemstyle')).add(
         rect(None, HOVER, None, 2, Opacity=0).add(fade('IsMouseOver')),
-        rect(None, PRESSED, None, 2, Opacity=0).add(fade('IsSelected')),
+        rect(None, HOT, None, 2, Opacity=0).add(fade('IsSelected')),
         text('text', halign='Center', wrap=False, align='Left', **sized(40, None, Margins__Left=8, Margins__Right=8))))
     s.append(Obj('TLayout', StyleName=q('menuviewstyle')).add(
         rect(None, PANEL, BORDER, align='Client'),
@@ -309,7 +315,7 @@ def styles():
     # area, the side edges. Every part takes the mouse (HitTest), the client area too: FMX tells Windows what
     # is under the mouse by the part it finds there, and with nothing found (a TLayout's HitTest is False
     # unless set) it answers title bar, so the form never gets a click.
-    title_bar = rect('caption-container', PANEL, align='Top', **sized(None, 32, HitTest=True))
+    title_bar = rect('caption-container', CHROME, align='Top', **sized(None, 32, HitTest=True))
     title_bar.add(
         Obj('TLayout', StyleName=q('caption'), Align='Contents', HitTest=True),          # drags the window
         Obj('TLayout', **sized(36, None, StyleName=q('icon'), Align='Left', HitTest=True,
@@ -323,7 +329,7 @@ def styles():
                                         Position__X=92)),
             text('title', halign='Leading', wrap=False, Margins__Left=4)))
     s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
-        rect('mask', PANEL, None, 6, Visible=False),
+        rect('mask', CHROME, None, 6, Visible=False),
         rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True)),   # edges: 2 px, so they can be
         title_bar,                                                                  # caught to resize the window
         Obj('TLayout', StyleName=q('client'), Align='Client', HitTest=True),   # see above

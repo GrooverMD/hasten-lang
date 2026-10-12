@@ -54,8 +54,8 @@ const
   Tick = 100;                                   // ms between looks at the mouse
   MaxTipWidth = 560;
   TipPadding = 8;
-  TipBackground = $FF2D2D30;
-  TipBorder = $FF5A5A5A;
+  TipBackground = $FF29303A;                   // HasteSlate's panel
+  TipBorder = $FF58677C;
 
 constructor THasteInsight.Create(AForm: TCommonCustomForm; ATabs: TTabControl);
 begin

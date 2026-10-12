@@ -11,7 +11,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'backgroundstyle'
-    Fill.Color = xFF2B3640
+    Fill.Color = xFF29303A
     HitTest = False
     Stroke.Kind = None
   end
@@ -22,29 +22,29 @@ object TStyleContainer
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
     StyleName = 'buttonstyle'
-    Fill.Color = xFF3A4652
+    Fill.Color = xFF3B4453
     HitTest = False
     XRadius = 3.000000000000000000
     YRadius = 3.000000000000000000
-    Stroke.Color = xFF55626E
+    Stroke.Color = xFF58677C
     object TColorAnimation
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
-      StartValue = xFF3A4652
-      StopValue = xFF46535F
+      StartValue = xFF3B4453
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
     object TColorAnimation
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
-      StartValue = xFF46535F
-      StopValue = xFF52606D
+      StartValue = xFF454F61
+      StopValue = xFF28303B
       Trigger = 'IsPressed=true'
       TriggerInverse = 'IsPressed=false'
     end
@@ -53,7 +53,7 @@ object TStyleContainer
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
@@ -67,15 +67,15 @@ object TStyleContainer
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
       StartValue = x00000000
-      StopValue = xFF46535F
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
     object TColorAnimation
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
-      StartValue = xFF46535F
-      StopValue = xFF52606D
+      StartValue = xFF454F61
+      StopValue = xFF28303B
       Trigger = 'IsPressed=true'
       TriggerInverse = 'IsPressed=false'
     end
@@ -84,24 +84,24 @@ object TStyleContainer
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
     StyleName = 'toolbarstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF29303A
     HitTest = False
     Stroke.Kind = None
   end
   object TRectangle
     StyleName = 'statusbarstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF20242D
     HitTest = False
     Stroke.Kind = None
   end
   object TRectangle
     StyleName = 'splitterstyle'
-    Fill.Color = xFF2B3640
+    Fill.Color = xFF29303A
     HitTest = False
     Stroke.Kind = None
   end
@@ -114,7 +114,7 @@ object TStyleContainer
       HitTest = False
       XRadius = 4.000000000000000000
       YRadius = 4.000000000000000000
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF7789A5
       Margins.Top = 9.000000000000000000
     end
     object TText
@@ -127,7 +127,7 @@ object TStyleContainer
       Size.Height = 18.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
     end
   end
   object TLayout
@@ -138,11 +138,11 @@ object TStyleContainer
       Size.PlatformDefault = False
       object TRectangle
         Align = Center
-        Fill.Color = xFF1F262D
+        Fill.Color = xFF1F242D
         HitTest = False
         XRadius = 2.000000000000000000
         YRadius = 2.000000000000000000
-        Stroke.Color = xFF55626E
+        Stroke.Color = xFF58677C
         Size.Width = 16.000000000000000000
         Size.Height = 16.000000000000000000
         Size.PlatformDefault = False
@@ -155,7 +155,7 @@ object TStyleContainer
           Size.PlatformDefault = False
           Opacity = 0.000000000000000000
           TextSettings.Font.Size = 13.000000000000000000
-          TextSettings.FontColor = xFF4F8CC9
+          TextSettings.FontColor = xFF0075FF
           object TFloatAnimation
             Duration = 0.100000000000000000
             PropertyName = 'Opacity'
@@ -173,7 +173,7 @@ object TStyleContainer
       HitTest = False
       Margins.Left = 4.000000000000000000
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Leading
     end
   end
@@ -186,8 +186,8 @@ object TStyleContainer
       object TCircle
         Align = Center
         HitTest = False
-        Fill.Color = xFF1F262D
-        Stroke.Color = xFF55626E
+        Fill.Color = xFF1F242D
+        Stroke.Color = xFF58677C
         Size.Width = 16.000000000000000000
         Size.Height = 16.000000000000000000
         Size.PlatformDefault = False
@@ -195,7 +195,7 @@ object TStyleContainer
           Align = Center
           HitTest = False
           Opacity = 0.000000000000000000
-          Fill.Color = xFF4F8CC9
+          Fill.Color = xFF0075FF
           Stroke.Kind = None
           Size.Width = 8.000000000000000000
           Size.Height = 8.000000000000000000
@@ -217,7 +217,7 @@ object TStyleContainer
       HitTest = False
       Margins.Left = 4.000000000000000000
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Leading
     end
   end
@@ -227,16 +227,16 @@ object TStyleContainer
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Stroke.Color'
-        StartValue = xFF55626E
-        StopValue = xFF4F8CC9
+        StartValue = xFF58677C
+        StopValue = xFF0075FF
         Trigger = 'IsFocused=true'
         TriggerInverse = 'IsFocused=false'
       end
@@ -255,15 +255,15 @@ object TStyleContainer
     end
     object TColorObject
       StyleName = 'caretcolor'
-      Color = xFFE3E7EB
+      Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'foreground'
-      Brush.Color = xFFE3E7EB
+      Brush.Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'selection'
-      Brush.Color = x804F8CC9
+      Brush.Color = x800075FF
     end
     object TFontObject
       StyleName = 'font'
@@ -276,16 +276,16 @@ object TStyleContainer
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Stroke.Color'
-        StartValue = xFF55626E
-        StopValue = xFF4F8CC9
+        StartValue = xFF58677C
+        StopValue = xFF0075FF
         Trigger = 'IsFocused=true'
         TriggerInverse = 'IsFocused=false'
       end
@@ -314,15 +314,15 @@ object TStyleContainer
     end
     object TColorObject
       StyleName = 'caretcolor'
-      Color = xFFE3E7EB
+      Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'foreground'
-      Brush.Color = xFFE3E7EB
+      Brush.Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'selection'
-      Brush.Color = x804F8CC9
+      Brush.Color = x800075FF
     end
     object TFontObject
       StyleName = 'font'
@@ -337,15 +337,15 @@ object TStyleContainer
     end
     object TColorObject
       StyleName = 'caretcolor'
-      Color = xFFE3E7EB
+      Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'foreground'
-      Brush.Color = xFFE3E7EB
+      Brush.Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'selection'
-      Brush.Color = x804F8CC9
+      Brush.Color = x800075FF
     end
     object TFontObject
       StyleName = 'font'
@@ -357,11 +357,11 @@ object TStyleContainer
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       Padding.Left = 2.000000000000000000
       Padding.Top = 2.000000000000000000
       Padding.Right = 2.000000000000000000
@@ -369,8 +369,8 @@ object TStyleContainer
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Stroke.Color'
-        StartValue = xFF55626E
-        StopValue = xFF4F8CC9
+        StartValue = xFF58677C
+        StopValue = xFF0075FF
         Trigger = 'IsFocused=true'
         TriggerInverse = 'IsFocused=false'
       end
@@ -397,15 +397,15 @@ object TStyleContainer
     end
     object TColorObject
       StyleName = 'caretcolor'
-      Color = xFFE3E7EB
+      Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'foreground'
-      Brush.Color = xFFE3E7EB
+      Brush.Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'selection'
-      Brush.Color = x804F8CC9
+      Brush.Color = x800075FF
     end
     object TFontObject
       StyleName = 'font'
@@ -429,7 +429,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'scrollbarhtrackstyle'
-    Fill.Color = xFF1F262D
+    Fill.Color = xFF1F242D
     HitTest = False
     Stroke.Kind = None
     object TThumb
@@ -439,7 +439,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'hthumbstyle'
-    Fill.Color = xFF5E6B77
+    Fill.Color = xFF58677C
     HitTest = False
     XRadius = 3.000000000000000000
     YRadius = 3.000000000000000000
@@ -451,15 +451,15 @@ object TStyleContainer
     object TColorAnimation
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
-      StartValue = xFF5E6B77
-      StopValue = xFF55626E
+      StartValue = xFF58677C
+      StopValue = xFF7789A5
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
   end
   object TRectangle
     StyleName = 'scrollbarvtrackstyle'
-    Fill.Color = xFF1F262D
+    Fill.Color = xFF1F242D
     HitTest = False
     Stroke.Kind = None
     object TThumb
@@ -469,7 +469,7 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'vthumbstyle'
-    Fill.Color = xFF5E6B77
+    Fill.Color = xFF58677C
     HitTest = False
     XRadius = 3.000000000000000000
     YRadius = 3.000000000000000000
@@ -481,8 +481,8 @@ object TStyleContainer
     object TColorAnimation
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
-      StartValue = xFF5E6B77
-      StopValue = xFF55626E
+      StartValue = xFF58677C
+      StopValue = xFF7789A5
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
@@ -491,12 +491,12 @@ object TStyleContainer
     StyleName = 'treeviewstyle'
     object TBrushObject
       StyleName = 'AlternatingRowBackground'
-      Brush.Color = xFF1F262D
+      Brush.Color = xFF3B4453
     end
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF3B4453
       HitTest = False
       Stroke.Kind = None
       object TLayout
@@ -504,7 +504,7 @@ object TStyleContainer
         Align = Client
         object TRectangle
           StyleName = 'selection'
-          Fill.Color = x804F8CC9
+          Fill.Color = x800075FF
           HitTest = False
           XRadius = 2.000000000000000000
           YRadius = 2.000000000000000000
@@ -553,7 +553,7 @@ object TStyleContainer
         Align = Client
         HitTest = False
         TextSettings.Font.Size = 12.000000000000000000
-        TextSettings.FontColor = xFFE3E7EB
+        TextSettings.FontColor = xFFFDFDFD
         TextSettings.HorzAlign = Leading
         TextSettings.WordWrap = False
       end
@@ -569,7 +569,7 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'
@@ -588,7 +588,7 @@ object TStyleContainer
       Size.PlatformDefault = False
       Opacity = 0.000000000000000000
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
       object TFloatAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Opacity'
@@ -601,12 +601,12 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'tabcontrolstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF181D24
     HitTest = False
     Stroke.Kind = None
     object TBrushObject
       StyleName = 'scrollbackground'
-      Brush.Color = xFF242D36
+      Brush.Color = xFF181D24
     end
   end
   object TLayout
@@ -614,22 +614,22 @@ object TStyleContainer
     object TRectangle
       StyleName = 'top'
       Align = Contents
-      Fill.Color = xFF242D36
+      Fill.Color = xFF29303A
       HitTest = False
       Stroke.Kind = None
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Fill.Color'
-        StartValue = xFF242D36
-        StopValue = xFF46535F
+        StartValue = xFF29303A
+        StopValue = xFF454F61
         Trigger = 'IsMouseOver=true'
         TriggerInverse = 'IsMouseOver=false'
       end
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Fill.Color'
-        StartValue = xFF242D36
-        StopValue = xFF1F262D
+        StartValue = xFF29303A
+        StopValue = xFF1F242D
         Trigger = 'IsSelected=true'
         TriggerInverse = 'IsSelected=false'
       end
@@ -640,7 +640,7 @@ object TStyleContainer
         Margins.Left = 12.000000000000000000
         Margins.Right = 12.000000000000000000
         TextSettings.Font.Size = 12.000000000000000000
-        TextSettings.FontColor = xFFE3E7EB
+        TextSettings.FontColor = xFFFDFDFD
         TextSettings.WordWrap = False
       end
     end
@@ -658,14 +658,14 @@ object TStyleContainer
     end
     object TBrushObject
       StyleName = 'linefill'
-      Brush.Color = xFF55626E
+      Brush.Color = xFF58677C
     end
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       Padding.Left = 2.000000000000000000
       Padding.Top = 2.000000000000000000
       Padding.Right = 2.000000000000000000
@@ -681,7 +681,7 @@ object TStyleContainer
         Align = Client
         object TRectangle
           StyleName = 'selection'
-          Fill.Color = x804F8CC9
+          Fill.Color = x800075FF
           HitTest = False
           Stroke.Kind = None
         end
@@ -689,7 +689,7 @@ object TStyleContainer
           StyleName = 'focus'
           Fill.Color = x00000000
           HitTest = False
-          Stroke.Color = xFF4F8CC9
+          Stroke.Color = xFF0075FF
         end
       end
       object TScrollBar
@@ -712,23 +712,23 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'headeritemstyle'
-    Fill.Color = xFF3A4652
+    Fill.Color = xFF3B4453
     HitTest = False
-    Stroke.Color = xFF55626E
+    Stroke.Color = xFF58677C
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       Margins.Left = 6.000000000000000000
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Leading
       TextSettings.WordWrap = False
     end
   end
   object TRectangle
     StyleName = 'headerstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF29303A
     HitTest = False
     Stroke.Kind = None
     object TLayout
@@ -747,7 +747,7 @@ object TStyleContainer
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
       StartValue = x00000000
-      StopValue = xFF46535F
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
@@ -759,14 +759,14 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
     end
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
@@ -780,7 +780,7 @@ object TStyleContainer
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
       StartValue = x00000000
-      StopValue = xFF46535F
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
@@ -792,19 +792,19 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
     end
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
     StyleName = 'menubarstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF181D24
     HitTest = False
     Stroke.Kind = None
     object TLayout
@@ -816,7 +816,7 @@ object TStyleContainer
     StyleName = 'menubaritemstyle'
     object TRectangle
       Align = Contents
-      Fill.Color = xFF46535F
+      Fill.Color = xFF454F61
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
@@ -833,7 +833,7 @@ object TStyleContainer
     end
     object TRectangle
       Align = Contents
-      Fill.Color = xFF52606D
+      Fill.Color = xFFA75B1B
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
@@ -857,7 +857,7 @@ object TStyleContainer
       Size.Width = 40.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Center
       TextSettings.WordWrap = False
     end
@@ -866,9 +866,9 @@ object TStyleContainer
     StyleName = 'menuviewstyle'
     object TRectangle
       Align = Client
-      Fill.Color = xFF242D36
+      Fill.Color = xFF29303A
       HitTest = False
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
     end
     object TLayout
       StyleName = 'content'
@@ -885,7 +885,7 @@ object TStyleContainer
     Size.PlatformDefault = False
     object TRectangle
       Align = Contents
-      Fill.Color = x804F8CC9
+      Fill.Color = x800075FF
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
@@ -905,7 +905,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = x804F8CC9
+      Fill.Color = x800075FF
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
@@ -939,7 +939,7 @@ object TStyleContainer
           Size.Height = 16.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 12.000000000000000000
-          TextSettings.FontColor = xFF4F8CC9
+          TextSettings.FontColor = xFF0075FF
         end
         object TFloatAnimation
           Duration = 0.100000000000000000
@@ -959,7 +959,7 @@ object TStyleContainer
       Size.Width = 50.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Leading
       TextSettings.WordWrap = False
     end
@@ -972,7 +972,7 @@ object TStyleContainer
       Size.Width = 50.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.FontColor = xFF9B9B9B
       TextSettings.HorzAlign = Leading
       TextSettings.WordWrap = False
     end
@@ -989,7 +989,7 @@ object TStyleContainer
         Size.Height = 16.000000000000000000
         Size.PlatformDefault = False
         TextSettings.Font.Size = 12.000000000000000000
-        TextSettings.FontColor = xFFA9B3BC
+        TextSettings.FontColor = xFF9B9B9B
       end
     end
   end
@@ -999,7 +999,7 @@ object TStyleContainer
     Size.PlatformDefault = False
     object TRectangle
       Align = VertCenter
-      Fill.Color = xFF55626E
+      Fill.Color = xFF58677C
       HitTest = False
       Stroke.Kind = None
       Margins.Left = 38.000000000000000000
@@ -1014,16 +1014,16 @@ object TStyleContainer
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Stroke.Color'
-        StartValue = xFF55626E
-        StopValue = xFF4F8CC9
+        StartValue = xFF58677C
+        StopValue = xFF0075FF
         Trigger = 'IsFocused=true'
         TriggerInverse = 'IsFocused=false'
       end
@@ -1040,7 +1040,7 @@ object TStyleContainer
           Size.Height = 16.000000000000000000
           Size.PlatformDefault = False
           TextSettings.Font.Size = 12.000000000000000000
-          TextSettings.FontColor = xFFA9B3BC
+          TextSettings.FontColor = xFF9B9B9B
         end
       end
     end
@@ -1052,15 +1052,15 @@ object TStyleContainer
     end
     object TColorObject
       StyleName = 'caretcolor'
-      Color = xFFE3E7EB
+      Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'foreground'
-      Brush.Color = xFFE3E7EB
+      Brush.Color = xFFFDFDFD
     end
     object TBrushObject
       StyleName = 'selection'
-      Brush.Color = x804F8CC9
+      Brush.Color = x800075FF
     end
     object TFontObject
       StyleName = 'font'
@@ -1069,22 +1069,22 @@ object TStyleContainer
   end
   object TRectangle
     StyleName = 'combopopupstyle'
-    Fill.Color = xFF242D36
+    Fill.Color = xFF29303A
     HitTest = False
-    Stroke.Color = xFF55626E
+    Stroke.Color = xFF58677C
   end
   object TLayout
     StyleName = 'listboxstyle'
     object TBrushObject
       StyleName = 'AlternatingRowBackground'
-      Brush.Color = xFF1F262D
+      Brush.Color = xFF1F242D
     end
     object TRectangle
       StyleName = 'background'
       Align = Contents
-      Fill.Color = xFF1F262D
+      Fill.Color = xFF1F242D
       HitTest = False
-      Stroke.Color = xFF55626E
+      Stroke.Color = xFF58677C
       Padding.Left = 2.000000000000000000
       Padding.Top = 2.000000000000000000
       Padding.Right = 2.000000000000000000
@@ -1115,7 +1115,7 @@ object TStyleContainer
     StyleName = 'listboxitemstyle'
     object TRectangle
       Align = Contents
-      Fill.Color = xFF46535F
+      Fill.Color = xFF454F61
       HitTest = False
       Stroke.Kind = None
       Opacity = 0.000000000000000000
@@ -1130,7 +1130,7 @@ object TStyleContainer
     end
     object TRectangle
       Align = Contents
-      Fill.Color = x804F8CC9
+      Fill.Color = x800075FF
       HitTest = False
       Stroke.Kind = None
       Opacity = 0.000000000000000000
@@ -1149,7 +1149,7 @@ object TStyleContainer
       HitTest = False
       Margins.Left = 6.000000000000000000
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
       TextSettings.HorzAlign = Leading
       TextSettings.WordWrap = False
     end
@@ -1159,7 +1159,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'mask'
       Align = Contents
-      Fill.Color = xFF242D36
+      Fill.Color = xFF181D24
       HitTest = False
       XRadius = 6.000000000000000000
       YRadius = 6.000000000000000000
@@ -1169,7 +1169,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'bottom'
       Align = Bottom
-      Fill.Color = xFF55626E
+      Fill.Color = xFF58677C
       HitTest = True
       Stroke.Kind = None
       Size.Height = 2.000000000000000000
@@ -1178,7 +1178,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'caption-container'
       Align = Top
-      Fill.Color = xFF242D36
+      Fill.Color = xFF181D24
       HitTest = True
       Stroke.Kind = None
       Size.Height = 32.000000000000000000
@@ -1231,7 +1231,7 @@ object TStyleContainer
           HitTest = False
           Margins.Left = 4.000000000000000000
           TextSettings.Font.Size = 12.000000000000000000
-          TextSettings.FontColor = xFFE3E7EB
+          TextSettings.FontColor = xFFFDFDFD
           TextSettings.HorzAlign = Leading
           TextSettings.WordWrap = False
         end
@@ -1245,7 +1245,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'left'
       Align = Left
-      Fill.Color = xFF55626E
+      Fill.Color = xFF58677C
       HitTest = True
       Stroke.Kind = None
       Size.Width = 2.000000000000000000
@@ -1254,7 +1254,7 @@ object TStyleContainer
     object TRectangle
       StyleName = 'right'
       Align = Right
-      Fill.Color = xFF55626E
+      Fill.Color = xFF58677C
       HitTest = True
       Stroke.Kind = None
       Size.Width = 2.000000000000000000
@@ -1282,14 +1282,14 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
@@ -1301,7 +1301,7 @@ object TStyleContainer
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
       StartValue = x00000000
-      StopValue = xFF46535F
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
@@ -1313,14 +1313,14 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
   object TRectangle
@@ -1332,7 +1332,7 @@ object TStyleContainer
       Duration = 0.100000000000000000
       PropertyName = 'Fill.Color'
       StartValue = x00000000
-      StopValue = xFF46535F
+      StopValue = xFF454F61
       Trigger = 'IsMouseOver=true'
       TriggerInverse = 'IsMouseOver=false'
     end
@@ -1344,14 +1344,14 @@ object TStyleContainer
       Size.Height = 16.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
     object TText
       StyleName = 'text'
       Align = Client
       HitTest = False
       TextSettings.Font.Size = 12.000000000000000000
-      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.FontColor = xFFFDFDFD
     end
   end
 end

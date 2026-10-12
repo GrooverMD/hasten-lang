@@ -13,7 +13,7 @@ uses
   System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, Hasten.Runner,
-  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Hasten.FMX.TitleBar, Syntax.Code.Haste;
+  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
 
 type
   TMainForm = class(TForm)
@@ -249,8 +249,6 @@ type
     procedure FindAgain(Backwards: Boolean);
     procedure SetUpToolBar;
     procedure LoadStyle;
-  protected
-    procedure CreateHandle; override;
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
@@ -354,12 +352,6 @@ begin
   while (O <> nil) and (O <> Result.Memo) do
     O := O.Parent;
   if O = nil then Result := nil;
-end;
-
-procedure TMainForm.CreateHandle;
-begin
-  inherited;
-  ColourTitleBar(Self);                         // Windows' own frame, in HasteSlate's colours
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);

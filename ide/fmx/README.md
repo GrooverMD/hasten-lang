@@ -50,7 +50,6 @@ Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX:
 | `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
 | `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
-| `Hasten.FMX.TitleBar.pas` | Windows' own title bar and edges in HasteSlate's colours (Windows 11; a dark title bar on Windows 10) |
 | `Hasten.FMX.Text.pas` | One text size for the window whatever the style (some draw everything at 16 px): Tools > Settings > Window, 12 px (9 pt) by default |
 | `Hasten.FMX.Insight.pas` | Help Insight: watches the mouse and draws the tip |
 | `../common/Hasten.Names.pas` | What each name is, from `haste.py words` and a build's `specialised:` line (shared with VCL) |

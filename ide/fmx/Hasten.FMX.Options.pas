@@ -42,8 +42,6 @@ type
     procedure SetValue(const Name, Value: string);
     function GetSwitchCount: Integer;
     function GetSwitch(Index: Integer): TSwitchInfo;
-  protected
-    procedure CreateHandle; override;
   public
     procedure LoadSwitches(Source: TStrings);
     function Execute(const Name: string; IsProject: Boolean): Boolean;
@@ -56,15 +54,9 @@ type
 implementation
 
 uses
-  Hasten.FMX.Main, Hasten.FMX.TitleBar;         // MainForm.StyleBook1 (the style of every window); the title bar
+  Hasten.FMX.Main;                              // MainForm.StyleBook1, the style of every Hasten window
 
 {$R *.fmx}
-
-procedure TOptionsForm.CreateHandle;
-begin
-  inherited;
-  ColourTitleBar(Self);
-end;
 
 const
   TargetNames: array[0..3] of string = ('windows', 'macos', 'macos-x64', 'linux');

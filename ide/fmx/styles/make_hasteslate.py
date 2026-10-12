@@ -23,10 +23,6 @@ DIM = 'xFFA9B3BC'
 THUMB = 'xFF5E6B77'
 CLEAR = 'x00000000'
 TEXT_SIZE = 12
-WINDOW_FRAME = False      # True: windowborderstyle, FMX draws the title bar and edges. Off: with it the form took
-                          # no clicks (FMX); Windows draws the frame, coloured to match (Hasten.FMX.TitleBar)
-CLIENT_HITTEST = True     # the frame's client part takes the mouse, so FMX finds it there and reports the
-                          # client area to Windows; with nothing found it may report title bar (no clicks reach the form)
 
 
 def f(v):
@@ -305,8 +301,9 @@ def styles():
         text('text', halign='Leading', wrap=False, Margins__Left=6)))
     # the window's own frame: title bar, its buttons and the edges, drawn in the style (FMX on Windows). The
     # parts are in the order FMX's own styles give them: the mask, the bottom edge, the title bar, the client
-    # area, the side edges. The title bar and the edges take the mouse (to drag and to resize); the client
-    # area does not, so the form below gets it.
+    # area, the side edges. Every part takes the mouse (HitTest), the client area too: FMX tells Windows what
+    # is under the mouse by the part it finds there, and with nothing found (a TLayout's HitTest is False
+    # unless set) it answers title bar, so the form never gets a click.
     title_bar = rect('caption-container', PANEL, align='Top', **sized(None, 32, HitTest=True))
     title_bar.add(
         Obj('TLayout', StyleName=q('caption'), Align='Contents', HitTest=True),          # drags the window
@@ -320,14 +317,13 @@ def styles():
             Obj('TSpeedButton', **sized(46, None, StyleName=q('close'), Align='Right', StyleLookup=q('closebtnstyle'),
                                         Position__X=92)),
             text('title', halign='Leading', wrap=False, Margins__Left=4)))
-    if WINDOW_FRAME:
-        s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
-            rect('mask', PANEL, None, 6, Visible=False),
-            rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True)),   # edges: 2 px, so they can be
-            title_bar,                                                                  # caught to resize the window
-            Obj('TLayout', StyleName=q('client'), Align='Client', HitTest=CLIENT_HITTEST),
-            rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
-            rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
+    s.append(Obj('TLayout', StyleName=q('windowborderstyle')).add(
+        rect('mask', PANEL, None, 6, Visible=False),
+        rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True)),   # edges: 2 px, so they can be
+        title_bar,                                                                  # caught to resize the window
+        Obj('TLayout', StyleName=q('client'), Align='Client', HitTest=True),   # see above
+        rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
+        rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
     for name, char, hot in (('closebtnstyle', '\u2715', 'xFFC42B1C'), ('maxbtnstyle', '\u25A1', HOVER),
                             ('minbtnstyle', '\u2014', HOVER)):
         s.append(rect(name, CLEAR, align=None).add(

@@ -1144,6 +1144,113 @@ object TStyleContainer
       TextSettings.WordWrap = False
     end
   end
+  object TLayout
+    StyleName = 'windowborderstyle'
+    object TRectangle
+      StyleName = 'mask'
+      Align = Contents
+      Fill.Color = xFF242D36
+      HitTest = False
+      XRadius = 6.000000000000000000
+      YRadius = 6.000000000000000000
+      Stroke.Kind = None
+      Visible = False
+    end
+    object TRectangle
+      StyleName = 'bottom'
+      Align = Bottom
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Height = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TRectangle
+      StyleName = 'caption-container'
+      Align = Top
+      Fill.Color = xFF242D36
+      HitTest = True
+      Stroke.Kind = None
+      Size.Height = 32.000000000000000000
+      Size.PlatformDefault = False
+      object TLayout
+        StyleName = 'caption'
+        Align = Contents
+        HitTest = True
+      end
+      object TLayout
+        StyleName = 'icon'
+        Align = Left
+        HitTest = True
+        Margins.Left = 8.000000000000000000
+        Margins.Top = 6.000000000000000000
+        Margins.Bottom = 6.000000000000000000
+        Size.Width = 36.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TLayout
+        StyleName = 'sysbtns'
+        Align = Client
+        object TSpeedButton
+          StyleName = 'min'
+          Align = Right
+          StyleLookup = 'minbtnstyle'
+          Position.X = 0.000000000000000000
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TSpeedButton
+          StyleName = 'max'
+          Align = Right
+          StyleLookup = 'maxbtnstyle'
+          Position.X = 46.000000000000000000
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TSpeedButton
+          StyleName = 'close'
+          Align = Right
+          StyleLookup = 'closebtnstyle'
+          Position.X = 92.000000000000000000
+          Size.Width = 46.000000000000000000
+          Size.PlatformDefault = False
+        end
+        object TText
+          StyleName = 'title'
+          Align = Client
+          HitTest = False
+          Margins.Left = 4.000000000000000000
+          TextSettings.Font.Size = 12.000000000000000000
+          TextSettings.FontColor = xFFE3E7EB
+          TextSettings.HorzAlign = Leading
+          TextSettings.WordWrap = False
+        end
+      end
+    end
+    object TLayout
+      StyleName = 'client'
+      Align = Client
+      HitTest = True
+    end
+    object TRectangle
+      StyleName = 'left'
+      Align = Left
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Width = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object TRectangle
+      StyleName = 'right'
+      Align = Right
+      Fill.Color = xFF55626E
+      HitTest = True
+      Stroke.Kind = None
+      Size.Width = 2.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
   object TRectangle
     StyleName = 'closebtnstyle'
     Fill.Color = x00000000

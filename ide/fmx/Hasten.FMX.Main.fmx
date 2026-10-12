@@ -39,6 +39,30 @@ object MainForm: TMainForm
         Action = ExitAction
       end
     end
+    object ProjectMenu: TMenuItem
+      Text = '&Project'
+      object NewProjectItem: TMenuItem
+        Action = NewProjectAction
+      end
+      object OpenProjectItem: TMenuItem
+        Action = OpenProjectAction
+      end
+      object RecentMenu: TMenuItem
+        Text = 'Recent Projects'
+      end
+      object SaveProjectItem: TMenuItem
+        Action = SaveProjectAction
+      end
+      object CloseProjectItem: TMenuItem
+        Action = CloseProjectAction
+      end
+      object ProjectSep: TMenuItem
+        Text = '-'
+      end
+      object OptionsItem: TMenuItem
+        Action = OptionsAction
+      end
+    end
     object RunMenu: TMenuItem
       Text = '&Run'
       object RunItem: TMenuItem
@@ -112,6 +136,26 @@ object MainForm: TMainForm
       Text = 'Where is &haste.py...'
       OnExecute = HastePyActionExecute
     end
+    object NewProjectAction: TAction
+      Text = '&New Project...'
+      OnExecute = NewProjectActionExecute
+    end
+    object OpenProjectAction: TAction
+      Text = '&Open Project...'
+      OnExecute = OpenProjectActionExecute
+    end
+    object SaveProjectAction: TAction
+      Text = '&Save Project'
+      OnExecute = SaveProjectActionExecute
+    end
+    object CloseProjectAction: TAction
+      Text = '&Close Project'
+      OnExecute = CloseProjectActionExecute
+    end
+    object OptionsAction: TAction
+      Text = 'Module &Options...'
+      OnExecute = OptionsActionExecute
+    end
   end
   object StatusBar: TStatusBar
     Position.Y = 738.000000000000000000
@@ -154,6 +198,29 @@ object MainForm: TMainForm
     Size.Height = 4.000000000000000000
     Size.PlatformDefault = False
   end
+  object ProjectTree: TTreeView
+    Align = Right
+    Position.X = 880.000000000000000000
+    Size.Width = 220.000000000000000000
+    Size.Height = 552.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 4
+    Visible = False
+    OnDblClick = ProjectTreeDblClick
+    PopupMenu = TreePopup
+    Viewport.Width = 216.000000000000000000
+    Viewport.Height = 548.000000000000000000
+  end
+  object TreeSplitter: TSplitter
+    Align = Right
+    Cursor = crHSplit
+    MinSize = 80.000000000000000000
+    Position.X = 876.000000000000000000
+    Size.Width = 4.000000000000000000
+    Size.Height = 552.000000000000000000
+    Size.PlatformDefault = False
+    Visible = False
+  end
   object Tabs: TTabControl
     Align = Client
     Size.Width = 1100.000000000000000000
@@ -181,6 +248,48 @@ object MainForm: TMainForm
     Filter = 'Haste files (*.haste)|*.haste|All files|*'
     Options = [ofHideReadOnly, ofOverwritePrompt, ofEnableSizing]
     Left = 360
+    Top = 80
+  end
+  object TreePopup: TPopupMenu
+    OnPopup = TreePopupPopup
+    Left = 440
+    Top = 80
+    object TreeOpenItem: TMenuItem
+      Text = 'Open'
+      OnClick = TreeOpenItemClick
+    end
+    object TreeProjectFileItem: TMenuItem
+      Text = 'Open Project File'
+      OnClick = TreeProjectFileItemClick
+    end
+    object TreeSep1: TMenuItem
+      Text = '-'
+    end
+    object TreeNewModuleItem: TMenuItem
+      Text = 'New Module...'
+      OnClick = TreeNewModuleItemClick
+    end
+    object TreeRenameItem: TMenuItem
+      Text = 'Rename...'
+      OnClick = TreeRenameItemClick
+    end
+    object TreeDeleteItem: TMenuItem
+      Text = 'Delete'
+      OnClick = TreeDeleteItemClick
+    end
+    object TreeSep2: TMenuItem
+      Text = '-'
+    end
+    object TreeRescanItem: TMenuItem
+      Text = 'Look Again'
+      OnClick = TreeRescanItemClick
+    end
+  end
+  object OpenProjectDialog: TOpenDialog
+    DefaultExt = 'hproj'
+    Filter = 'Hasten projects (*.hproj)|*.hproj'
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
+    Left = 520
     Top = 80
   end
 end

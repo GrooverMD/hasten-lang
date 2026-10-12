@@ -7,14 +7,10 @@ unit Hasten.ModuleOptions;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.StrUtils, System.RegularExpressions, Vcl.Controls, Vcl.Forms, Vcl.StdCtrls,
+  System.SysUtils, System.Classes, System.StrUtils, System.RegularExpressions, Hasten.Project, Vcl.Controls, Vcl.Forms, Vcl.StdCtrls,
   Vcl.Grids, Vcl.ExtCtrls;
 
 type
-  TSwitchInfo = record
-    Name, Default, Rule, Help: string;
-  end;
-
   TModuleOptionsDialog = class(TForm)
   private
     FThisSystem: TRadioButton;
@@ -42,57 +38,11 @@ type
     property Switches[Index: Integer]: TSwitchInfo read GetSwitch;
   end;
 
-{ The switches a program declares, read the way haste.py reads them:
-    switch Name[: type] = default [where rule]   // help }
-function ReadSwitches(Source: TStrings): TArray<TSwitchInfo>;
-
-{ --name value for every switch given a value, quoted where needed: what Run passes to the program. }
-function SwitchArgs(const Names, Values: TArray<string>): string;
-
 implementation
 
 const
   TargetNames: array[0..3] of string = ('windows', 'macos', 'macos-x64', 'linux');
   TargetCaptions: array[0..3] of string = ('Windows', 'macOS (Apple Silicon)', 'macOS (Intel)', 'Linux');
-
-function ReadSwitches(Source: TStrings): TArray<TSwitchInfo>;
-var
-  Line: string;
-  M: TMatch;
-  S: TSwitchInfo;
-begin
-  Result := nil;
-  for Line in Source do
-  begin
-    if not Line.TrimLeft.StartsWith('switch ') then Continue;
-    M := TRegEx.Match(Line, '^\s*switch\s+(\w+)\s*(?::\s*\w+\s*)?=\s*("(?:[^"\\]|\\.)*"|.+?)(?:\s+where\s+(.+?))?\s*(?://\s*(.*))?$');
-    if not M.Success then Continue;
-    S.Name := M.Groups[1].Value;
-    S.Default := M.Groups[2].Value;
-    S.Rule := '';
-    S.Help := '';
-    if (M.Groups.Count > 3) and M.Groups[3].Success then S.Rule := M.Groups[3].Value;
-    if (M.Groups.Count > 4) and M.Groups[4].Success then S.Help := M.Groups[4].Value;
-    Result := Result + [S];
-  end;
-end;
-
-function SwitchArgs(const Names, Values: TArray<string>): string;
-var
-  I: Integer;
-  V: string;
-begin
-  Result := '';
-  for I := 0 to High(Names) do
-  begin
-    V := Values[I].Trim;
-    if V = '' then Continue;
-    if V.Contains(' ') or V.Contains('"') then
-      V := '"' + V.Replace('"', '\"') + '"';
-    Result := Result + ' --' + Names[I].ToLower + ' ' + V;
-  end;
-  Result := Result.Trim;
-end;
 
 { ---- the dialog ---- }
 

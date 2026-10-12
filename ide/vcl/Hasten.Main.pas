@@ -11,7 +11,7 @@ uses
   System.RegularExpressions, System.Actions, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Menus, Vcl.ActnList, Vcl.Graphics, Vcl.Clipbrd, Vcl.Buttons, Vcl.Themes,
   SynEdit, SynEditTypes, SynEditSearch, SynHighlighterHasteOutput, Hasten.Highlighter, Hasten.Runner,
-  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions, Hasten.Insight, Hasten.ProjectTree;
+  Hasten.Watcher, Hasten.Settings, Hasten.ModuleOptions, Hasten.Insight, Hasten.ProjectTree, Hasten.Project;
 
 type
   TEditorTab = class(TTabSheet)
@@ -809,8 +809,7 @@ end;
 { Shapes\Rect.haste in the project folder is the module Shapes.Rect. }
 function TMainForm.ModuleNameOf(const FileName: string): string;
 begin
-  Result := ChangeFileExt(ExtractRelativePath(IncludeTrailingPathDelimiter(ExtractFileDir(FProject)), FileName),
-    '').Replace(PathDelim, '.');
+  Result := Hasten.Project.ModuleNameOf(ExtractFileDir(FProject), FileName);
 end;
 
 { A module renamed in the Project Manager: its tab follows, and the files that use it by its old name can be
@@ -819,7 +818,6 @@ procedure TMainForm.TreeRenamed(Sender: TObject; const OldName, NewName: string)
 var
   Tab: TEditorTab;
   OldMod, NewMod, F, Text, Changed: string;
-  Uses1, Uses2: TRegEx;
   Users: TArray<string>;
   Lines: TStringList;
 
@@ -833,8 +831,7 @@ var
 
   function Replaced(const S: string): string;
   begin
-    Result := Uses1.Replace(S, NewMod);
-    Result := Uses2.Replace(Result, '\1' + NewMod);
+    Result := RenameModuleUses(S, OldMod, NewMod);
   end;
 
 begin
@@ -843,8 +840,6 @@ begin
     Tab.FileName := NewName;
   OldMod := ModuleNameOf(OldName);
   NewMod := ModuleNameOf(NewName);
-  Uses1 := TRegEx.Create('(?<![\w.])' + TRegEx.Escape(OldMod) + '(?=\s*\.)');
-  Uses2 := TRegEx.Create('^(\s*alias\s+\w+\s*=\s*)' + TRegEx.Escape(OldMod) + '(?=\s*(//|$))', [roMultiLine]);
   Users := nil;
   for F in FTree.Files do
   begin

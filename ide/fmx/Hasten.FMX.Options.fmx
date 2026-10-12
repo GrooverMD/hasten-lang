@@ -1,0 +1,176 @@
+object OptionsForm: TOptionsForm
+  Left = 0
+  Top = 0
+  BorderIcons = [biSystemMenu]
+  Caption = 'Options'
+  ClientHeight = 520
+  ClientWidth = 480
+  Position = MainFormCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object BuildGroup: TGroupBox
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Size.Width = 464.000000000000000000
+    Size.Height = 232.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Build for'
+    TabOrder = 0
+    object ThisSystemRadio: TRadioButton
+      GroupName = 'BuildFor'
+      IsChecked = True
+      Position.X = 14.000000000000000000
+      Position.Y = 26.000000000000000000
+      Size.Width = 200.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'This system'
+      OnChange = BuildChange
+    end
+    object OtherRadio: TRadioButton
+      GroupName = 'BuildFor'
+      Position.X = 14.000000000000000000
+      Position.Y = 52.000000000000000000
+      Size.Width = 200.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Other'
+      OnChange = BuildChange
+    end
+    object TargetsGroup: TGroupBox
+      Enabled = False
+      Position.X = 14.000000000000000000
+      Position.Y = 80.000000000000000000
+      Size.Width = 436.000000000000000000
+      Size.Height = 140.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Targets'
+      TabOrder = 2
+      object WindowsCheck: TCheckBox
+        Position.X = 14.000000000000000000
+        Position.Y = 24.000000000000000000
+        Size.Width = 260.000000000000000000
+        Size.Height = 19.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        Text = 'Windows'
+      end
+      object MacCheck: TCheckBox
+        Position.X = 14.000000000000000000
+        Position.Y = 52.000000000000000000
+        Size.Width = 260.000000000000000000
+        Size.Height = 19.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        Text = 'macOS (Apple Silicon)'
+      end
+      object MacIntelCheck: TCheckBox
+        Position.X = 14.000000000000000000
+        Position.Y = 80.000000000000000000
+        Size.Width = 260.000000000000000000
+        Size.Height = 19.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 2
+        Text = 'macOS (Intel)'
+      end
+      object LinuxCheck: TCheckBox
+        Position.X = 14.000000000000000000
+        Position.Y = 108.000000000000000000
+        Size.Width = 260.000000000000000000
+        Size.Height = 19.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 3
+        Text = 'Linux'
+      end
+    end
+  end
+  object ButtonBar: TLayout
+    Align = Bottom
+    Position.Y = 476.000000000000000000
+    Size.Width = 480.000000000000000000
+    Size.Height = 44.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    object CancelButton: TButton
+      Align = Right
+      Cancel = True
+      Margins.Top = 8.000000000000000000
+      Margins.Right = 8.000000000000000000
+      Margins.Bottom = 8.000000000000000000
+      ModalResult = 2
+      Position.X = 382.000000000000000000
+      Position.Y = 8.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Cancel'
+    end
+    object OKButton: TButton
+      Align = Right
+      Default = True
+      Margins.Top = 8.000000000000000000
+      Margins.Right = 8.000000000000000000
+      Margins.Bottom = 8.000000000000000000
+      ModalResult = 1
+      Position.X = 284.000000000000000000
+      Position.Y = 8.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'OK'
+    end
+  end
+  object HelpLabel: TLabel
+    Align = Bottom
+    AutoSize = False
+    Margins.Left = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 436.000000000000000000
+    Size.Width = 464.000000000000000000
+    Size.Height = 40.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.WordWrap = True
+    TabOrder = 2
+  end
+  object Grid: TStringGrid
+    Align = Client
+    CanFocus = True
+    ClipChildren = True
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Size.Width = 464.000000000000000000
+    Size.Height = 188.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    RowCount = 0
+    Options = [Editing, ColumnResize, ColLines, RowLines, Tabs, Header, AlwaysShowEditor]
+    OnSelectCell = GridSelectCell
+    Viewport.Width = 460.000000000000000000
+    Viewport.Height = 163.000000000000000000
+    object SwitchColumn: TStringColumn
+      Header = 'Switch'
+      ReadOnly = True
+      Size.Width = 130.000000000000000000
+    end
+    object DefaultColumn: TStringColumn
+      Header = 'Default'
+      ReadOnly = True
+      Size.Width = 130.000000000000000000
+    end
+    object ValueColumn: TStringColumn
+      Header = 'Value'
+      ReadOnly = False
+      Size.Width = 180.000000000000000000
+    end
+  end
+end

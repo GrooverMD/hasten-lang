@@ -17,9 +17,11 @@ object MainForm: TMainForm
     Left = 600
     Top = 80
   end
-  object MainMenu: TMainMenu
-    Left = 40
-    Top = 80
+  object MainMenu: TMenuBar
+    Align = Top
+    Size.Width = 1100.000000000000000000
+    Size.Height = 24.000000000000000000
+    Size.PlatformDefault = False
     object FileMenu: TMenuItem
       Text = '&File'
       object NewItem: TMenuItem
@@ -329,6 +331,7 @@ object MainForm: TMainForm
     Size.PlatformDefault = False
   end
   object ToolBar: TToolBar
+    Position.Y = 24.000000000000000000
     Padding.Left = 4.000000000000000000
     Padding.Top = 3.000000000000000000
     Padding.Bottom = 3.000000000000000000
@@ -482,7 +485,7 @@ object MainForm: TMainForm
     Padding.Top = 6.000000000000000000
     Padding.Right = 6.000000000000000000
     Padding.Bottom = 6.000000000000000000
-    Position.Y = 36.000000000000000000
+    Position.Y = 60.000000000000000000
     Size.Width = 1100.000000000000000000
     Size.Height = 38.000000000000000000
     Size.PlatformDefault = False

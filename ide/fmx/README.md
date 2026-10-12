@@ -44,7 +44,7 @@ Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX:
 | File | |
 |---|---|
 | `HastenFMX.dpr` | The program |
-| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, toolbar, actions, find bar, tabs, output, Project Manager |
+| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: the menu bar (a `TMenuBar`, drawn in the style; the Mac's own menu bar there), toolbar, actions, find bar, tabs, output, Project Manager |
 | `Hasten.FMX.Options.pas`, `.fmx` | Project/Module Options: build targets and switch values |
 | `Hasten.FMX.Settings.pas`, `.fmx` | Tools > Settings |
 | `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |

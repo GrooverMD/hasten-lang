@@ -720,4 +720,401 @@ object TStyleContainer
       TextSettings.WordWrap = False
     end
   end
+  object TRectangle
+    StyleName = 'headerstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Kind = None
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+    end
+  end
+  object TRectangle
+    StyleName = 'arrowlefttoolbutton'
+    Fill.Color = x00000000
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #9666
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'arrowrighttoolbutton'
+    Fill.Color = x00000000
+    HitTest = False
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    Stroke.Kind = None
+    object TColorAnimation
+      Duration = 0.100000000000000000
+      PropertyName = 'Fill.Color'
+      StartValue = x00000000
+      StopValue = xFF46535F
+      Trigger = 'IsMouseOver=true'
+      TriggerInverse = 'IsMouseOver=false'
+    end
+    object TText
+      Align = Center
+      HitTest = False
+      Text = #9656
+      Size.Width = 16.000000000000000000
+      Size.Height = 16.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+    end
+  end
+  object TRectangle
+    StyleName = 'menubarstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Kind = None
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+    end
+  end
+  object TLayout
+    StyleName = 'menubaritemstyle'
+    object TRectangle
+      Align = Contents
+      Fill.Color = xFF46535F
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsMouseOver=true'
+        TriggerInverse = 'IsMouseOver=false'
+      end
+    end
+    object TRectangle
+      Align = Contents
+      Fill.Color = xFF52606D
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsSelected=true'
+        TriggerInverse = 'IsSelected=false'
+      end
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 8.000000000000000000
+      Margins.Right = 8.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.WordWrap = False
+    end
+  end
+  object TLayout
+    StyleName = 'menuviewstyle'
+    object TRectangle
+      Align = Client
+      Fill.Color = xFF242D36
+      HitTest = False
+      Stroke.Color = xFF55626E
+    end
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+      Margins.Left = 2.000000000000000000
+      Margins.Top = 2.000000000000000000
+      Margins.Right = 2.000000000000000000
+      Margins.Bottom = 2.000000000000000000
+    end
+  end
+  object TLayout
+    StyleName = 'menuitemstyle'
+    Size.Height = 24.000000000000000000
+    Size.PlatformDefault = False
+    object TRectangle
+      Align = Contents
+      Fill.Color = x804F8CC9
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsSelected=true'
+        TriggerInverse = 'IsSelected=false'
+      end
+    end
+    object TLayout
+      StyleName = 'glyph'
+      Align = Left
+      Size.Width = 24.000000000000000000
+      Size.PlatformDefault = False
+      object TLayout
+        StyleName = 'checkmark'
+        Align = Contents
+        Opacity = 0.000000000000000000
+        object TText
+          Align = Center
+          HitTest = False
+          Text = #10003
+          Size.Width = 16.000000000000000000
+          Size.Height = 16.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 12.000000000000000000
+          TextSettings.FontColor = xFF4F8CC9
+        end
+        object TFloatAnimation
+          Duration = 0.100000000000000000
+          PropertyName = 'Opacity'
+          StartValue = 0.000000000000000000
+          StopValue = 1.000000000000000000
+          Trigger = 'IsChecked=true'
+          TriggerInverse = 'IsChecked=false'
+        end
+      end
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 2.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Leading
+      TextSettings.WordWrap = False
+    end
+    object TText
+      StyleName = 'shortcut'
+      Align = Right
+      HitTest = False
+      Margins.Left = 16.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Size.Width = 110.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFA9B3BC
+      TextSettings.HorzAlign = Trailing
+      TextSettings.WordWrap = False
+    end
+    object TLayout
+      StyleName = 'submark'
+      Align = Right
+      Size.Width = 16.000000000000000000
+      Size.PlatformDefault = False
+      object TText
+        Align = Center
+        HitTest = False
+        Text = #9656
+        Size.Width = 16.000000000000000000
+        Size.Height = 16.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 12.000000000000000000
+        TextSettings.FontColor = xFFA9B3BC
+      end
+    end
+  end
+  object TLayout
+    StyleName = 'menuseparatorstyle'
+    Size.Height = 7.000000000000000000
+    Size.PlatformDefault = False
+    object TRectangle
+      Align = VertCenter
+      Fill.Color = xFF55626E
+      HitTest = False
+      Stroke.Kind = None
+      Margins.Left = 6.000000000000000000
+      Margins.Right = 6.000000000000000000
+      Size.Height = 1.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+  object TLayout
+    StyleName = 'comboeditstyle'
+    FixedHeight = 24
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      XRadius = 2.000000000000000000
+      YRadius = 2.000000000000000000
+      Stroke.Color = xFF55626E
+      object TColorAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Stroke.Color'
+        StartValue = xFF55626E
+        StopValue = xFF4F8CC9
+        Trigger = 'IsFocused=true'
+        TriggerInverse = 'IsFocused=false'
+      end
+      object TLayout
+        StyleName = 'arrow'
+        Align = Right
+        Size.Width = 22.000000000000000000
+        Size.PlatformDefault = False
+        object TText
+          Align = Center
+          HitTest = False
+          Text = #9662
+          Size.Width = 16.000000000000000000
+          Size.Height = 16.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 12.000000000000000000
+          TextSettings.FontColor = xFFA9B3BC
+        end
+      end
+    end
+    object TLayout
+      StyleName = 'content'
+      Align = Client
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 24.000000000000000000
+    end
+    object TColorObject
+      StyleName = 'caretcolor'
+      Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'foreground'
+      Brush.Color = xFFE3E7EB
+    end
+    object TBrushObject
+      StyleName = 'selection'
+      Brush.Color = x804F8CC9
+    end
+    object TFontObject
+      StyleName = 'font'
+      Font.Size = 12.000000000000000000
+    end
+  end
+  object TRectangle
+    StyleName = 'combopopupstyle'
+    Fill.Color = xFF242D36
+    HitTest = False
+    Stroke.Color = xFF55626E
+  end
+  object TLayout
+    StyleName = 'listboxstyle'
+    object TBrushObject
+      StyleName = 'AlternatingRowBackground'
+      Brush.Color = xFF1F262D
+    end
+    object TRectangle
+      StyleName = 'background'
+      Align = Contents
+      Fill.Color = xFF1F262D
+      HitTest = False
+      Stroke.Color = xFF55626E
+      object TLayout
+        StyleName = 'content'
+        Align = Client
+      end
+      object TScrollBar
+        StyleName = 'vscrollbar'
+        Align = Right
+        SmallChange = 0.000000000000000000
+        Orientation = Vertical
+        Size.Width = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+      object TScrollBar
+        StyleName = 'hscrollbar'
+        Align = Bottom
+        SmallChange = 0.000000000000000000
+        Orientation = Horizontal
+        Size.Height = 12.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+  end
+  object TLayout
+    StyleName = 'listboxitemstyle'
+    object TRectangle
+      Align = Contents
+      Fill.Color = xFF46535F
+      HitTest = False
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsMouseOver=true'
+        TriggerInverse = 'IsMouseOver=false'
+      end
+    end
+    object TRectangle
+      Align = Contents
+      Fill.Color = x804F8CC9
+      HitTest = False
+      Stroke.Kind = None
+      Opacity = 0.000000000000000000
+      object TFloatAnimation
+        Duration = 0.100000000000000000
+        PropertyName = 'Opacity'
+        StartValue = 0.000000000000000000
+        StopValue = 1.000000000000000000
+        Trigger = 'IsSelected=true'
+        TriggerInverse = 'IsSelected=false'
+      end
+    end
+    object TText
+      StyleName = 'text'
+      Align = Client
+      HitTest = False
+      Margins.Left = 6.000000000000000000
+      TextSettings.Font.Size = 12.000000000000000000
+      TextSettings.FontColor = xFFE3E7EB
+      TextSettings.HorzAlign = Leading
+      TextSettings.WordWrap = False
+    end
+  end
 end

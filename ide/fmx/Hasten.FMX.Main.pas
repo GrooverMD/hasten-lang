@@ -18,7 +18,7 @@ uses
 type
   TMainForm = class(TForm)
     StyleBook1: TStyleBook;                    // the style of every Hasten window: the dialogs use this one
-    MainMenu: TMainMenu;
+    MainMenu: TMenuBar;                        // drawn by FMX in the style; the Mac's own menu bar there
     FileMenu: TMenuItem;
     NewItem: TMenuItem;
     OpenItem: TMenuItem;
@@ -316,6 +316,9 @@ begin
   FindNextAction.ShortCut := vkF3;
   FindPrevAction.ShortCut := scShift or vkF3;
   GoToLineAction.ShortCut := CmdKey or Ord('G');
+{$IFDEF MACOS}
+  MainMenu.UseOSMenu := True;                   // a Mac app's menus belong in the bar at the top of the screen
+{$ENDIF}
   LoadStyle;
   SetUpToolBar;
   UseTextSizes(Self);                           // the style's 16-pixel text at Hasten's size

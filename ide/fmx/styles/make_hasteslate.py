@@ -249,6 +249,53 @@ def styles():
                 rect('focus', CLEAR, ACCENT, align=None)),
             *scrollbars())))
     s.append(rect('headeritemstyle', SURFACE, BORDER, align=None).add(text('text', halign='Leading', Margins__Left=6, wrap=False)))
+    s.append(rect('headerstyle', PANEL, align=None).add(Obj('TLayout', StyleName=q('content'), Align='Client')))
+
+    # the tabs' scroll arrows, when there are more tabs than room
+    for name, char in (('arrowlefttoolbutton', '\u25C2'), ('arrowrighttoolbutton', '\u25B8')):
+        s.append(rect(name, CLEAR, None, 3, align=None).add(
+            colour_anim('Fill.Color', CLEAR, HOVER, 'IsMouseOver'),
+            glyph(char, DIM),
+            text('text')))
+
+    # menus: the menu bar (TMenuBar, drawn by FMX; the Mac keeps its own), its drop-downs and Hasten's
+    # right-click menus
+    s.append(rect('menubarstyle', PANEL, align=None).add(Obj('TLayout', StyleName=q('content'), Align='Client')))
+    s.append(Obj('TLayout', StyleName=q('menubaritemstyle')).add(
+        rect(None, HOVER, None, 2, Opacity=0).add(fade('IsMouseOver')),
+        rect(None, PRESSED, None, 2, Opacity=0).add(fade('IsSelected')),
+        text('text', Margins__Left=8, Margins__Right=8, wrap=False)))
+    s.append(Obj('TLayout', StyleName=q('menuviewstyle')).add(
+        rect(None, PANEL, BORDER, align='Client'),
+        Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=2, Margins__Top=2,
+            Margins__Right=2, Margins__Bottom=2)))
+    check = Obj('TLayout', StyleName=q('checkmark'), Align='Contents', Opacity=0).add(
+        glyph('\u2713', ACCENT), fade('IsChecked'))
+    s.append(Obj('TLayout', **sized(None, 24, StyleName=q('menuitemstyle'))).add(
+        rect(None, SELECTION, None, 2, Opacity=0).add(fade('IsSelected')),
+        Obj('TLayout', **sized(24, None, StyleName=q('glyph'), Align='Left')).add(check),
+        text('text', halign='Leading', wrap=False, Margins__Left=2),
+        text('shortcut', color=DIM, halign='Trailing', wrap=False, align='Right',
+             **sized(110, None, Margins__Left=16, Margins__Right=4)),
+        Obj('TLayout', **sized(16, None, StyleName=q('submark'), Align='Right')).add(glyph('\u25B8', DIM))))
+    s.append(Obj('TLayout', **sized(None, 7, StyleName=q('menuseparatorstyle'))).add(
+        rect(None, BORDER, None, align='VertCenter', **sized(None, 1, Margins__Left=6, Margins__Right=6))))
+
+    # the font box in Settings and its drop-down list
+    s.append(Obj('TLayout', StyleName=q('comboeditstyle'), FixedHeight=24).add(
+        input_box().add(Obj('TLayout', **sized(22, None, StyleName=q('arrow'), Align='Right')).add(glyph('\u25BE', DIM))),
+        Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=4, Margins__Right=24),
+        *text_parts()))
+    s.append(rect('combopopupstyle', PANEL, BORDER, align=None))
+    s.append(Obj('TLayout', StyleName=q('listboxstyle')).add(
+        Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color=INPUT),
+        rect('background', INPUT, BORDER).add(
+            Obj('TLayout', StyleName=q('content'), Align='Client'),
+            *scrollbars())))
+    s.append(Obj('TLayout', StyleName=q('listboxitemstyle')).add(
+        rect(None, HOVER, None, Opacity=0).add(fade('IsMouseOver')),
+        rect(None, SELECTION, None, Opacity=0).add(fade('IsSelected')),
+        text('text', halign='Leading', wrap=False, Margins__Left=6)))
     return s
 
 

@@ -35,6 +35,7 @@ type
     procedure WordsClick(Sender: TObject);
     procedure StressClick(Sender: TObject);
     procedure GutterChange(Sender: TObject);
+    procedure TextChanged(Sender: TObject);
     procedure Status(const Text: string);
   public
     constructor Create(AOwner: TComponent); override;
@@ -130,6 +131,7 @@ begin
   FMemo.TextSettings.Font.Size := 14;
   FMemo.TextSettings.FontColor := TextColor;
   FMemo.Lines.Text := string.Join(sLineBreak, SampleLines);
+  FMemo.OnChangeTracking := TextChanged;          // every edit: an alias added or changed recolours the text
 
   FSetUpTimer := TTimer.Create(Self);           // the presentation appears once the form is on screen
   FSetUpTimer.Interval := 50;
@@ -192,6 +194,7 @@ end;
 { Also how new words take effect: the syntax is made again and every line is coloured afresh. }
 procedure TTestForm.SetSyntax;
 begin
+  TCodeSyntaxHaste.ScanAliases(FMemo.Lines);
   Rich.SetCodeSyntaxName('haste', FMemo.TextSettings.Font, TextColor);
   FMemo.Repaint;
 end;
@@ -226,6 +229,7 @@ begin
     if not Dialog.Execute then Exit;
     Watch := TStopwatch.StartNew;
     FMemo.Lines.LoadFromFile(Dialog.FileName, TEncoding.UTF8);
+    TextChanged(nil);
     Status(Format('%s: %d lines in %d ms', [ExtractFileName(Dialog.FileName), FMemo.Lines.Count,
       Watch.ElapsedMilliseconds]));
   finally
@@ -271,6 +275,7 @@ begin
       Lines.Text := Lines.Text + Base;
     Watch := TStopwatch.StartNew;
     FMemo.Lines.Text := Lines.Text;
+    TextChanged(nil);
     Load := Watch.ElapsedMilliseconds;
     Watch := TStopwatch.StartNew;
     FMemo.GoToTextEnd;
@@ -282,6 +287,12 @@ begin
   finally
     Lines.Free;
   end;
+end;
+
+procedure TTestForm.TextChanged(Sender: TObject);
+begin
+  if (Rich <> nil) and TCodeSyntaxHaste.ScanAliases(FMemo.Lines) then
+    SetSyntax;
 end;
 
 procedure TTestForm.GutterChange(Sender: TObject);

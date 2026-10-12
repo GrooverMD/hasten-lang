@@ -12,7 +12,7 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
   System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
-  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, Hasten.Runner,
+  FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, FMX.MultiView, FMX.ListBox, FMX.Objects, Hasten.Runner,
   Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
 
 type
@@ -925,6 +925,27 @@ type
     Name: string;
   end;
 
+{ A shortcut as a hint shows it: Ctrl+Shift+S, F9 (Cmd on a Mac). Letters, digits and F1-F12 are all Hasten uses. }
+function KeysText(SC: TShortCut): string;
+var
+  Key: Word;
+begin
+  Result := '';
+{$IFDEF MACOS}
+  if SC and scCommand <> 0 then Result := Result + 'Cmd+';
+{$ENDIF}
+  if SC and scCtrl <> 0 then Result := Result + 'Ctrl+';
+  if SC and scShift <> 0 then Result := Result + 'Shift+';
+  if SC and scAlt <> 0 then Result := Result + 'Alt+';
+  Key := SC and $FF;
+  if (Key >= vkF1) and (Key <= vkF12) then
+    Result := Result + 'F' + (Key - vkF1 + 1).ToString
+  else if CharInSet(Char(Key), ['0'..'9', 'A'..'Z']) then
+    Result := Result + Char(Key)
+  else
+    Result := '';
+end;
+
 function RB(Action: TAction; Glyph: Char; const Name: string): TRibbonItem;
 begin
   Result.Action := Action;
@@ -962,7 +983,7 @@ procedure TMainForm.SetUpRibbon;
         B.Margins.Left := 1;
         B.Hint := Items[I].Action.Text.Replace('&', '');
         if Items[I].Action.ShortCut <> 0 then
-          B.Hint := B.Hint + ' (' + ShortCutToText(Items[I].Action.ShortCut) + ')';
+          B.Hint := B.Hint + ' (' + KeysText(Items[I].Action.ShortCut) + ')';
         B.ShowHint := True;
         B.StaysPressed := Items[I].Action.AutoCheck;  // Help Insight shows whether it is on
         B.Parent := Bar;

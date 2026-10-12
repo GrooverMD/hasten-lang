@@ -25,6 +25,8 @@ CLEAR = 'x00000000'
 TEXT_SIZE = 12
 WINDOW_FRAME = False      # True: windowborderstyle, FMX draws the title bar and edges. Off: with it the form took
                           # no clicks (FMX); Windows draws the frame, coloured to match (Hasten.FMX.TitleBar)
+CLIENT_HITTEST = True     # the frame's client part takes the mouse, so FMX finds it there and reports the
+                          # client area to Windows; with nothing found it may report title bar (no clicks reach the form)
 
 
 def f(v):
@@ -323,7 +325,7 @@ def styles():
             rect('mask', PANEL, None, 6, Visible=False),
             rect('bottom', BORDER, align='Bottom', **sized(None, 2, HitTest=True)),   # edges: 2 px, so they can be
             title_bar,                                                                  # caught to resize the window
-            Obj('TLayout', StyleName=q('client'), Align='Client'),
+            Obj('TLayout', StyleName=q('client'), Align='Client', HitTest=CLIENT_HITTEST),
             rect('left', BORDER, align='Left', **sized(2, None, HitTest=True)),
             rect('right', BORDER, align='Right', **sized(2, None, HitTest=True))))
     for name, char, hot in (('closebtnstyle', '\u2715', 'xFFC42B1C'), ('maxbtnstyle', '\u25A1', HOVER),

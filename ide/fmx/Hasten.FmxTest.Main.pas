@@ -29,7 +29,7 @@ type
     function AddButton(Parent: TFmxObject; const Text: string; Click: TNotifyEvent): TButton;
     procedure SetUpWhenReady(Sender: TObject);
     procedure SetSyntax;
-    procedure PaintBackground(Sender: TObject; ACanvas: TCanvas);
+    procedure PaintEditorBackground(Sender: TObject; ACanvas: TCanvas);
     procedure CaretMoved(Sender: TObject; const ACaretPosition: TCaretPosition);
     procedure OpenClick(Sender: TObject);
     procedure WordsClick(Sender: TObject);
@@ -185,7 +185,7 @@ begin
   Rich.ColorLineNumberActive := TextColor;
   Rich.GutterFont.Family := MonoFont;
   Rich.GutterFont.Size := 13;
-  Rich.OnDrawBefore := PaintBackground;
+  Rich.OnDrawBefore := PaintEditorBackground;
   Rich.OnChangeCaretPos := CaretMoved;
   SetSyntax;
   Status('Ready. Open a .haste file, load words.txt from "haste.py words", or try the stress test.');
@@ -200,7 +200,7 @@ begin
 end;
 
 { The colours are for a dark background, whatever the platform's light or dark style draws. }
-procedure TTestForm.PaintBackground(Sender: TObject; ACanvas: TCanvas);
+procedure TTestForm.PaintEditorBackground(Sender: TObject; ACanvas: TCanvas);
 begin
   ACanvas.Fill.Kind := TBrushKind.Solid;
   ACanvas.Fill.Color := Background;

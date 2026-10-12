@@ -155,6 +155,7 @@ var
   end;
 
 begin
+  Result := False;
   Found := TDictionary<string, THasteToken>.Create;
   Targets := TDictionary<string, string>.Create;
   OwnClasses := TList<string>.Create;

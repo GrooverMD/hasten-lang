@@ -362,6 +362,10 @@ object TStyleContainer
       XRadius = 2.000000000000000000
       YRadius = 2.000000000000000000
       Stroke.Color = xFF55626E
+      Padding.Left = 2.000000000000000000
+      Padding.Top = 2.000000000000000000
+      Padding.Right = 2.000000000000000000
+      Padding.Bottom = 2.000000000000000000
       object TColorAnimation
         Duration = 0.100000000000000000
         PropertyName = 'Stroke.Color'
@@ -373,8 +377,6 @@ object TStyleContainer
       object TLayout
         StyleName = 'content'
         Align = Client
-        Margins.Left = 2.000000000000000000
-        Margins.Top = 2.000000000000000000
       end
       object TScrollBar
         StyleName = 'vscrollbar'
@@ -664,6 +666,10 @@ object TStyleContainer
       Fill.Color = xFF1F262D
       HitTest = False
       Stroke.Color = xFF55626E
+      Padding.Left = 2.000000000000000000
+      Padding.Top = 2.000000000000000000
+      Padding.Right = 2.000000000000000000
+      Padding.Bottom = 2.000000000000000000
       object THeader
         StyleName = 'header'
         Align = Top
@@ -1079,6 +1085,10 @@ object TStyleContainer
       Fill.Color = xFF1F262D
       HitTest = False
       Stroke.Color = xFF55626E
+      Padding.Left = 2.000000000000000000
+      Padding.Top = 2.000000000000000000
+      Padding.Right = 2.000000000000000000
+      Padding.Bottom = 2.000000000000000000
       object TLayout
         StyleName = 'content'
         Align = Client

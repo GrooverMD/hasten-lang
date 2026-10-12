@@ -138,9 +138,14 @@ def text_parts():
             Obj('TFontObject', StyleName=q('font'), Font__Size=TEXT_SIZE)]
 
 
-def input_box(name='background'):
+INSET = dict(Padding__Left=2, Padding__Top=2, Padding__Right=2, Padding__Bottom=2)
+"""Padding for a bordered box that holds parts aligned to its edges (scroll bars, the editor's line numbers):
+they sit inside the border instead of over it."""
+
+
+def input_box(name='background', **more):
     """A sunken box with a border that lights up while it has the focus."""
-    return rect(name, INPUT, BORDER, 2).add(colour_anim('Stroke.Color', BORDER, ACCENT, 'IsFocused'))
+    return rect(name, INPUT, BORDER, 2, **more).add(colour_anim('Stroke.Color', BORDER, ACCENT, 'IsFocused'))
 
 
 def scrollbars():
@@ -198,7 +203,7 @@ def styles():
         Obj('TLayout', StyleName=q('content'), Align='Contents'), *text_parts()))
 
     s.append(Obj('TLayout', StyleName=q('memostyle')).add(
-        input_box().add(Obj('TLayout', StyleName=q('content'), Align='Client', Margins__Left=2, Margins__Top=2),
+        input_box(**INSET).add(Obj('TLayout', StyleName=q('content'), Align='Client'),
                         *scrollbars()),
         *text_parts()))
 
@@ -242,7 +247,7 @@ def styles():
     s.append(Obj('TLayout', StyleName=q('gridstyle')).add(
         Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color='xFF252E37'),
         Obj('TBrushObject', StyleName=q('linefill'), Brush__Color=BORDER),
-        rect('background', INPUT, BORDER).add(
+        rect('background', INPUT, BORDER, **INSET).add(
             Obj('THeader', **sized(None, 24, StyleName=q('header'), Align='Top')),
             Obj('TLayout', StyleName=q('content'), Align='Client').add(
                 rect('selection', SELECTION, None, align=None),
@@ -292,7 +297,7 @@ def styles():
     s.append(rect('combopopupstyle', PANEL, BORDER, align=None))
     s.append(Obj('TLayout', StyleName=q('listboxstyle')).add(
         Obj('TBrushObject', StyleName=q('AlternatingRowBackground'), Brush__Color=INPUT),
-        rect('background', INPUT, BORDER).add(
+        rect('background', INPUT, BORDER, **INSET).add(
             Obj('TLayout', StyleName=q('content'), Align='Client'),
             *scrollbars())))
     s.append(Obj('TLayout', StyleName=q('listboxitemstyle')).add(

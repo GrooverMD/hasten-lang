@@ -87,7 +87,6 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
     procedure NewActionExecute(Sender: TObject);
     procedure OpenActionExecute(Sender: TObject);
@@ -181,6 +180,9 @@ type
     procedure ApplySettings(Tab: TEditorTab);
     procedure LoadSettings;
     procedure SaveSettings;
+    function EditorFocused: TEditorTab;
+  public
+    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
 
 var
@@ -248,14 +250,28 @@ begin
   RefreshWords;
 end;
 
-{ An FMX form sees each key before the focused control, and moves the focus on Tab: Tab in an editor indents. }
-procedure TMainForm.FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+{ The form moves the focus on Tab before the focused control sees the key, and before OnKeyDown, so Tab in an
+  editor is taken here first: it indents (THasteMemo.TabKey). }
+procedure TMainForm.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 var
   Tab: TEditorTab;
 begin
-  Tab := ActiveTab;
-  if (Tab <> nil) and Tab.Memo.IsFocused then
-    Tab.Memo.TabKey(Key, KeyChar, Shift);
+  Tab := EditorFocused;
+  if (Tab <> nil) and Tab.Memo.TabKey(Key, KeyChar, Shift) then Exit;
+  inherited;
+end;
+
+{ The tab whose editor has the focus: the memo itself or a part of its presentation. }
+function TMainForm.EditorFocused: TEditorTab;
+var
+  O: TFmxObject;
+begin
+  Result := ActiveTab;
+  if (Result = nil) or (Focused = nil) then Exit(nil);
+  O := Focused.GetObject;
+  while (O <> nil) and (O <> Result.Memo) do
+    O := O.Parent;
+  if O = nil then Result := nil;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);

@@ -19,7 +19,10 @@ Build the types it was compiled with (View > Help Insight turns it off).
 Edit menu: Undo, Redo, Cut, Copy, Paste, Delete, Select All (on the editor or box with the focus, the output
 too), Find (Ctrl+F: a bar above the editor with Match case and Whole word; Enter, F3 the next, Shift+Enter,
 Shift+F3 the one before, wrapping round; Esc closes it) and Go to Line (Ctrl+G).
-**Next**: the toolbar. Not in FMX: VCL styles.
+The toolbar: New, Open, Save; Undo, Redo, Cut, Copy, Paste; Find; Run, Build, Stop, Tests, Options; Settings,
+each with its keys in its hint. On Windows the pictures are characters of Segoe MDL2 Assets; on macOS and Linux
+the buttons show words.
+Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX: VCL styles.
 
 ## Build
 
@@ -36,7 +39,7 @@ Shift+F3 the one before, wrapping round; Esc closes it) and Go to Line (Ctrl+G).
 | File | |
 |---|---|
 | `HastenFMX.dpr` | The program |
-| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, actions, tabs, output, Project Manager |
+| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, toolbar, actions, find bar, tabs, output, Project Manager |
 | `Hasten.FMX.Options.pas`, `.fmx` | Project/Module Options: build targets and switch values |
 | `Hasten.FMX.Settings.pas`, `.fmx` | Tools > Settings |
 | `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |

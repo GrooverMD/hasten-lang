@@ -93,6 +93,22 @@ type
     FindNextAction: TAction;
     FindPrevAction: TAction;
     GoToLineAction: TAction;
+    ToolBar: TToolBar;
+    NewButton: TSpeedButton;
+    OpenButton: TSpeedButton;
+    SaveButton: TSpeedButton;
+    UndoButton: TSpeedButton;
+    RedoButton: TSpeedButton;
+    CutButton: TSpeedButton;
+    CopyButton: TSpeedButton;
+    PasteButton: TSpeedButton;
+    FindButton: TSpeedButton;
+    RunButton: TSpeedButton;
+    BuildButton: TSpeedButton;
+    StopButton: TSpeedButton;
+    TestsButton: TSpeedButton;
+    OptionsButton: TSpeedButton;
+    SettingsButton: TSpeedButton;
     FindBar: TLayout;
     FindLabel: TLabel;
     FindEdit: TEdit;
@@ -229,6 +245,7 @@ type
     procedure SaveSettings;
     function EditorFocused: TEditorTab;
     procedure FindAgain(Backwards: Boolean);
+    procedure SetUpToolBar;
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
@@ -295,6 +312,7 @@ begin
   FindNextAction.ShortCut := vkF3;
   FindPrevAction.ShortCut := scShift or vkF3;
   GoToLineAction.ShortCut := CmdKey or Ord('G');
+  SetUpToolBar;
   ShowTree;
   LoadSettings;
   if Tabs.TabCount = 0 then
@@ -367,6 +385,8 @@ begin
 end;
 
 procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
+var
+  S: string;
 begin
   SaveAction.Enabled := ActiveTab <> nil;
   SaveAsAction.Enabled := ActiveTab <> nil;
@@ -384,10 +404,12 @@ begin
   FindNextAction.Enabled := ActiveTab <> nil;
   FindPrevAction.Enabled := ActiveTab <> nil;
   GoToLineAction.Enabled := ActiveTab <> nil;
-  if FProject <> nil then
-    OptionsAction.Text := 'Project &Options...'
-  else
-    OptionsAction.Text := 'Module &Options...';
+  if FProject <> nil then S := 'Project &Options...' else S := 'Module &Options...';
+  if OptionsAction.Text <> S then
+  begin
+    OptionsAction.Text := S;
+    OptionsButton.Text := OptionsButton.TagString;    // the picture, not the action's text
+  end;
   Handled := True;
 end;
 
@@ -826,6 +848,57 @@ begin
     ApplySettings(TEditorTab(Tabs.Tabs[I]));
   Output.TextSettings.Font.Family := FFontFamily;
   Output.TextSettings.Font.Size := FFontSize - 1;
+end;
+
+{ ---- the toolbar ----
+  Speed buttons on the actions, designed in the .fmx: they follow them (Stop is enabled only while something
+  runs), and never take the focus, so Undo ... Paste act on the editor or box that has it. On Windows the
+  pictures are characters of its icon font (Segoe MDL2 Assets): no image files, sharp at any size. macOS and
+  Linux have no such font, so there the buttons show short words. }
+
+procedure TMainForm.SetUpToolBar;
+const
+{$IFDEF MACOS}
+  Cmd = 'Cmd+';
+{$ELSE}
+  Cmd = 'Ctrl+';
+{$ENDIF}
+  Glyphs: array[0..14] of Char = (#$E8A5, #$E8E5, #$E74E, #$E7A7, #$E7A6, #$E8C6, #$E8C8, #$E77F, #$E721,
+    #$E768, #$E90F, #$E71A, #$E9D5, #$E9E9, #$E713);
+  Words: array[0..14] of string = ('New', 'Open', 'Save', 'Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Find',
+    'Run', 'Build', 'Stop', 'Tests', 'Options', 'Settings');
+  Keys: array[0..14] of string = (Cmd + 'N', Cmd + 'O', Cmd + 'S', Cmd + 'Z', Cmd + 'Shift+Z', Cmd + 'X',
+    Cmd + 'C', Cmd + 'V', Cmd + 'F', 'F9', Cmd + 'F9', Cmd + 'F2', '', 'Shift+' + Cmd + 'F11', '');
+  Hints: array[0..14] of string = ('New', 'Open', 'Save', 'Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Find',
+    'Run', 'Build', 'Stop', 'Run Tests', 'Project/Module Options', 'Settings');
+var
+  Buttons: TArray<TSpeedButton>;
+  I: Integer;
+  C: TCanvas;
+begin
+  Buttons := [NewButton, OpenButton, SaveButton, UndoButton, RedoButton, CutButton, CopyButton, PasteButton, FindButton, RunButton, BuildButton, StopButton, TestsButton, OptionsButton, SettingsButton];
+  C := TCanvasManager.MeasureCanvas;
+  for I := 0 to High(Buttons) do
+  begin
+    Buttons[I].StyledSettings := Buttons[I].StyledSettings - [TStyledSetting.Family, TStyledSetting.Size];
+{$IFDEF MSWINDOWS}
+    Buttons[I].TextSettings.Font.Family := 'Segoe MDL2 Assets';
+    Buttons[I].TextSettings.Font.Size := 14;
+    Buttons[I].Text := Glyphs[I];
+    Buttons[I].Width := 32;
+{$ELSE}
+    Buttons[I].TextSettings.Font.Size := 12;
+    Buttons[I].Text := Words[I];
+    C.Font.Assign(Buttons[I].TextSettings.Font);
+    Buttons[I].Width := Round(C.TextWidth(Words[I])) + 18;
+{$ENDIF}
+    if Keys[I] <> '' then
+      Buttons[I].Hint := Hints[I] + ' (' + Keys[I] + ')'
+    else
+      Buttons[I].Hint := Hints[I];
+    Buttons[I].ShowHint := True;
+    Buttons[I].TagString := Buttons[I].Text;    // put back if its action's text changes it
+  end;
 end;
 
 { ---- Edit: on the editor or edit box with the focus (the output too); the keys are the controls' own ---- }

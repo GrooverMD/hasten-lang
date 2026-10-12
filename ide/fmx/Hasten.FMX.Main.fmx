@@ -2,114 +2,185 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'Hasten'
-  ClientHeight = 700
-  ClientWidth = 1000
-  Fill.Color = xFF2B2B2B
-  Fill.Kind = Solid
+  ClientHeight = 760
+  ClientWidth = 1100
+  Position = ScreenCenter
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnCloseQuery = FormCloseQuery
   DesignerMasterStyle = 0
-  object Bar: TLayout
-    Align = Top
-    Padding.Left = 6.000000000000000000
-    Padding.Top = 6.000000000000000000
-    Padding.Right = 6.000000000000000000
-    Padding.Bottom = 6.000000000000000000
-    Size.Width = 1000.000000000000000000
-    Size.Height = 40.000000000000000000
+  object MainMenu: TMainMenu
+    Left = 40
+    Top = 80
+    object FileMenu: TMenuItem
+      Text = '&File'
+      object NewItem: TMenuItem
+        Action = NewAction
+      end
+      object OpenItem: TMenuItem
+        Action = OpenAction
+      end
+      object SaveItem: TMenuItem
+        Action = SaveAction
+      end
+      object SaveAsItem: TMenuItem
+        Action = SaveAsAction
+      end
+      object CloseItem: TMenuItem
+        Action = CloseAction
+      end
+      object FileSep: TMenuItem
+        Text = '-'
+      end
+      object ExitItem: TMenuItem
+        Action = ExitAction
+      end
+    end
+    object RunMenu: TMenuItem
+      Text = '&Run'
+      object RunItem: TMenuItem
+        Action = RunAction
+      end
+      object BuildItem: TMenuItem
+        Action = BuildAction
+      end
+      object StopItem: TMenuItem
+        Action = StopAction
+      end
+      object RunSep1: TMenuItem
+        Text = '-'
+      end
+      object TestsItem: TMenuItem
+        Action = TestsAction
+      end
+      object RunSep2: TMenuItem
+        Text = '-'
+      end
+      object HastePyItem: TMenuItem
+        Action = HastePyAction
+      end
+    end
+  end
+  object Actions: TActionList
+    OnUpdate = ActionsUpdate
+    Left = 120
+    Top = 80
+    object NewAction: TAction
+      Text = '&New'
+      OnExecute = NewActionExecute
+    end
+    object OpenAction: TAction
+      Text = '&Open...'
+      OnExecute = OpenActionExecute
+    end
+    object SaveAction: TAction
+      Text = '&Save'
+      OnExecute = SaveActionExecute
+    end
+    object SaveAsAction: TAction
+      Text = 'Save &As...'
+      OnExecute = SaveAsActionExecute
+    end
+    object CloseAction: TAction
+      Text = '&Close'
+      OnExecute = CloseActionExecute
+    end
+    object ExitAction: TAction
+      Text = 'E&xit'
+      OnExecute = ExitActionExecute
+    end
+    object RunAction: TAction
+      Text = '&Run'
+      OnExecute = RunActionExecute
+    end
+    object BuildAction: TAction
+      Text = '&Build'
+      OnExecute = BuildActionExecute
+    end
+    object StopAction: TAction
+      Text = '&Stop'
+      OnExecute = StopActionExecute
+    end
+    object TestsAction: TAction
+      Text = 'Run &Tests'
+      OnExecute = TestsActionExecute
+    end
+    object HastePyAction: TAction
+      Text = 'Where is &haste.py...'
+      OnExecute = HastePyActionExecute
+    end
+  end
+  object StatusBar: TStatusBar
+    Position.Y = 738.000000000000000000
+    ShowSizeGrip = True
+    Size.Width = 1100.000000000000000000
+    Size.Height = 22.000000000000000000
     Size.PlatformDefault = False
-    TabOrder = 0
-    object OpenButton: TButton
-      Align = Left
-      Margins.Right = 6.000000000000000000
-      Position.X = 6.000000000000000000
-      Position.Y = 6.000000000000000000
-      Size.Width = 130.000000000000000000
-      Size.Height = 28.000000000000000000
+    TabOrder = 3
+    object StatusLabel: TLabel
+      Align = Client
+      Margins.Left = 8.000000000000000000
+      Size.Width = 1092.000000000000000000
+      Size.Height = 22.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
-      Text = 'Open...'
-      TextSettings.Trimming = None
-      OnClick = OpenClick
-    end
-    object WordsButton: TButton
-      Align = Left
-      Margins.Right = 6.000000000000000000
-      Position.X = 142.000000000000000000
-      Position.Y = 6.000000000000000000
-      Size.Width = 130.000000000000000000
-      Size.Height = 28.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 1
-      Text = 'Words...'
-      TextSettings.Trimming = None
-      OnClick = WordsClick
-    end
-    object StressButton: TButton
-      Align = Left
-      Margins.Right = 6.000000000000000000
-      Position.X = 278.000000000000000000
-      Position.Y = 6.000000000000000000
-      Size.Width = 130.000000000000000000
-      Size.Height = 28.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 2
-      Text = 'Stress: 2000 lines'
-      TextSettings.Trimming = None
-      OnClick = StressClick
-    end
-    object GutterCheck: TCheckBox
-      Align = Left
-      IsChecked = True
-      Margins.Left = 12.000000000000000000
-      Position.X = 426.000000000000000000
-      Position.Y = 6.000000000000000000
-      Size.Width = 120.000000000000000000
-      Size.Height = 28.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 3
-      Text = 'Line numbers'
-      OnChange = GutterCheckChange
     end
   end
-  object StatusLabel: TLabel
-    Align = Bottom
-    StyledSettings = [Family, Size, Style]
-    Margins.Left = 8.000000000000000000
-    Margins.Right = 8.000000000000000000
-    Margins.Bottom = 2.000000000000000000
-    Position.X = 8.000000000000000000
-    Position.Y = 674.000000000000000000
-    Size.Width = 984.000000000000000000
-    Size.Height = 24.000000000000000000
-    Size.PlatformDefault = False
-    TextSettings.FontColor = claSilver
-    TabOrder = 2
-  end
-  object Memo: TMemo
+  object Output: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
     DataDetectorTypes = []
-    StyledSettings = [Style]
-    TextSettings.Font.Size = 14.000000000000000000
-    TextSettings.FontColor = xFFD4D4D4
-    Align = Client
-    Margins.Left = 4.000000000000000000
-    Margins.Right = 4.000000000000000000
-    Size.Width = 992.000000000000000000
-    Size.Height = 634.000000000000000000
+    ReadOnly = True
+    StyledSettings = [Style, FontColor]
+    TextSettings.Font.Size = 13.000000000000000000
+    Align = Bottom
+    Position.Y = 556.000000000000000000
+    Size.Width = 1100.000000000000000000
+    Size.Height = 182.000000000000000000
     Size.PlatformDefault = False
+    TabOrder = 2
+    OnDblClick = OutputDblClick
+    Viewport.Width = 1096.000000000000000000
+    Viewport.Height = 178.000000000000000000
+  end
+  object Splitter: TSplitter
+    Align = Bottom
+    Cursor = crVSplit
+    MinSize = 40.000000000000000000
+    Position.Y = 552.000000000000000000
+    Size.Width = 1100.000000000000000000
+    Size.Height = 4.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object Tabs: TTabControl
+    Align = Client
+    Size.Width = 1100.000000000000000000
+    Size.Height = 552.000000000000000000
+    Size.PlatformDefault = False
+    TabIndex = -1
     TabOrder = 1
-    OnChangeTracking = MemoChangeTracking
-    OnPresentationNameChoosing = MemoPresentationNameChoosing
-    Viewport.Width = 988.000000000000000000
-    Viewport.Height = 630.000000000000000000
+    TabPosition = PlatformDefault
+    OnChange = TabsChange
   end
   object SetUpTimer: TTimer
-    Interval = 50
-    OnTimer = SetUpWhenReady
-    Left = 40
-    Top = 120
+    Interval = 100
+    OnTimer = SetUpTimerTimer
+    Left = 200
+    Top = 80
+  end
+  object OpenDialog: TOpenDialog
+    Filter = 'Haste files (*.haste)|*.haste|All files|*'
+    Options = [ofHideReadOnly, ofAllowMultiSelect, ofFileMustExist, ofEnableSizing]
+    Left = 280
+    Top = 80
+  end
+  object SaveDialog: TSaveDialog
+    DefaultExt = 'haste'
+    Filter = 'Haste files (*.haste)|*.haste|All files|*'
+    Options = [ofHideReadOnly, ofOverwritePrompt, ofEnableSizing]
+    Left = 360
+    Top = 80
   end
 end

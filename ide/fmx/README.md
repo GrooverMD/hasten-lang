@@ -1,38 +1,32 @@
 # Hasten for FMX
 
-The start of a cross-platform Hasten on FireMonkey. For now a test of [FMXRichMemo](https://github.com/HemulGM/FMXRichMemo) (MIT, Delphi 12+) as the editor for an FMX
-Hasten that runs on Windows, macOS and Linux. Nothing of Hasten depends on it yet.
+Hasten on FireMonkey, for Windows, macOS and Linux. It is being converted from [Hasten for VCL](../vcl/) in
+steps, sharing every unit that does not depend on VCL (in [`../common/`](../common/)).
+
+**Done**: files in tabs (New, Open, Save, Save As, Close; reopened next time), Run (F9), Build (Ctrl+F9),
+Stop (Ctrl+F2) and Run Tests through `haste.py`, the output with a jump to the first error and a double-click
+on any `file.haste:12`, and Haste colours with module names and aliases from `haste.py words`. On a Mac the
+shortcuts use Cmd.
+**Next**: projects and the Project Manager, Project/Module Options and Settings; then Help Insight, Find and
+the toolbar.
 
 ## Build
 
-1. Clone FMXRichMemo somewhere: `git clone https://github.com/HemulGM/FMXRichMemo`
+1. Clone [FMXRichMemo](https://github.com/HemulGM/FMXRichMemo) (MIT), the editor control.
    **On Delphi 12**, apply the patch here inside that folder: `git apply path\to\FMXRichMemo-Delphi12.patch`.
    FMXRichMemo's README says Delphi 12+, but since February 2026 it uses Delphi 13's `not in` and an FMX method
    Delphi 12 lacks (`ShouldDrawLeftAndRightSelectionSides`). The patch writes `not (X in S)` and skips that one
    call before Delphi 13, which only drew the caret-coloured edges of a selection.
-2. Open `HastenFMX.dpr` in Delphi and let it make the project.
-3. Project > Options > Building > Delphi Compiler > Search path: add the FMXRichMemo folder.
-4. Build for Windows 64-bit first; then macOS and Linux (FMXLinux) if you have them.
+2. Open `HastenFMX.dpr` in Delphi and add the FMXRichMemo folder to the search path.
+3. Build for Windows 64-bit; then macOS and Linux (FMXLinux) if you have them. Hasten finds `haste.py` up to
+   eight folders above the program, or asks (Run > Where is haste.py). Python is `python` on Windows and
+   `python3` elsewhere; settings are in `HastenFMX.ini` in the Hasten folder of the user's home.
 
 | File | |
 |---|---|
 | `HastenFMX.dpr` | The program |
-| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer |
+| `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, actions, tabs, output |
+| `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line |
+| `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
+| `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
 | `FMXRichMemo-Delphi12.patch` | Lets FMXRichMemo build with Delphi 12 |
-| `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten's VCL highlighter |
-
-## What to check
-
-- **Colours**: the sample shows every kind of token: keywords, types, `it`/`self`, built-ins, members, modules,
-  aliases, text, numbers (`1_200`, `0xFF`, `0.5e-3`), comments, symbols.
-- **Words**: `python haste.py words examples/Fractal/Fractal.haste > words.txt`, then Words... and load it:
-  `Generate` and the aliases should turn lime.
-- **Typing**: type, select, undo (Ctrl+Z) and redo, copy and paste, in the middle of a line and at the end.
-  Colours should follow at once.
-- **Size**: Stress makes 2000+ lines. Note the load and jump times in the status line, then scroll and type
-  near the end: it should not lag.
-- **Gutter**: line numbers on and off; the current line is shaded.
-- **Platforms**: the same on macOS and Linux, if you can build for them.
-
-If typing, scrolling or the gutter fall short, Hasten gets its own FMX editor control instead, and this
-highlighter carries over to it.

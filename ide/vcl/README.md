@@ -56,6 +56,6 @@ there. Settings, each program's module options, the editor font and the files yo
 | `Hasten.Insight.pas` | Help Insight: the tips, from the `insight` lines of `haste.py words` and a build's `specialised:` line |
 | `Hasten.Highlighter.pas` | The generated highlighter plus built-ins, members and module names from `haste.py words`, so new modules are coloured without regenerating anything |
 | `Hasten.Watcher.pas` | Watches `lib` and the program's folder, so a module copied in from outside the IDE is coloured at once |
-| `Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |
+| `../common/Hasten.Runner.pas` | Runs `haste.py` in the background and streams its output; Stop ends the whole process tree |
 | `SynHighlighterHasteOutput.msg` | SynGen description of the output panel's colours: the command, Haste's reports, errors, test results |
 | `SynHighlighterHaste.msg` | SynGen description of Haste's syntax; colours designed with [SynEdit Msg Designer](https://groovermd.github.io/SynEditMsgDesigner/) |

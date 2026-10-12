@@ -1,0 +1,115 @@
+object MainForm: TMainForm
+  Left = 0
+  Top = 0
+  Caption = 'Hasten'
+  ClientHeight = 700
+  ClientWidth = 1000
+  Fill.Color = xFF2B2B2B
+  Fill.Kind = Solid
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  DesignerMasterStyle = 0
+  object Bar: TLayout
+    Align = Top
+    Padding.Left = 6.000000000000000000
+    Padding.Top = 6.000000000000000000
+    Padding.Right = 6.000000000000000000
+    Padding.Bottom = 6.000000000000000000
+    Size.Width = 1000.000000000000000000
+    Size.Height = 40.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object OpenButton: TButton
+      Align = Left
+      Margins.Right = 6.000000000000000000
+      Position.X = 6.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 130.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'Open...'
+      TextSettings.Trimming = None
+      OnClick = OpenClick
+    end
+    object WordsButton: TButton
+      Align = Left
+      Margins.Right = 6.000000000000000000
+      Position.X = 142.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 130.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Words...'
+      TextSettings.Trimming = None
+      OnClick = WordsClick
+    end
+    object StressButton: TButton
+      Align = Left
+      Margins.Right = 6.000000000000000000
+      Position.X = 278.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 130.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      Text = 'Stress: 2000 lines'
+      TextSettings.Trimming = None
+      OnClick = StressClick
+    end
+    object GutterCheck: TCheckBox
+      Align = Left
+      IsChecked = True
+      Margins.Left = 12.000000000000000000
+      Position.X = 426.000000000000000000
+      Position.Y = 6.000000000000000000
+      Size.Width = 120.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+      Text = 'Line numbers'
+      OnChange = GutterCheckChange
+    end
+  end
+  object StatusLabel: TLabel
+    Align = Bottom
+    StyledSettings = [Family, Size, Style]
+    Margins.Left = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Margins.Bottom = 2.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 674.000000000000000000
+    Size.Width = 984.000000000000000000
+    Size.Height = 24.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.FontColor = claSilver
+    TabOrder = 2
+  end
+  object Memo: TMemo
+    Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+    DataDetectorTypes = []
+    StyledSettings = [Style]
+    TextSettings.Font.Size = 14.000000000000000000
+    TextSettings.FontColor = xFFD4D4D4
+    Align = Client
+    Margins.Left = 4.000000000000000000
+    Margins.Right = 4.000000000000000000
+    Size.Width = 992.000000000000000000
+    Size.Height = 634.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    OnChangeTracking = MemoChangeTracking
+    OnPresentationNameChoosing = MemoPresentationNameChoosing
+    Viewport.Width = 988.000000000000000000
+    Viewport.Height = 630.000000000000000000
+  end
+  object SetUpTimer: TTimer
+    Interval = 50
+    OnTimer = SetUpWhenReady
+    Left = 40
+    Top = 120
+  end
+end

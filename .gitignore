@@ -94,3 +94,7 @@ tools/
 
 # Private projects: never pushed
 examples/BlastCalculator/
+
+# FMX styles are loaded from beside the program (Hasten for FMX's LoadStyle), never kept here:
+# styles such as Embarcadero's are licensed to the computer they are installed on.
+*.style

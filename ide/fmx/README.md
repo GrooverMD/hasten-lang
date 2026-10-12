@@ -32,7 +32,11 @@ Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX:
    Delphi 12 lacks (`ShouldDrawLeftAndRightSelectionSides`). The patch writes `not (X in S)` and skips that one
    call before Delphi 13, which only drew the caret-coloured edges of a selection.
 2. Open `HastenFMX.dpr` in Delphi and add the FMXRichMemo folder to the search path.
-3. Build for Windows 64-bit; then macOS and Linux (FMXLinux) if you have them. Hasten finds `haste.py` up to
+3. For a style, put its `.style` file beside the built program (e.g. `Win64\Debug`): Hasten loads the first one
+   it finds into `MainForm.StyleBook1`, which every Hasten window uses. Keep `StyleBook1` empty in the designer,
+   so no style (Embarcadero's are licensed to your computer) ends up in `Hasten.FMX.Main.fmx` or the repository;
+   `.gitignore` leaves out `*.style`.
+4. Build for Windows 64-bit; then macOS and Linux (FMXLinux) if you have them. Hasten finds `haste.py` up to
    eight folders above the program, or asks (Run > Where is haste.py). Python is `python` on Windows and
    `python3` elsewhere; settings are in `HastenFMX.ini` in the Hasten folder of the user's home.
 

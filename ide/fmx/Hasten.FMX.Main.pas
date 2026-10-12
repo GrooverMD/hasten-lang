@@ -10,7 +10,7 @@ interface
 
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.IOUtils, System.IniFiles,
-  System.RegularExpressions, System.Actions, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
+  System.RegularExpressions, System.Actions, System.Generics.Collections, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, Hasten.Runner,
   Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
@@ -248,6 +248,7 @@ type
     function EditorFocused: TEditorTab;
     procedure FindAgain(Backwards: Boolean);
     procedure SetUpToolBar;
+    procedure LoadStyle;
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
@@ -315,6 +316,7 @@ begin
   FindNextAction.ShortCut := vkF3;
   FindPrevAction.ShortCut := scShift or vkF3;
   GoToLineAction.ShortCut := CmdKey or Ord('G');
+  LoadStyle;
   SetUpToolBar;
   UseTextSizes(Self);                           // the style's 16-pixel text at Hasten's size
   ShowTree;
@@ -865,6 +867,24 @@ end;
   runs), and never take the focus, so Undo ... Paste act on the editor or box that has it. On Windows the
   pictures are characters of its icon font (Segoe MDL2 Assets): no image files, sharp at any size. macOS and
   Linux have no such font, so there the buttons show short words. }
+
+{ The style, from a .style file beside the program (the first by name), into StyleBook1, which every Hasten
+  window uses. The repository's StyleBook1 is empty: a style made by someone else (Embarcadero's, say) stays
+  on the computer it is licensed for, out of Hasten.FMX.Main.fmx and out of the repository. }
+procedure TMainForm.LoadStyle;
+var
+  Files: TArray<string>;
+begin
+  Files := TDirectory.GetFiles(ExtractFilePath(ParamStr(0)), '*.style');
+  if Length(Files) = 0 then Exit;
+  TArray.Sort<string>(Files);
+  try
+    StyleBook1.LoadFromFile(Files[0]);
+  except
+    on E: Exception do
+      OutputAdd('Could not load the style ' + Files[0] + ': ' + E.Message);
+  end;
+end;
 
 procedure TMainForm.SetUpToolBar;
 const

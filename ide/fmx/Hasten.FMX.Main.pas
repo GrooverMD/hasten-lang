@@ -210,7 +210,6 @@ type
     FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
     FRibbonPage: TTabItem;                     // the ribbon page on show: File only opens the File panel
     FOptionsButton: TSpeedButton;
-    FCaptionWired: Boolean;                    // the frame's fullscreen button is connected
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -421,7 +420,7 @@ procedure TMainForm.ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
 var
   S: string;
 begin
-  if not FCaptionWired then WireCaptionButtons;   // once the frame's style is in place
+  WireCaptionButtons;                           // the frame is made again after full screen: its button too
   SaveAction.Enabled := ActiveTab <> nil;
   SaveAsAction.Enabled := ActiveTab <> nil;
   CloseAction.Enabled := ActiveTab <> nil;
@@ -1072,7 +1071,8 @@ begin
 end;
 
 { The frame (HasteSlate's windowborderstyle) has a fullscreen button beside FMX's own three. FMX does not know
-  it, so it is found in the frame by its style name and given the Full Screen action. }
+  it, so it is found in the frame by its style name and given the Full Screen action. Leaving full screen makes
+  the frame, and the button, anew, so this looks each time the actions are updated and connects a new one. }
 procedure TMainForm.WireCaptionButtons;
 
   function Find(Root: TFmxObject): TFmxObject;
@@ -1093,12 +1093,11 @@ var
 begin
   if not (TObject(Border.WindowBorder) is TFmxObject) then Exit;
   Button := Find(TFmxObject(Border.WindowBorder));
-  if Button is TSpeedButton then
+  if (Button is TSpeedButton) and not Assigned(TSpeedButton(Button).OnClick) then
   begin
     TSpeedButton(Button).OnClick := FullScreenActionExecute;
     TSpeedButton(Button).Hint := 'Full Screen (F11)';
     TSpeedButton(Button).ShowHint := True;
-    FCaptionWired := True;
   end;
 end;
 

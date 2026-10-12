@@ -1,0 +1,38 @@
+diff --git a/FMX.RichEdit.Style.pas b/FMX.RichEdit.Style.pas
+index bde5adc..c729aa0 100644
+--- a/FMX.RichEdit.Style.pas
++++ b/FMX.RichEdit.Style.pas
+@@ -360,28 +360,30 @@ begin
+     end;
+   end;
+ 
++  {$IF CompilerVersion >= 37}  // Delphi 13: Delphi 12 has no ShouldDrawLeftAndRightSelectionSides
+   if ShouldDrawLeftAndRightSelectionSides then
+     DrawLeftAndRightSelectionSide(Region);
++  {$ENDIF}
+ end;
+ 
+ procedure TRichEditTextEditor.DrawSelectionRegionCorner(const ACanvas: TCanvas; const Corners: TCorners; const ARegion: TRectF);
+ begin
+   ACanvas.FillRect(ARegion, 3, 3, Corners, 1, SelectionFill);
+-  if TCorner.BottomLeft not in Corners then
++  if not (TCorner.BottomLeft in Corners) then
+   begin
+     var R := ARegion;
+     R.Offset(-4, ARegion.Height - 7);
+     R.Width := 6;
+     ACanvas.FillRect(R, 3, 3, [TCorner.TopLeft], 1, SelectionFill, TCornerType.InnerLine);
+   end;
+-  if TCorner.BottomRight not in Corners then
++  if not (TCorner.BottomRight in Corners) then
+   begin
+     var R := ARegion;
+     R.Offset(ARegion.Width - 3, ARegion.Height - 7);
+     R.Width := 6;
+     ACanvas.FillRect(R, 3, 3, [TCorner.TopRight], 1, SelectionFill, TCornerType.InnerLine);
+   end;
+-  if TCorner.TopRight not in Corners then
++  if not (TCorner.TopRight in Corners) then
+   begin
+     var R := ARegion;
+     R.Offset(ARegion.Width - 3, -ARegion.Height + 7);

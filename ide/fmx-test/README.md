@@ -6,6 +6,10 @@ Hasten that runs on Windows, macOS and Linux. Nothing of Hasten depends on it ye
 ## Build
 
 1. Clone FMXRichMemo somewhere: `git clone https://github.com/HemulGM/FMXRichMemo`
+   **On Delphi 12**, apply the patch here inside that folder: `git apply path\to\FMXRichMemo-Delphi12.patch`.
+   FMXRichMemo's README says Delphi 12+, but since February 2026 it uses Delphi 13's `not in` and an FMX method
+   Delphi 12 lacks (`ShouldDrawLeftAndRightSelectionSides`). The patch writes `not (X in S)` and skips that one
+   call before Delphi 13, which only drew the caret-coloured edges of a selection.
 2. Open `HastenFmxTest.dpr` in Delphi and let it make the project.
 3. Project > Options > Building > Delphi Compiler > Search path: add the FMXRichMemo folder.
 4. Build for Windows 64-bit first; then macOS and Linux (FMXLinux) if you have them.
@@ -14,6 +18,7 @@ Hasten that runs on Windows, macOS and Linux. Nothing of Hasten depends on it ye
 |---|---|
 | `HastenFmxTest.dpr` | The program |
 | `Hasten.FmxTest.Main.pas` | The test window, built in code |
+| `FMXRichMemo-Delphi12.patch` | Lets FMXRichMemo build with Delphi 12 |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten's VCL highlighter |
 
 ## What to check

@@ -34,7 +34,7 @@ the editor never puts one in). On a Mac the shortcuts use Cmd.
 | `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, actions, tabs, output, Project Manager |
 | `Hasten.FMX.Options.pas`, `.fmx` | Project/Module Options: build targets and switch values |
 | `Hasten.FMX.Settings.pas`, `.fmx` | Tools > Settings |
-| `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces |
+| `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
 | `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
 | `../common/Hasten.Project.pas` | Projects (`.hproj`), switches read from a program, module names and renames (shared with VCL) |

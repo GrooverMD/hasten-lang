@@ -12,15 +12,22 @@ uses
   FMX.ScrollBox, FMX.Controls.Presentation, FMX.Text, FMX.RichEdit.Style, Syntax.Code.Haste;
 
 type
+  { A memo always drawn by FMXRichMemo. Naming the presentation here, not in OnPresentationNameChoosing, works
+    however early the memo makes it: a memo made in code can make it before an event could be assigned. }
+  THasteMemo = class(TMemo)
+  protected
+    function DefinePresentationName: string; override;
+  end;
+
   TTestForm = class(TForm)
   private
-    FMemo: TMemo;
+    FMemo: THasteMemo;
+    FSetUpTimer: TTimer;
     FStatus: TLabel;
     FGutter: TCheckBox;
     function Rich: TRichEditStyled;
     function AddButton(Parent: TFmxObject; const Text: string; Click: TNotifyEvent): TButton;
-    procedure ChoosePresentation(Sender: TObject; var PresenterName: string);
-    procedure FormShow(Sender: TObject);
+    procedure SetUpWhenReady(Sender: TObject);
     procedure SetSyntax;
     procedure PaintBackground(Sender: TObject; ACanvas: TCanvas);
     procedure CaretMoved(Sender: TObject; const ACaretPosition: TCaretPosition);
@@ -87,7 +94,6 @@ begin
   Height := 700;
   Fill.Kind := TBrushKind.Solid;
   Fill.Color := $FF2B2B2B;
-  OnShow := FormShow;
 
   Bar := TLayout.Create(Self);
   Bar.Parent := Self;
@@ -114,8 +120,7 @@ begin
   FStatus.StyledSettings := FStatus.StyledSettings - [TStyledSetting.FontColor];
   FStatus.TextSettings.FontColor := TAlphaColors.Silver;
 
-  FMemo := TMemo.Create(Self);
-  FMemo.OnPresentationNameChoosing := ChoosePresentation;   // set before it has a parent
+  FMemo := THasteMemo.Create(Self);
   FMemo.Parent := Self;
   FMemo.Align := TAlignLayout.Client;
   FMemo.Margins.Rect := RectF(4, 0, 4, 0);
@@ -125,6 +130,15 @@ begin
   FMemo.TextSettings.Font.Size := 14;
   FMemo.TextSettings.FontColor := TextColor;
   FMemo.Lines.Text := string.Join(sLineBreak, SampleLines);
+
+  FSetUpTimer := TTimer.Create(Self);           // the presentation appears once the form is on screen
+  FSetUpTimer.Interval := 50;
+  FSetUpTimer.OnTimer := SetUpWhenReady;
+end;
+
+function THasteMemo.DefinePresentationName: string;
+begin
+  Result := 'RichEditStyled';                   // registered by FMX.RichEdit.Style
 end;
 
 function TTestForm.AddButton(Parent: TFmxObject; const Text: string; Click: TNotifyEvent): TButton;
@@ -138,11 +152,6 @@ begin
   Result.OnClick := Click;
 end;
 
-procedure TTestForm.ChoosePresentation(Sender: TObject; var PresenterName: string);
-begin
-  PresenterName := 'RichEditStyled';            // FMXRichMemo's presentation, registered by FMX.RichEdit.Style
-end;
-
 function TTestForm.Rich: TRichEditStyled;
 begin
   if FMemo.Presentation is TRichEditStyled then
@@ -151,14 +160,22 @@ begin
     Result := nil;
 end;
 
-procedure TTestForm.FormShow(Sender: TObject);
+procedure TTestForm.SetUpWhenReady(Sender: TObject);
 begin
-  FMemo.ApplyStyleLookup;                       // the presentation exists from here
   if Rich = nil then
   begin
-    Status('FMXRichMemo''s presentation is not active: is FMX.RichEdit.Style in the project?');
+    FSetUpTimer.Tag := FSetUpTimer.Tag + 1;
+    if FSetUpTimer.Tag >= 40 then               // two seconds: say what the memo is drawn by instead
+    begin
+      FSetUpTimer.Enabled := False;
+      if FMemo.Presentation = nil then
+        Status('The memo has no presentation yet.')
+      else
+        Status('The memo is drawn by ' + FMemo.Presentation.ClassName + ', not FMXRichMemo''s TRichEditStyled.');
+    end;
     Exit;
   end;
+  FSetUpTimer.Enabled := False;
   Rich.ShowGutter := True;
   Rich.ShowCurrentLine := True;
   Rich.ColorCurrentLine := $18FFFFFF;

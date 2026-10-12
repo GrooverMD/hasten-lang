@@ -1,6 +1,6 @@
-# Hasten FMX editor test
+# Hasten for FMX
 
-Tries [FMXRichMemo](https://github.com/HemulGM/FMXRichMemo) (MIT, Delphi 12+) as the editor for an FMX
+The start of a cross-platform Hasten on FireMonkey. For now a test of [FMXRichMemo](https://github.com/HemulGM/FMXRichMemo) (MIT, Delphi 12+) as the editor for an FMX
 Hasten that runs on Windows, macOS and Linux. Nothing of Hasten depends on it yet.
 
 ## Build

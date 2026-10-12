@@ -1697,7 +1697,7 @@ end;
 { ---- running haste.py ---- }
 
 { haste.py is found once: next to the exe or up to four folders above it (the repository layout puts
-  the IDE in ide\Win64\Debug), otherwise the user is asked. }
+  the IDE in ide\vcl\Win64\Debug), otherwise the user is asked. }
 function TMainForm.LocateHastePy(Ask: Boolean): Boolean;
 var
   Dir: string;

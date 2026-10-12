@@ -330,7 +330,7 @@ runtime.h         the runtime included in every program
 lib/              standard library modules (System, Text, Math, Time, Net, Png)
 examples/         example programs
 tests/            the test suite: language, library, error messages, stress
-ide/              Hasten, the Haste IDE (Delphi, SynEdit)
+ide/              Hasten, the Haste IDE: vcl/ (Windows, SynEdit) and fmx/ (cross-platform, in progress)
 assets/           logo and icons
 ```
 
@@ -348,7 +348,7 @@ assets/           logo and icons
 
 ## Roadmap
 
-- **Hasten**, the Haste IDE: a first version is in [`ide/`](ide/) (editor, highlighting, Run, Build, jump to errors)
+- **Hasten**, the Haste IDE: a first version is in [`ide/vcl/`](ide/vcl/), and a cross-platform FMX version is starting in [`ide/fmx/`](ide/fmx/) (editor, highlighting, Run, Build, jump to errors)
 - A GUI library
 - A faster compiler, written in Haste or Delphi
 

@@ -9,7 +9,7 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.StrUtils, System.Rtti, FMX.Types,
   FMX.Controls, FMX.Forms, FMX.Graphics, FMX.StdCtrls, FMX.Controls.Presentation, FMX.Layouts, FMX.Grid,
-  FMX.Grid.Style, FMX.ScrollBox, Hasten.Project;
+  FMX.Grid.Style, FMX.ScrollBox, Hasten.Project, Hasten.FMX.Text;
 
 type
   TOptionsForm = class(TForm)
@@ -29,6 +29,7 @@ type
     ButtonBar: TLayout;
     OKButton: TButton;
     CancelButton: TButton;
+    procedure FormCreate(Sender: TObject);
     procedure BuildChange(Sender: TObject);
     procedure GridSelectCell(Sender: TObject; const ACol, ARow: Integer; var CanSelect: Boolean);
   private
@@ -85,6 +86,11 @@ function TOptionsForm.Execute(const Name: string; IsProject: Boolean): Boolean;
 begin
   if IsProject then Caption := 'Project Options - ' + Name else Caption := 'Module Options - ' + Name;
   Result := ShowModal = mrOk;
+end;
+
+procedure TOptionsForm.FormCreate(Sender: TObject);
+begin
+  UseTextSizes(Self);
 end;
 
 procedure TOptionsForm.BuildChange(Sender: TObject);

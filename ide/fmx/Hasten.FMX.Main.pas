@@ -13,7 +13,7 @@ uses
   System.RegularExpressions, System.Actions, FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService.Sync, FMX.StdCtrls, FMX.Layouts, FMX.Memo, FMX.Memo.Types, FMX.ScrollBox,
   FMX.Controls.Presentation, FMX.TabControl, FMX.Menus, FMX.ActnList, FMX.Text, FMX.TreeView, FMX.Edit, Hasten.Runner,
-  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Syntax.Code.Haste;
+  Hasten.Project, Hasten.FMX.Editor, Hasten.FMX.Options, Hasten.FMX.Settings, Hasten.FMX.Insight, Hasten.FMX.Text, Syntax.Code.Haste;
 
 type
   TMainForm = class(TForm)
@@ -313,6 +313,7 @@ begin
   FindPrevAction.ShortCut := scShift or vkF3;
   GoToLineAction.ShortCut := CmdKey or Ord('G');
   SetUpToolBar;
+  UseTextSizes(Self);                           // the style's 16-pixel text at Hasten's size
   ShowTree;
   LoadSettings;
   if Tabs.TabCount = 0 then
@@ -493,6 +494,7 @@ begin
   Result.OnChange := EditorChanged;
   Result.OnCaret := CaretMoved;
   Result.Parent := Tabs;
+  UseTextSize(Result);
   ApplySettings(Result);
   Tabs.ActiveTab := Result;
   SetUpTimer.Enabled := True;
@@ -1484,6 +1486,7 @@ begin
   finally
     ProjectTree.EndUpdate;
   end;
+  UseTextSizes(ProjectTree);                    // the items it owns
   ProjectTree.ExpandAll;
 end;
 

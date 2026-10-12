@@ -9,7 +9,7 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, FMX.Types, FMX.Controls, FMX.Forms,
   FMX.Graphics, FMX.Dialogs, FMX.StdCtrls, FMX.Controls.Presentation, FMX.Layouts, FMX.Edit, FMX.ComboEdit,
-  FMX.EditBox, FMX.SpinBox;
+  FMX.EditBox, FMX.SpinBox, Hasten.FMX.Text;
 
 type
   TSettingsForm = class(TForm)
@@ -88,6 +88,7 @@ var
 begin
   for F in FixedFonts do
     FontCombo.Items.Add(F);
+  UseTextSizes(Self);
 end;
 
 function TSettingsForm.Execute: Boolean;

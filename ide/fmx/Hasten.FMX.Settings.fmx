@@ -10,6 +10,7 @@ object SettingsForm: TSettingsForm
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
   OnCreate = FormCreate
+  StyleBook = MainForm.StyleBook1
   DesignerMasterStyle = 0
   object EditorGroup: TGroupBox
     Align = Top

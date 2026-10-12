@@ -17,6 +17,7 @@ uses
 
 type
   TMainForm = class(TForm)
+    StyleBook1: TStyleBook;                    // the style of every Hasten window: the dialogs use this one
     MainMenu: TMainMenu;
     FileMenu: TMenuItem;
     NewItem: TMenuItem;

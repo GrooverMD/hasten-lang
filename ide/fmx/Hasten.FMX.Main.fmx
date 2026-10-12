@@ -11,7 +11,12 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnCloseQuery = FormCloseQuery
+  StyleBook = StyleBook1
   DesignerMasterStyle = 0
+  object StyleBook1: TStyleBook
+    Left = 600
+    Top = 80
+  end
   object MainMenu: TMainMenu
     Left = 40
     Top = 80

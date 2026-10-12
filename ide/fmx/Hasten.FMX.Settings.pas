@@ -78,6 +78,9 @@ type
 
 implementation
 
+uses
+  Hasten.FMX.Main;                              // MainForm.StyleBook1, the style of every Hasten window
+
 {$R *.fmx}
 
 const

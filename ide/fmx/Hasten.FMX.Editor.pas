@@ -30,6 +30,7 @@ type
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
     constructor Create(AOwner: TComponent); override;
+    function TabKey(var Key: Word; var KeyChar: WideChar; Shift: TShiftState): Boolean;   // True: taken
     property TabWidth: Integer read FTabWidth write FTabWidth;    // spaces to a tab stop
   end;
 
@@ -117,23 +118,30 @@ begin
 end;
 
 { Tab comes as a key (vkTab) and then as a character (#9); both are taken, so neither a tab character nor a
-  move to the next control happens. }
+  move to the next control happens. The form sees keys before the memo does and moves the focus on Tab, so
+  its OnKeyDown calls this first; KeyDown is here for a memo on a form that does not. }
+function THasteMemo.TabKey(var Key: Word; var KeyChar: WideChar; Shift: TShiftState): Boolean;
+begin
+  Result := False;
+  if (FTabWidth = 0) or ReadOnly or (Shift * [ssCtrl, ssAlt, ssCommand] <> []) then Exit;
+  if Key = vkTab then
+  begin
+    if ssShift in Shift then Outdent else Indent;
+    Result := True;
+  end
+  else if (Key = 0) and (KeyChar = #9) then
+    Result := True;
+  if Result then
+  begin
+    Key := 0;
+    KeyChar := #0;
+  end;
+end;
+
 procedure THasteMemo.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  if (FTabWidth > 0) and not ReadOnly and (Shift * [ssCtrl, ssAlt, ssCommand] = []) then
-    if Key = vkTab then
-    begin
-      if ssShift in Shift then Outdent else Indent;
-      Key := 0;
-      KeyChar := #0;
-      Exit;
-    end
-    else if (Key = 0) and (KeyChar = #9) then
-    begin
-      KeyChar := #0;
-      Exit;
-    end;
-  inherited;
+  if not TabKey(Key, KeyChar, Shift) then
+    inherited;
 end;
 
 { The lines the selection covers; one that it only reaches the start of is not counted. }
@@ -212,6 +220,8 @@ begin
   FMemo.TextSettings.Font.Family := MonoFont;
   FMemo.TextSettings.Font.Size := 14;
   FMemo.TextSettings.FontColor := EditorText;
+  FMemo.Caret.Color := EditorText;            // the style's caret is dark: unseen on the dark background
+  FMemo.Caret.Width := 2;
   FMemo.OnChangeTracking := MemoChange;
   FLineNumbers := True;
   UpdateText;

@@ -11,6 +11,7 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnCloseQuery = FormCloseQuery
+  OnKeyDown = FormKeyDown
   DesignerMasterStyle = 0
   object MainMenu: TMainMenu
     Left = 40

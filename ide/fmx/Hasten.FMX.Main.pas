@@ -87,6 +87,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure ActionsUpdate(Action: TBasicAction; var Handled: Boolean);
     procedure NewActionExecute(Sender: TObject);
     procedure OpenActionExecute(Sender: TObject);
@@ -245,6 +246,16 @@ begin
     NewTab;
   UpdateStatus;
   RefreshWords;
+end;
+
+{ An FMX form sees each key before the focused control, and moves the focus on Tab: Tab in an editor indents. }
+procedure TMainForm.FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+var
+  Tab: TEditorTab;
+begin
+  Tab := ActiveTab;
+  if (Tab <> nil) and Tab.Memo.IsFocused then
+    Tab.Memo.TabKey(Key, KeyChar, Shift);
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);

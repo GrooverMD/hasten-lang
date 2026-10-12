@@ -9,11 +9,12 @@ on any `file.haste:12`, and Haste colours with module names and aliases from `ha
 Project (through `haste.py new`), Open, Recent, Save Project (Ctrl+Shift+S), Save Project As (rename, or copy
 to another folder), Close, the Project Manager at the
 right (Open, Open Project File, New Module, Rename with the uses changed, Delete, Look Again; the heading shows
-the targets) and Project/Module Options (Ctrl+Shift+F11). Tools > Settings: the editor font and size, line
-numbers, Python, `haste.py`, clearing the output on each run, and reopening last time's files. On a Mac the
-shortcuts use Cmd.
-**Next**: Help Insight, Find and the toolbar. Not in FMX: tab width and the right margin (FMXRichMemo has
-neither) and VCL styles.
+the targets) and Project/Module Options (Ctrl+Shift+F11). Tools > Settings: the editor font and size, tab
+width, the right margin, line numbers, Python, `haste.py`, clearing the output on each run, and reopening last
+time's files. Tab puts in spaces to the next tab stop, or indents the selected lines; Shift+Tab takes them back
+out (as SynEdit's eoTabsToSpaces in Hasten for VCL: FMX draws a tab character at the platform's own width, so
+the editor never puts one in). On a Mac the shortcuts use Cmd.
+**Next**: Help Insight, Find and the toolbar. Not in FMX: VCL styles.
 
 ## Build
 
@@ -33,7 +34,7 @@ neither) and VCL styles.
 | `Hasten.FMX.Main.pas`, `.fmx` | The main window, designed in the form designer: menus, actions, tabs, output, Project Manager |
 | `Hasten.FMX.Options.pas`, `.fmx` | Project/Module Options: build targets and switch values |
 | `Hasten.FMX.Settings.pas`, `.fmx` | Tools > Settings |
-| `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line |
+| `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
 | `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
 | `../common/Hasten.Project.pas` | Projects (`.hproj`), switches read from a program, module names and renames (shared with VCL) |

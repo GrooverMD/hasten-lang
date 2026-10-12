@@ -18,6 +18,10 @@ type
     FontCombo: TComboEdit;
     SizeLabel: TLabel;
     SizeBox: TSpinBox;
+    TabWidthLabel: TLabel;
+    TabWidthBox: TSpinBox;
+    RightEdgeLabel: TLabel;
+    RightEdgeBox: TSpinBox;
     LineNumbersCheck: TCheckBox;
     RunningGroup: TGroupBox;
     PythonLabel: TLabel;
@@ -38,6 +42,10 @@ type
     procedure SetFontFamily(const Value: string);
     function GetFontSize: Single;
     procedure SetFontSize(Value: Single);
+    function GetTabWidth: Integer;
+    procedure SetTabWidth(Value: Integer);
+    function GetRightEdge: Integer;
+    procedure SetRightEdge(Value: Integer);
     function GetLineNumbers: Boolean;
     procedure SetLineNumbers(Value: Boolean);
     function GetPython: string;
@@ -52,6 +60,8 @@ type
     function Execute: Boolean;
     property FontFamily: string read GetFontFamily write SetFontFamily;
     property FontSize: Single read GetFontSize write SetFontSize;
+    property TabWidth: Integer read GetTabWidth write SetTabWidth;      // spaces to a tab stop
+    property RightEdge: Integer read GetRightEdge write SetRightEdge;   // 0: no margin line
     property LineNumbers: Boolean read GetLineNumbers write SetLineNumbers;
     property Python: string read GetPython write SetPython;
     property HastePy: string read GetHastePy write SetHastePy;
@@ -119,6 +129,26 @@ end;
 procedure TSettingsForm.SetFontSize(Value: Single);
 begin
   SizeBox.Value := Round(Value);
+end;
+
+function TSettingsForm.GetTabWidth: Integer;
+begin
+  Result := Round(TabWidthBox.Value);
+end;
+
+procedure TSettingsForm.SetTabWidth(Value: Integer);
+begin
+  TabWidthBox.Value := Value;
+end;
+
+function TSettingsForm.GetRightEdge: Integer;
+begin
+  Result := Round(RightEdgeBox.Value);
+end;
+
+procedure TSettingsForm.SetRightEdge(Value: Integer);
+begin
+  RightEdgeBox.Value := Value;
 end;
 
 function TSettingsForm.GetLineNumbers: Boolean;

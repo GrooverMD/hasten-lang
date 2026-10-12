@@ -134,6 +134,8 @@ type
     FFontFamily: string;                       // these and the rest are set in Tools > Settings
     FFontSize: Single;
     FLineNumbers: Boolean;
+    FTabWidth: Integer;
+    FRightEdge: Integer;                       // 0: no margin line
     FClearOutput: Boolean;                     // on each Run, Build and Run Tests
     FReopen: Boolean;                          // last session's files at start
     function OpenProject(const Path: string): Boolean;
@@ -218,6 +220,8 @@ begin
   FFontFamily := MonoFont;
   FFontSize := 14;
   FLineNumbers := True;
+  FTabWidth := 2;
+  FRightEdge := 80;
   FClearOutput := True;
   FReopen := True;
   NewAction.ShortCut := CmdKey or Ord('N');      // shortcuts here, not in the .fmx: Cmd or Ctrl by platform
@@ -721,6 +725,8 @@ begin
     Tab.FontFamily := FFontFamily;
     Tab.FontSize := FFontSize;
     Tab.LineNumbers := FLineNumbers;
+    Tab.TabWidth := FTabWidth;
+    Tab.RightEdge := FRightEdge;
     Exit;
   end;
   for I := 0 to Tabs.TabCount - 1 do
@@ -738,6 +744,8 @@ begin
     Dialog.FontFamily := FFontFamily;
     Dialog.FontSize := FFontSize;
     Dialog.LineNumbers := FLineNumbers;
+    Dialog.TabWidth := FTabWidth;
+    Dialog.RightEdge := FRightEdge;
     Dialog.Python := FPython;
     Dialog.HastePy := FHastePy;
     Dialog.ClearOutput := FClearOutput;
@@ -746,6 +754,8 @@ begin
     if Dialog.FontFamily <> '' then FFontFamily := Dialog.FontFamily;
     FFontSize := Dialog.FontSize;
     FLineNumbers := Dialog.LineNumbers;
+    FTabWidth := Dialog.TabWidth;
+    FRightEdge := Dialog.RightEdge;
     FPython := Dialog.Python;
     if FPython = '' then FPython := DefaultPython;
     FClearOutput := Dialog.ClearOutput;
@@ -776,6 +786,8 @@ begin
     FFontFamily := Ini.ReadString('Editor', 'FontFamily', FFontFamily);
     FFontSize := Ini.ReadInteger('Editor', 'FontSize', Round(FFontSize));   // whole points, whatever the locale
     FLineNumbers := Ini.ReadBool('Editor', 'LineNumbers', FLineNumbers);
+    FTabWidth := Ini.ReadInteger('Editor', 'TabWidth', FTabWidth);
+    FRightEdge := Ini.ReadInteger('Editor', 'RightEdge', FRightEdge);
     FClearOutput := Ini.ReadBool('Run', 'ClearOutput', FClearOutput);
     FReopen := Ini.ReadBool('Start', 'Reopen', FReopen);
     ApplySettings(nil);
@@ -808,6 +820,8 @@ begin
     Ini.WriteString('Editor', 'FontFamily', FFontFamily);
     Ini.WriteInteger('Editor', 'FontSize', Round(FFontSize));
     Ini.WriteBool('Editor', 'LineNumbers', FLineNumbers);
+    Ini.WriteInteger('Editor', 'TabWidth', FTabWidth);
+    Ini.WriteInteger('Editor', 'RightEdge', FRightEdge);
     Ini.WriteBool('Run', 'ClearOutput', FClearOutput);
     Ini.WriteBool('Start', 'Reopen', FReopen);
     SaveOpenFiles(Ini, 'Open');

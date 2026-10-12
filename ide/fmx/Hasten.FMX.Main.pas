@@ -198,6 +198,7 @@ type
     FLineNumbers: Boolean;
     FTabWidth: Integer;
     FRightEdge: Integer;                       // 0: no margin line
+    FTextSize: Integer;                        // the window's text (tabs, tree, labels, dialogs), in pixels
     FClearOutput: Boolean;                     // on each Run, Build and Run Tests
     FReopen: Boolean;                          // last session's files at start
     FInsight: THasteInsight;                   // Help Insight: tips on names under the mouse
@@ -296,6 +297,7 @@ begin
   FLineNumbers := True;
   FTabWidth := 2;
   FRightEdge := 80;
+  FTextSize := DefaultTextSize;
   FClearOutput := True;
   FReopen := True;
   NewAction.ShortCut := CmdKey or Ord('N');      // shortcuts here, not in the .fmx: Cmd or Ctrl by platform
@@ -848,6 +850,11 @@ begin
   end;
   for I := 0 to Tabs.TabCount - 1 do
     ApplySettings(TEditorTab(Tabs.Tabs[I]));
+  Hasten.FMX.Text.TextSize := FTextSize;        // the window's text: the form's controls, tabs and tree
+  UseTextSizes(Self);
+  UseTextSizes(ProjectTree);
+  for I := 0 to Tabs.TabCount - 1 do
+    UseTextSize(Tabs.Tabs[I]);
   Output.TextSettings.Font.Family := FFontFamily;
   Output.TextSettings.Font.Size := FFontSize - 1;
 end;
@@ -1024,6 +1031,7 @@ begin
     Dialog.LineNumbers := FLineNumbers;
     Dialog.TabWidth := FTabWidth;
     Dialog.RightEdge := FRightEdge;
+    Dialog.TextSize := FTextSize;
     Dialog.Python := FPython;
     Dialog.HastePy := FHastePy;
     Dialog.ClearOutput := FClearOutput;
@@ -1034,6 +1042,7 @@ begin
     FLineNumbers := Dialog.LineNumbers;
     FTabWidth := Dialog.TabWidth;
     FRightEdge := Dialog.RightEdge;
+    FTextSize := Dialog.TextSize;
     FPython := Dialog.Python;
     if FPython = '' then FPython := DefaultPython;
     FClearOutput := Dialog.ClearOutput;
@@ -1066,6 +1075,7 @@ begin
     FLineNumbers := Ini.ReadBool('Editor', 'LineNumbers', FLineNumbers);
     FTabWidth := Ini.ReadInteger('Editor', 'TabWidth', FTabWidth);
     FRightEdge := Ini.ReadInteger('Editor', 'RightEdge', FRightEdge);
+    FTextSize := Ini.ReadInteger('Window', 'TextSize', FTextSize);
     FClearOutput := Ini.ReadBool('Run', 'ClearOutput', FClearOutput);
     FReopen := Ini.ReadBool('Start', 'Reopen', FReopen);
     InsightAction.Checked := Ini.ReadBool('View', 'HelpInsight', True);
@@ -1102,6 +1112,7 @@ begin
     Ini.WriteBool('Editor', 'LineNumbers', FLineNumbers);
     Ini.WriteInteger('Editor', 'TabWidth', FTabWidth);
     Ini.WriteInteger('Editor', 'RightEdge', FRightEdge);
+    Ini.WriteInteger('Window', 'TextSize', FTextSize);
     Ini.WriteBool('Run', 'ClearOutput', FClearOutput);
     Ini.WriteBool('Start', 'Reopen', FReopen);
     Ini.WriteBool('View', 'HelpInsight', InsightAction.Checked);

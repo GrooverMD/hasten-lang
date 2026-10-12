@@ -9,7 +9,7 @@ on any `file.haste:12`, and Haste colours with module names and aliases from `ha
 Project (through `haste.py new`), Open, Recent, Save Project (Ctrl+Shift+S), Save Project As (rename, or copy
 to another folder), Close, the Project Manager at the
 right (Open, Open Project File, New Module, Rename with the uses changed, Delete, Look Again; the heading shows
-the targets) and Project/Module Options (Ctrl+Shift+F11). Tools > Settings: the editor font and size, tab
+the targets) and Project/Module Options (Ctrl+Shift+F11). Tools > Settings: the window's text size, the editor font and size, tab
 width, the right margin, line numbers, Python, `haste.py`, clearing the output on each run, and reopening last
 time's files. Tab puts in spaces to the next tab stop, or indents the selected lines; Shift+Tab takes them back
 out (as SynEdit's eoTabsToSpaces in Hasten for VCL: FMX draws a tab character at the platform's own width, so
@@ -45,7 +45,7 @@ Hasten for FMX now does what Hasten for VCL does, except VCL styles. Not in FMX:
 | `Hasten.FMX.Editor.pas` | An editor tab: FMXRichMemo with Haste colours, line numbers, the current line, the right margin, Tab as spaces, and its own caret (FMX's is not seen over FMXRichMemo's painting) |
 | `Syntax.Code.Haste.pas` | Haste colours for FMXRichMemo, the same as Hasten for VCL |
 | `../common/Hasten.Runner.pas` | Runs `haste.py` and streams its output; Stop ends the whole process tree (shared with VCL) |
-| `Hasten.FMX.Text.pas` | One text size (12 px, as 9 pt) whatever the style: some styles draw everything at 16 |
+| `Hasten.FMX.Text.pas` | One text size for the window whatever the style (some draw everything at 16 px): Tools > Settings > Window, 12 px (9 pt) by default |
 | `Hasten.FMX.Insight.pas` | Help Insight: watches the mouse and draws the tip |
 | `../common/Hasten.Names.pas` | What each name is, from `haste.py words` and a build's `specialised:` line (shared with VCL) |
 | `../common/Hasten.Project.pas` | Projects (`.hproj`), switches read from a program, module names and renames (shared with VCL) |

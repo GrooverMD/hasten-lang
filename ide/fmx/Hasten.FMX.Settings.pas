@@ -23,6 +23,10 @@ type
     RightEdgeLabel: TLabel;
     RightEdgeBox: TSpinBox;
     LineNumbersCheck: TCheckBox;
+    WindowGroup: TGroupBox;
+    TextSizeLabel: TLabel;
+    TextSizeBox: TSpinBox;
+    TextSizeHint: TLabel;
     RunningGroup: TGroupBox;
     PythonLabel: TLabel;
     PythonEdit: TEdit;
@@ -48,6 +52,8 @@ type
     procedure SetRightEdge(Value: Integer);
     function GetLineNumbers: Boolean;
     procedure SetLineNumbers(Value: Boolean);
+    function GetTextSize: Integer;
+    procedure SetTextSize(Value: Integer);
     function GetPython: string;
     procedure SetPython(const Value: string);
     function GetHastePy: string;
@@ -63,6 +69,7 @@ type
     property TabWidth: Integer read GetTabWidth write SetTabWidth;      // spaces to a tab stop
     property RightEdge: Integer read GetRightEdge write SetRightEdge;   // 0: no margin line
     property LineNumbers: Boolean read GetLineNumbers write SetLineNumbers;
+    property TextSize: Integer read GetTextSize write SetTextSize;      // the window's text, in pixels
     property Python: string read GetPython write SetPython;
     property HastePy: string read GetHastePy write SetHastePy;
     property ClearOutput: Boolean read GetClearOutput write SetClearOutput;   // on each Run, Build and Run Tests
@@ -88,7 +95,7 @@ var
 begin
   for F in FixedFonts do
     FontCombo.Items.Add(F);
-  UseTextSizes(Self);
+  Hasten.FMX.Text.UseTextSizes(Self);
 end;
 
 function TSettingsForm.Execute: Boolean;
@@ -160,6 +167,16 @@ end;
 procedure TSettingsForm.SetLineNumbers(Value: Boolean);
 begin
   LineNumbersCheck.IsChecked := Value;
+end;
+
+function TSettingsForm.GetTextSize: Integer;
+begin
+  Result := Round(TextSizeBox.Value);
+end;
+
+procedure TSettingsForm.SetTextSize(Value: Integer);
+begin
+  TextSizeBox.Value := Value;
 end;
 
 function TSettingsForm.GetPython: string;

@@ -3,7 +3,7 @@ object SettingsForm: TSettingsForm
   Top = 0
   BorderIcons = [biSystemMenu]
   Caption = 'Settings'
-  ClientHeight = 412
+  ClientHeight = 476
   ClientWidth = 500
   Position = MainFormCenter
   FormFactor.Width = 320
@@ -114,7 +114,7 @@ object SettingsForm: TSettingsForm
       TabOrder = 8
     end
   end
-  object RunningGroup: TGroupBox
+  object WindowGroup: TGroupBox
     Align = Top
     Margins.Left = 8.000000000000000000
     Margins.Top = 8.000000000000000000
@@ -122,10 +122,53 @@ object SettingsForm: TSettingsForm
     Position.X = 8.000000000000000000
     Position.Y = 144.000000000000000000
     Size.Width = 484.000000000000000000
+    Size.Height = 56.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Window'
+    TabOrder = 1
+    object TextSizeLabel: TLabel
+      Text = 'Text size:'
+      Position.X = 14.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 90.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+    end
+    object TextSizeBox: TSpinBox
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      Min = 8.000000000000000000
+      Max = 24.000000000000000000
+      Value = 12.000000000000000000
+      Position.X = 100.000000000000000000
+      Position.Y = 28.000000000000000000
+      Size.Width = 70.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+    end
+    object TextSizeHint: TLabel
+      Text = 'pixels, for tabs, the Project Manager, labels and dialogs'
+      Position.X = 184.000000000000000000
+      Position.Y = 30.000000000000000000
+      Size.Width = 290.000000000000000000
+      Size.Height = 19.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+    end
+  end
+  object RunningGroup: TGroupBox
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 208.000000000000000000
+    Size.Width = 484.000000000000000000
     Size.Height = 128.000000000000000000
     Size.PlatformDefault = False
     Text = 'Running'
-    TabOrder = 1
+    TabOrder = 2
     object PythonLabel: TLabel
       Text = 'Python:'
       Position.X = 14.000000000000000000
@@ -190,12 +233,12 @@ object SettingsForm: TSettingsForm
     Margins.Top = 8.000000000000000000
     Margins.Right = 8.000000000000000000
     Position.X = 8.000000000000000000
-    Position.Y = 280.000000000000000000
+    Position.Y = 344.000000000000000000
     Size.Width = 484.000000000000000000
     Size.Height = 56.000000000000000000
     Size.PlatformDefault = False
     Text = 'Starting'
-    TabOrder = 2
+    TabOrder = 3
     object ReopenCheck: TCheckBox
       Text = 'Reopen the files from last time'
       Position.X = 14.000000000000000000
@@ -208,11 +251,11 @@ object SettingsForm: TSettingsForm
   end
   object ButtonBar: TLayout
     Align = Bottom
-    Position.Y = 368.000000000000000000
+    Position.Y = 432.000000000000000000
     Size.Width = 500.000000000000000000
     Size.Height = 44.000000000000000000
     Size.PlatformDefault = False
-    TabOrder = 3
+    TabOrder = 4
     object CancelButton: TButton
       Align = Right
       Cancel = True

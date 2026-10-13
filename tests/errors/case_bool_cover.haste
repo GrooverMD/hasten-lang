@@ -1,0 +1,7 @@
+// a case on true/false without else must cover both
+b = true
+case b
+when true
+  print("yes")
+end
+// error: case_bool_cover.haste:3: this case does not cover both true and false: add else

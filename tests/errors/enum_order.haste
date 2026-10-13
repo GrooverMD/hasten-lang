@@ -1,0 +1,4 @@
+// enum values are equal or not; they have no order
+enum Colour = Red | Green
+print(Colour.Red < Colour.Green)
+// error: enum_order.haste:3: Colour values can be compared with = and <> only

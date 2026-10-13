@@ -1,0 +1,4 @@
+// every field is given
+enum Shape = Rect(W: float, H: float)
+s = Shape.Rect(W: 1)
+// error: enum_missing_field.haste:3: Shape.Rect needs H

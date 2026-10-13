@@ -241,7 +241,7 @@ One line says it, and `where` reads as it does on a property's rule.
 `case` (§10.2) is also an expression, giving the value of the arm that matches:
 
 ```haste
-fn Area(s) = case s when Circle(r) then Pi() * r * r when Rect(w, h) then w * h end
+fn Area(s) = case s when Circle(r) then Math.Pi() * r * r when Rect(w, h) then w * h end
 fn Name(n) = case n
   when 1 then "one"
   when 2, 3 then "a few"

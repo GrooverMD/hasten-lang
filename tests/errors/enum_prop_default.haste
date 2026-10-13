@@ -1,0 +1,7 @@
+// a property holding an enum whose first variant has fields needs a default
+enum Shape = Circle(R: float) | Dot
+class Part
+  Form: Shape
+end
+p = Part()
+// error: enum_prop_default.haste:4: Part.Form needs a default: Shape.Circle has fields to give

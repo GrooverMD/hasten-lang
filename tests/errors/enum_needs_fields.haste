@@ -1,0 +1,4 @@
+// a variant with fields is made with them
+enum Shape = Circle(R: float) | Dot
+s = Shape.Circle
+// error: enum_needs_fields.haste:3: Shape.Circle needs its fields: Shape.Circle(R: ...)

@@ -1,0 +1,6 @@
+// case works on enums, whole numbers, text and true/false
+case 2.5
+when 1
+  print("x")
+end
+// error: case_on_float.haste:2: case works on enums, whole numbers, text and true/false, not float

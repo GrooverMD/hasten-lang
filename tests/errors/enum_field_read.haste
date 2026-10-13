@@ -1,0 +1,5 @@
+// fields are read through case, never as x.Field
+enum Shape = Circle(R: float) | Dot
+s = Shape.Circle(1)
+print(s.R)
+// error: enum_field_read.haste:4: Shape is an enum: its fields are read with case

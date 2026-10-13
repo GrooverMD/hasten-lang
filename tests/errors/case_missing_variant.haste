@@ -1,0 +1,5 @@
+// a case on an enum without else must cover every variant
+enum Shape = Circle(R: float) | Rect(W: float, H: float) | Dot
+fn Area(s) = case s when Circle(r) then r * r end
+print(Area(Shape.Dot))
+// error: case_missing_variant.haste:3: this case does not cover Rect, Dot of Shape: add a when for each, or else

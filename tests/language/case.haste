@@ -1,0 +1,65 @@
+// case: arms in order, the first that matches runs; patterns bind fields; where adds a condition
+enum Shape = Circle(R: float) | Rect(W: float, H: float) | Dot
+shapes = [Shape.Circle(1), Shape.Rect(2, 2), Shape.Rect(2, 3), Shape.Dot]
+for x in shapes
+  case x
+  when Circle(r)
+    print("circle {r}")
+  when Rect(w, h) where w = h
+    print("square {w}")
+  when Shape.Rect(w, _) then
+    print("rect {w} wide")
+  when Dot
+    print("dot")
+  end
+end
+// out: circle 1
+// out: square 2
+// out: rect 2 wide
+// out: dot
+fn Kind(s) = case s
+  when Circle, Dot then "round"
+  else "square"
+end
+print([Kind(x) for x in shapes])
+// out: ["round", "square", "square", "round"]
+fn Name(n) = case n
+  when 1 then "one"
+  when 2, 3 then "a few"
+  when 4..9 then "some"
+  when -1 then "minus one"
+  else "many"
+end
+print([Name(i) for i in -1..10 where i <> 0])
+// out: ["minus one", "one", "a few", "a few", "some", "some", "some", "some", "some", "some", "many"]
+fn Yes(b) = case b when true then "yes" when false then "no" end
+print(Yes(1 < 2))
+// out: yes
+case "pit"
+when "dump"
+  print("dump")
+when "pit", "crusher"
+  print("found the pit")
+end
+// out: found the pit
+case 42
+when 1
+  print("not this")
+end
+print("nothing matched, nothing ran")
+// out: nothing matched, nothing ran
+// a case that returns from a function
+fn Sign(n)
+  case n
+  when 0
+    return "zero"
+  else
+    return if n > 0 then "plus" else "minus"
+  end
+end
+print(Sign(-5))
+// out: minus
+// whole numbers and decimals together give a decimal
+fn Half(n) = case n when 0 then 0 else n / 2 end
+print(Half(3))
+// out: 1.5

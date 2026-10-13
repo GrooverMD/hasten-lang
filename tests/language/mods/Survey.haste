@@ -1,0 +1,4 @@
+// a module with an enum: the program makes its values and matches them
+enum Reading = Missing | Depth(Value: float, Hole: string)
+fn Deepest(l) = l.Count
+fn Show(r) = case r when Missing then "no reading" when Depth(v, h) then "{h}: {v}" end

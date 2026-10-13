@@ -1,0 +1,7 @@
+// a pattern names a variant of the enum
+enum Colour = Red | Green
+case Colour.Red
+when Blue
+  print("x")
+end
+// error: case_unknown_variant.haste:4: Colour has no variant Blue; it has Red, Green

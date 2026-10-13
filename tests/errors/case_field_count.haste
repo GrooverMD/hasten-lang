@@ -1,0 +1,7 @@
+// a pattern names every field, or _ for the ones it skips
+enum Shape = Rect(W: float, H: float)
+case Shape.Rect(1, 2)
+when Rect(w)
+  print(w)
+end
+// error: case_field_count.haste:4: Shape.Rect has 2 field(s): W, H; name each one, or _ to skip it

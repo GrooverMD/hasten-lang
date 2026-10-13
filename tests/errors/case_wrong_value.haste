@@ -1,0 +1,6 @@
+// the values an arm matches have the type of the case
+case 3
+when "three"
+  print("x")
+end
+// error: case_wrong_value.haste:3: this case is on int, so it cannot match string

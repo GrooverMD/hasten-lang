@@ -1,0 +1,11 @@
+// names a pattern binds are known only in its arm
+enum Shape = Circle(R: float) | Dot
+fn F(s)
+  case s
+  when Circle(r)
+    print(r)
+  else
+    print(r)
+  end
+end
+// error: case_binding_scope.haste:8: unknown name r

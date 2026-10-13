@@ -1,0 +1,10 @@
+// an arm with where does not cover its variant: it may not match
+enum Shape = Circle(R: float) | Dot
+s = Shape.Dot
+case s
+when Circle(r) where r > 1
+  print(r)
+when Dot
+  print("dot")
+end
+// error: case_where_not_cover.haste:4: this case does not cover Circle of Shape: add a when for it, or else

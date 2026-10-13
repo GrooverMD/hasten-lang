@@ -1,0 +1,65 @@
+// enums: one of several variants, some carrying fields; values, compared by contents, read through case
+enum Colour = Red | Green | Blue
+enum Shape = Circle(R: float) | Rect(W: float, H: float)
+enum Tree
+  Leaf
+  Node(Left: Tree, Value: int, Right: Tree)
+end
+alias Survey = mods.Survey
+fn Area(s) = case s when Circle(r) then Math.Pi() * r * r when Rect(w, h) then w * h end
+fn Sum(t): int = case t
+  when Leaf then 0
+  when Node(l, v, r) then Sum(l) + v + Sum(r)
+end
+c = Colour.Green
+print(c)
+// out: Colour.Green
+print(c = Colour.Green)
+// out: true
+print(c <> Colour.Blue)
+// out: true
+s = Shape.Circle(R: 2)
+print(s)
+// out: Shape.Circle(R: 2)
+print(Area(s))
+// out: 12.5663706143592
+print(Area(Shape.Rect(3, 4)))
+// out: 12
+print(Shape.Rect(H: 1, W: 2) = Shape.Rect(2, 1))
+// out: true
+print(Shape.Rect(2, 1) = Shape.Rect(1, 2))
+// out: false
+t = Tree.Node(Tree.Node(Tree.Leaf, 1, Tree.Leaf), 2, Tree.Leaf)
+print(Sum(t))
+// out: 3
+print(t)
+// out: Tree.Node(Left: Tree.Node(Left: Tree.Leaf, Value: 1, Right: Tree.Leaf), Value: 2, Right: Tree.Leaf)
+shapes = [Shape.Circle(1), Shape.Rect(2, 2), Shape.Rect(2, 3)]
+print(shapes.Has(Shape.Rect(2, 2)))
+// out: true
+print(shapes.IndexOf(Shape.Rect(2, 3)))
+// out: 2
+print("{shapes[0]} and {Colour.Red}")
+// out: Shape.Circle(R: 1) and Colour.Red
+class Hole
+  State = Colour.Red
+  Last: Shape = Shape.Rect(1, 1)
+end
+h = Hole()
+print(h)
+// out: Hole(State: Colour.Red, Last: Shape.Rect(W: 1, H: 1))
+h.State = Colour.Blue
+print(h.State)
+// out: Colour.Blue
+d = {"pit": Colour.Red}
+d["dump"] = Colour.Green
+print(d)
+// out: {"pit": Colour.Red, "dump": Colour.Green}
+r = Survey.Reading.Depth(12.5, "H7")
+print(Survey.Show(r))
+// out: H7: 12.5
+print(Survey.Show(Survey.Reading.Missing))
+// out: no reading
+alias Reading = Survey.Reading
+print(Reading.Missing = Survey.Reading.Missing)
+// out: true

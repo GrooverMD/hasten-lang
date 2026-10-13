@@ -1,0 +1,4 @@
+// a variant that is not there
+enum Colour = Red | Green
+c = Colour.Blue
+// error: enum_no_variant.haste:3: Colour has no variant Blue; it has Red, Green

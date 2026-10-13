@@ -1,0 +1,3 @@
+// a field has a written type
+enum Shape = Circle(R)
+// error: enum_field_type.haste:2: field R needs a type, e.g. R: float

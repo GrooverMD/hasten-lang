@@ -1,0 +1,4 @@
+// a case on whole numbers that gives a value needs else
+fn Name(n) = case n when 1 then "one" end
+print(Name(1))
+// error: case_needs_else.haste:2: a case on int that gives a value needs else, for when nothing matches

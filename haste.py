@@ -26,9 +26,10 @@ class Widen(Exception):
 
 KEYWORDS = {'need', 'class', 'end', 'fn', 'let', 'var', 'if', 'then', 'elif', 'else',
             'while', 'for', 'in', 'return', 'try', 'catch', 'and', 'or', 'not', 'true', 'false',
-            'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch', 'write'}
+            'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch', 'write',
+            'enum', 'case', 'when'}
 OPS2 = ('<>', '<=', '>=', '..', '=>')
-OPS1 = '=<>+-*/()[]{},.:'
+OPS1 = '=<>+-*/()[]{},.:|'
 HINTS = {'!=': "Haste writes 'not equal' as <>", '==': 'Haste compares with a single =',
          '+=': 'Haste has no +=; write x = x + 1', '-=': 'Haste has no -=; write x = x - 1',
          '*=': 'Haste has no *=; write x = x * 2', '/=': 'Haste has no /=; write x = x / 2',
@@ -140,7 +141,7 @@ class N:
 ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', '\\': '\\', '"': '"', '{': '{', '}': '}'}
 
 
-TOP_ONLY = ('fn', 'extern', 'class', 'init', 'need', 'switch', 'alias')   # never inside a block
+TOP_ONLY = ('fn', 'extern', 'class', 'enum', 'init', 'need', 'switch', 'alias')   # never inside a block
 
 
 def shown(t):
@@ -166,7 +167,7 @@ class Parser:
         t = t or s.peek()
         raise HasteError(f"{t.file}:{t.line}: {msg}, found {shown(t)}")
 
-    STARTS = ('let', 'var', 'while', 'for', 'parallel', 'return', 'try', 'end', 'elif', 'else', 'catch') + TOP_ONLY
+    STARTS = ('let', 'var', 'while', 'for', 'parallel', 'return', 'try', 'end', 'elif', 'else', 'catch', 'when') + TOP_ONLY
 
     def sep(s, close, opener, line):
         """After an item in brackets: a comma, or the closing bracket (which the caller eats)."""
@@ -241,7 +242,7 @@ class Parser:
     # top level
     def program(s):
         prog = N('program', imports=[], classes={}, funcs={}, stmts=[], inits=[], aliases={}, type_aliases={},
-                 switches=[])
+                 switches=[], enums={})
         seen = {}                            # functions, classes and aliases share one set of names
 
         def declare(name, line, what):
@@ -270,6 +271,8 @@ class Parser:
                 s.nl()
             elif s.at('class'):
                 c = s.cls(); declare(c.name, c.line, 'a class'); prog.classes[c.name] = c
+            elif s.at('enum'):
+                en = s.enum(); declare(en.name, en.line, 'an enum'); prog.enums[en.name] = en
             elif s.at('fn', 'extern'):
                 f = s.fn(); declare(f.name, f.line, 'a function'); prog.funcs[f.name] = f
             elif s.at('init'):
@@ -353,11 +356,75 @@ class Parser:
         s.close()
         return c
 
+    def enum(s):
+        """enum Shape = Circle(R: float) | Rect(W: float, H: float), or one variant a line up to 'end'."""
+        line = s.eat('enum').line
+        en = N('enum', line, name=s.name(), variants=[])
+
+        def variant():
+            t = s.peek()
+            v = N('variant', t.line, name=s.name(), fields=[])
+            if any(v.name == w.name for w in en.variants): s.error(f'{en.name} already has a variant {v.name}', t)
+            if s.at('('):
+                s.next()
+                while not s.at(')'):
+                    ft = s.peek(); fn_ = s.name()
+                    if any(fn_ == f for f, _ in v.fields): s.error(f'{v.name} already has a field {fn_}', ft)
+                    if not s.at(':'): s.fail(f'field {fn_} needs a type, e.g. {fn_}: float')
+                    s.next(); v.fields.append((fn_, s.type()))
+                    s.sep(')', '(', t.line)
+                s.next()
+            en.variants.append(v)
+        if s.at('='):
+            s.next(); variant()
+            while s.at('|'):
+                s.next(); variant()
+            s.nl()
+        else:
+            s.opened('enum', line); s.nl()
+            while not s.at('end'):
+                if s.peek().kind == 'EOF' or s.at(*TOP_ONLY): s.unclosed()
+                variant(); s.nl()
+            s.close()
+        if not en.variants: s.error(f'enum {en.name} has no variants', Tok('', '', line, s.peek().file))
+        return en
+
+    def patterns(s):
+        """What a 'when' matches: variants (Circle(r), Shape.Rect(w, _), Red), literals and ranges, by commas."""
+        out = []
+        while True:
+            t = s.peek(); L = t.line
+            if t.kind == 'NAME':
+                parts = s.dotted(); names = None
+                if s.at('('):
+                    s.next(); names = []
+                    while not s.at(')'):
+                        names.append(s.name()); s.sep(')', '(', L)
+                    s.next()
+                out.append(N('pat', L, pk='variant', parts=parts, names=names))
+            elif t.kind in ('INT', 'FLOAT', 'STR') or s.at('-', 'true', 'false'):
+                a = s.unary()
+                if s.at('..'): s.next(); out.append(N('pat', L, pk='range', a=a, b=s.unary()))
+                else: out.append(N('pat', L, pk='value', a=a))
+            else:
+                s.fail('expected what to match: a variant such as Circle(r), a number, a text or a range')
+            if not s.at(','): return out
+            s.next()
+
+    def case_head(s):
+        L = s.eat('case').line
+        return L, s.expr()
+
+    def arm(s):
+        s.eat('when'); pats = s.patterns(); guard = None
+        if s.at('where'): s.next(); guard = s.expr()
+        return pats, guard
+
     # statements
     def block(s):
         out = []
         s.skipnl()
-        while not s.at('end', 'elif', 'else', 'catch'):
+        while not s.at('end', 'elif', 'else', 'catch', 'when'):
             if s.peek().kind == 'EOF' or s.at(*TOP_ONLY): s.unclosed()
             out.append(s.stmt()); s.skipnl()
         return out
@@ -406,6 +473,18 @@ class Parser:
         if s.at('return'):
             s.next(); e = None if s.peek().kind in ('NL', 'EOF') else s.expr(); s.nl()
             return N('return', L, value=e)
+        if s.at('case'):                               # case x / when pattern / ... / else / ... / end
+            s.opened('case', L); _, subj = s.case_head(); s.nl(); arms = []; els = None
+            if not s.at('when'): s.fail("expected 'when' and what to match")
+            while s.at('when'):
+                head = s.arm()
+                if s.at('then'): s.next()
+                if s.peek().kind not in ('NL', 'EOF'):
+                    s.error("put what the arm does on the next line, and close the case with 'end'")
+                s.nl(); arms.append((head, s.block()))
+            if s.at('else'): s.next(); s.nl(); els = s.block()
+            s.close()
+            return N('case', L, subj=subj, arms=arms, els=els)
         if s.at('try'):
             s.opened('try', s.next().line); s.nl(); b = s.block(); s.eat('catch'); v = s.name(); s.nl()
             h = s.block(); s.close()
@@ -422,6 +501,16 @@ class Parser:
         if s.at('if'):
             L = s.next().line; c = s.expr(); s.eat('then'); a = s.expr(); s.eat('else')
             return N('ifx', L, cond=c, a=a, b=s.expr())
+        if s.at('case'):                               # case x when pattern then value ... else value end
+            L, subj = s.case_head(); arms = []; els = None
+            s.skipnl()
+            if not s.at('when'): s.fail("expected 'when' and what to match")
+            while s.at('when'):
+                head = s.arm(); s.eat('then'); arms.append((head, s.expr())); s.skipnl()
+            if s.at('else'): s.next(); els = s.expr(); s.skipnl()
+            if not s.at('end'): s.fail("expected 'when', 'else' or the 'end' of the case")
+            s.next()
+            return N('casex', L, subj=subj, arms=arms, els=els)
         return s.binary(0)
 
     LEVELS = [('or', 'xor'), ('and',), None, ('=', '<>', '<', '>', '<=', '>='), ('+', '-'),
@@ -740,7 +829,7 @@ class Gen:
         g.depth = 0                          # how deeply the expression being generated is nested
         g.try_names = {}                     # module -> names assigned inside a try (made volatile)
         g.fnrefs = {}                        # 'function Name' -> (module, fn): functions used as values
-        g.classes = {}
+        g.classes, g.enums = {}, {}
         for m in list(registry.values()): g.register(m)
         g.fwd, g.lists, g.structs, g.protos, g.funcs = [], [], [], [], []
         g.done, g.queue, g.inferring = set(), [], set()
@@ -756,6 +845,11 @@ class Gen:
             c.qname = c.name if mod.is_main else f'{mod.name}.{c.name}'
             c.cname = 'K_' + c.qname.replace('.', '__')     # its own prefix: never meets L_i, hs_..., m_...
             g.classes[c.qname] = c
+        for en in mod.prog.enums.values():
+            en.mod = mod
+            en.qname = en.name if mod.is_main else f'{mod.name}.{en.name}'
+            en.cname = 'E_' + en.qname.replace('.', '__')
+            g.enums[en.qname] = en
 
     def mark(g, mod, name):
         if not mod.is_main: g.used.setdefault(mod.name, set()).add(name)
@@ -785,19 +879,35 @@ class Gen:
         if len(parts) == 1:
             n, m = parts[0], env.mod
             if n in m.prog.classes: return ('class', m.prog.classes[n])
+            if n in m.prog.enums: return ('enum', m.prog.enums[n])
             if n in m.prog.funcs: return ('fn', m, m.prog.funcs[n])
             mod = m.imports.get(n) or g.module(n)
             return ('module', mod) if mod else None
+        en = g.find_enum(parts[:-1], env)            # Shape.Circle, Geo.Shape.Circle: a variant
+        if en:
+            v = next((v for v in en.variants if v.name == parts[-1]), None)
+            if not v: g.err(node, f'{en.name} has no variant {parts[-1]}; it has ' + ', '.join(w.name for w in en.variants))
+            return ('variant', en, v)
         head = '.'.join(parts[:-1])
         mod = env.mod.imports.get(head) or g.module(head)
         if mod:
             last = parts[-1]
             if last in mod.prog.classes: return ('class', mod.prog.classes[last])
+            if last in mod.prog.enums: return ('enum', mod.prog.enums[last])
             if last in mod.prog.funcs: return ('fn', mod, mod.prog.funcs[last])
         sub = g.module('.'.join(parts))
         if sub: return ('module', sub)
         if mod: g.err(node, f'module {mod.name} has no {parts[-1]}')
         return None
+
+    def find_enum(g, parts, env):
+        """The enum that Shape or Geo.Shape names, or None."""
+        aliases, seen = env.mod.prog.aliases, set()
+        while parts[0] in aliases and parts[0] not in seen:
+            seen.add(parts[0]); parts = aliases[parts[0]][0] + parts[1:]
+        if len(parts) == 1: return env.mod.prog.enums.get(parts[0])
+        mod = env.mod.imports.get('.'.join(parts[:-1])) or g.module('.'.join(parts[:-1]))
+        return mod.prog.enums.get(parts[-1]) if mod else None
 
     def is_path(g, parts, env):
         """True when a.b.c should be looked up as a name path, not as a value."""
@@ -818,7 +928,7 @@ class Gen:
             k, v = kv(t)
             return '{' + g.tname(k, env, node, seen) + ':' + g.tname(v, env, node, seen) + '}'
         r = g.resolve(t.split('.'), env, node)
-        if not r or r[0] != 'class': g.err(node, f'unknown type {t}')
+        if not r or r[0] not in ('class', 'enum'): g.err(node, f'unknown type {t}')
         return r[1].qname
 
     # ── types ──
@@ -829,6 +939,7 @@ class Gen:
         if t[1:2] == '?': return f'@@P{t[2:-1]}@@*'       # filled in once the first Add or d[k] = v is seen
         if t.startswith('['): return g.list_type(t[1:-1]) + '*'
         if t.startswith('{'): return g.dict_type(*kv(t)) + '*'
+        if t in g.enums: return g.use_enum(t)
         g.use_class(t)
         return f'C_{g.classes[t].cname}*'
 
@@ -900,6 +1011,8 @@ static {name} *{name}_of(int n, ...) {{
     if (d->count > 100) hs_strs_add(parts, hs_fmt("... %lld more", d->count - 100));
     return hs_fmt("{{%s}}", hs_join(parts, ", "));
 }}''')
+        elif t in g.enums:
+            g.enum_show(t, name)
         else:
             cls = g.classes[t]
             g.use_class(t)
@@ -919,6 +1032,7 @@ static {name} *{name}_of(int n, ...) {{
         """C test that a and b are equal as = sees them."""
         if t == 'string': return f'strcmp({a}, {b}) == 0'
         if t[:1] in '[{': return f'{g.eq_fn(t)}({a}, {b})'
+        if t in g.enums: return f'{g.enum_eq(t)}({a}, {b})'
         return f'{a} == {b}'
 
     def list_member(g, oc, lt, name, e, env):
@@ -1041,9 +1155,7 @@ static {L} *{L}_copy({L} *l) {{ return {L}_slice(l, 0, l->count); }}''')
         g.list_types[name] = name
 
         def same(a, b, et):
-            if et == 'string': return f'strcmp({a}, {b}) == 0'
-            if et[:1] in '[{': return f'{g.eq_fn(et)}({a}, {b})'
-            return f'{a} == {b}'
+            return g.same(et, a, b)
         if t.startswith('['):
             et, lt = t[1:-1], g.list_type(t[1:-1])
             test = same('a->items[i]', 'b->items[i]', et)
@@ -1166,6 +1278,94 @@ static {name} *{name}_of(int n, ...) {{
     va_end(ap); return d;
 }}''')
         return name
+
+    # ── enums: a value is { tag, p }, p pointing at the variant's fields (none: p is 0). Fields never change,
+    # so copies may share them, and an enum may hold itself (a tree) ──
+    def use_enum(g, qname):
+        en = g.enums[qname]
+        if qname not in g.class_used:
+            g.class_used.add(qname)
+            g.mark(en.mod, en.name)
+            g.fwd.append(f'typedef struct {{ long long tag; void *p; }} {en.cname};')
+            for v in en.variants:
+                if not v.fields: continue
+                fields = '\n'.join(f'    {g.ctype(g.field_type(en, v, f))} f_{f};' for f, _ in v.fields)
+                g.structs.append(f'typedef struct {{\n{fields}\n}} {en.cname}_{v.name};')
+        return en.cname
+
+    def field_type(g, en, v, f):
+        t = dict(v.fields)[f]
+        return g.tname(t, Env(en.mod), v)
+
+    def make_variant(g, en, v, args, node, env):
+        """Shape.Circle(R: 2.5) or Shape.Circle(2.5): every field, by name or all by position."""
+        g.use_enum(en.qname)
+        tag = en.variants.index(v)
+        full = f'{en.name}.{v.name}'
+        if not v.fields:
+            if args: g.err(node, f'{full} has no fields')
+            return f'(({en.cname}){{ {tag}, 0 }})', en.qname
+        named = [nm for nm, _ in args if nm]
+        if named and len(named) != len(args): g.err(node, f'give {full} its fields all by name or all by position')
+        fields = [f for f, _ in v.fields]
+        if named:
+            for nm in named:
+                if nm not in fields: g.err(node, f'{full} has no field {nm}')
+                if named.count(nm) > 1: g.err(node, f'{nm} is given twice')
+            given = dict(args)
+        else:
+            if len(args) != len(fields):
+                g.err(node, f'{full} has {len(fields)} field(s): ' + ', '.join(f'{f}: {t}' for f, t in v.fields) +
+                      f', got {len(args)}')
+            given = dict(zip(fields, (a for _, a in args)))
+        missing = [f for f in fields if f not in given]
+        if missing: g.err(node, f'{full} needs ' + ', '.join(missing))
+        sets = []
+        for f in fields:
+            ft = g.field_type(en, v, f)
+            c, t = g.expr(given[f], env, ft)
+            sets.append(f'_p->f_{f} = {g.coerce(c, t, ft, given[f])};')
+        plain = all(g.field_type(en, v, f) in ('int', 'float', 'bool') for f in fields)
+        alloc = 'hs_alloc_atomic' if plain else 'hs_alloc'
+        st = f'{en.cname}_{v.name}'
+        return f'({{ {st} *_p = {alloc}(sizeof({st})); ' + ' '.join(sets) + f' (({en.cname}){{ {tag}, _p }}); }})', en.qname
+
+    def enum_eq(g, qname):
+        """Equal: the same variant with equal fields."""
+        en = g.enums[qname]
+        name = 'EQ_' + en.cname
+        if name in g.list_types: return name
+        g.list_types[name] = name
+        g.use_enum(qname)
+        cases = []
+        for i, v in enumerate(en.variants):
+            if not v.fields: continue
+            st = f'{en.cname}_{v.name}'
+            tests = ' && '.join(g.same(g.field_type(en, v, f), f'x->f_{f}', f'y->f_{f}') for f, _ in v.fields)
+            cases.append(f'    case {i}: {{ {st} *x = a.p, *y = b.p; return {tests}; }}')
+        g.protos.append(f'static bool {name}({en.cname} a, {en.cname} b);')
+        g.funcs.append(f'static bool {name}({en.cname} a, {en.cname} b) {{\n    if (a.tag != b.tag) return false;\n'
+                       f'    if (a.p == b.p) return true;\n    switch (a.tag) {{\n' + '\n'.join(cases) +
+                       '\n    }\n    return true;\n}')
+        return name
+
+    def enum_show(g, qname, name):
+        en = g.enums[qname]
+        g.use_enum(qname)
+        cases = []
+        for i, v in enumerate(en.variants):
+            full = f'{en.qname}.{v.name}'
+            if not v.fields:
+                cases.append(f'    case {i}: return "{full}";')
+                continue
+            st = f'{en.cname}_{v.name}'
+            parts = ', '.join(f'{f}: %s' for f, _ in v.fields)
+            vals = ', '.join(g.show(g.field_type(en, v, f), f'x->f_{f}', depth='depth + 1') for f, _ in v.fields)
+            cases.append(f'    case {i}: {{ if (depth >= 3) return "{full}(...)"; {st} *x = o.p; '
+                         f'return hs_fmt("{full}({parts})", {vals}); }}')
+        g.protos.append(f'static hs_str {name}({en.cname} o, int depth);')
+        g.funcs.append(f'static hs_str {name}({en.cname} o, int depth) {{\n    switch (o.tag) {{\n' + '\n'.join(cases) +
+                       '\n    }\n    return "?";\n}')
 
     def use_class(g, qname):
         if qname in g.class_used: return
@@ -1353,6 +1553,11 @@ static {name} *{name}_of(int n, ...) {{
                 c = f'{g.dict_type(*kv(t))}_new()'
             elif t in g.classes:
                 g.err(p, f'{cls.name}.{p.name} needs a default object (Haste has no nil)')
+            elif t in g.enums:
+                en = g.enums[t]
+                if en.variants[0].fields:
+                    g.err(p, f'{cls.name}.{p.name} needs a default: {en.name}.{en.variants[0].name} has fields to give')
+                c = f'(({g.use_enum(t)}){{ 0, 0 }})'
             else:
                 c = {'string': '""', 'bool': 'false'}.get(t, '0')
             body.append(f'    self->p_{p.name} = {c};')
@@ -1566,6 +1771,7 @@ static {name} *{name}_of(int n, ...) {{
             if env.in_try:                       # the value may itself raise, so work it out first
                 return [f'{pad}{{ __auto_type _r = {c}; ' + 'hs_try_pop(); ' * env.in_try + 'return _r; }']
             return [f'{pad}return {c};']
+        if k == 'case': return g.case_stmt(st, env, d)
         if k == 'try':
             jb = g.fresh()
             handler = env.child()
@@ -1728,7 +1934,7 @@ static {name} *{name}_of(int n, ...) {{
                 elif is_num(t) and spec is not None: fmt += f'%.{spec}f'; args.append(f'(double)({c})')
                 elif t == 'int': fmt += '%lld'; args.append(c)
                 elif t == 'float': fmt += '%s'; args.append(f'hs_ftoa({c})')
-                elif t[:1] in '[{' or t in g.classes: fmt += '%s'; args.append(g.show(g.known(t, x), c, quoted=False))
+                elif t[:1] in '[{' or t in g.classes or t in g.enums: fmt += '%s'; args.append(g.show(g.known(t, x), c, quoted=False))
                 else: g.err(x, f'cannot put a {t} in a string')
             return f'hs_fmt({", ".join([cstr(fmt)] + args)})', 'string'
         if k == 'name':
@@ -1752,6 +1958,7 @@ static {name} *{name}_of(int n, ...) {{
             return f'{g.list_type(et)}_of({len(codes)}, {", ".join(codes)})', f'[{et}]'
         if k == 'comp': return g.comprehension(e, env, want)
         if k == 'lambda': return g.inline_fn(e, env)
+        if k == 'casex': return g.case_expr(e, env, want)
         if k == 'dict':
             if not e.pairs:
                 if not (want and want.startswith('{')): return g.new_pending('{')
@@ -1789,6 +1996,8 @@ static {name} *{name}_of(int n, ...) {{
             oc, ot = g.expr(e.obj, env)
             if ot[:1] in '[{' and e.name == 'Count': return f'({oc})->count', 'int'
             if ot == 'string' and e.name == 'Length': return f'(long long)hs_len({oc})', 'int'
+            if ot in g.enums:
+                g.err(e, f'{ot} is an enum: its fields are read with case, e.g. case x when Variant(a, b) then ...')
             if ot in g.classes:
                 cls = g.classes[ot]
                 if e.name in cls.props: return g.get_prop(oc, cls, cls.props[e.name])
@@ -1831,6 +2040,119 @@ static {name} *{name}_of(int n, ...) {{
         t = 'function ' + f.name
         if not caps: return '0', t
         return f'(({f.ctx}){{ ' + ', '.join(c for _, _, c in caps) + ' })', t
+
+    # ── case: arms tried in order; each a test of the value, the names it binds, and a where ──
+    def case_subject(g, e, env):
+        c, t = g.expr(e.subj, env)
+        if not (t in g.enums or t in ('int', 'string', 'bool')):
+            g.err(e.subj, f'case works on enums, whole numbers, text and true/false, not {t}')
+        return c, t
+
+    def case_arm(g, t, sv, pats, env, node):
+        """(C test, C lines binding names, the arm's environment, the enum variant tags it covers)."""
+        tests, binds, inner, tags = [], [], env.child(), set()
+        for p in pats:
+            if p.pk == 'variant':
+                if t not in g.enums:
+                    if p.parts == ['_']: g.err(p, "write else to match anything")
+                    g.err(p, f'{".".join(p.parts)} is a variant, but this case is on {t}')
+                en = g.enums[t]
+                if len(p.parts) == 1:
+                    v = next((v for v in en.variants if v.name == p.parts[0]), None)
+                    if not v: g.err(p, f'{en.name} has no variant {p.parts[0]}; it has ' + ', '.join(w.name for w in en.variants))
+                else:
+                    r = g.resolve(p.parts, env, p)
+                    if not r or r[0] != 'variant' or r[1] is not en: g.err(p, f'{".".join(p.parts)} is not a variant of {en.name}')
+                    v = r[2]
+                i = en.variants.index(v)
+                tests.append(f'{sv}.tag == {i}'); tags.add(i)
+                if p.names is not None:
+                    if len(pats) > 1: g.err(p, 'a pattern that names fields cannot be listed with others; give it its own when')
+                    if len(p.names) != len(v.fields):
+                        g.err(p, f'{en.name}.{v.name} has {len(v.fields)} field(s): ' + ', '.join(f for f, _ in v.fields) +
+                              '; name each one, or _ to skip it')
+                    for nm, (f, _) in zip(p.names, v.fields):
+                        if nm == '_': continue
+                        if nm in inner.vars: g.err(p, f'{nm} is named twice')
+                        ft = g.field_type(en, v, f)
+                        inner.vars[nm] = (ft, False, 'v_' + nm)
+                        binds.append(f'{g.ctype(ft)} v_{nm} = (({en.cname}_{v.name} *){sv}.p)->f_{f};')
+                continue
+            a, at = g.expr(p.a, env)
+            if p.pk == 'range':
+                b, bt = g.expr(p.b, env)
+                if not (t == at == bt == 'int'): g.err(p, f'a range matches whole numbers; this case is on {t}')
+                tests.append(f'({sv} >= {a} && {sv} <= {b})')
+            else:
+                if at != t: g.err(p, f'this case is on {t}, so it cannot match {at}')
+                tests.append(g.same(t, sv, a))
+                if t == 'bool': tags.add(p.a.v)
+        return ' || '.join(f'({x})' for x in tests), binds, inner, tags
+
+    def case_cover(g, t, covered, node):
+        """Without else, an enum case covers every variant and a true/false case both values."""
+        if t in g.enums:
+            en = g.enums[t]
+            missing = [f'{v.name}' for i, v in enumerate(en.variants) if i not in covered]
+            if missing:
+                g.err(node, f'this case does not cover {", ".join(missing)} of {en.name}: add a when for '
+                            f'{"each" if len(missing) > 1 else "it"}, or else')
+        elif t == 'bool':
+            if covered != {True, False}: g.err(node, 'this case does not cover both true and false: add else')
+        else:
+            return False
+        return True
+
+    def case_stmt(g, st, env, d):
+        pad = '    ' * d
+        c, t = g.case_subject(st, env)
+        sv = g.fresh()
+        out = [f'{pad}{{ {g.ctype(t)} {sv} = {c};', f'{pad}do {{']
+        covered = set()
+        for (pats, guard), body in st.arms:
+            test, binds, inner, tags = g.case_arm(t, sv, pats, env, st)
+            if guard is None: covered |= tags
+            out.append(f'{pad}    if ({test}) {{')
+            out += [f'{pad}        {b}' for b in binds]
+            if guard is not None:
+                out.append(f'{pad}        if ({g.cond(guard, inner)}) {{')
+                out += g.block(body, inner, d + 3) + [f'{pad}            break;', f'{pad}        }}']
+            else:
+                out += g.block(body, inner, d + 2) + [f'{pad}        break;']
+            out.append(f'{pad}    }}')
+        if st.els is not None:
+            out += g.block(st.els, env.child(), d + 1)
+        elif t in g.enums or t == 'bool':
+            g.case_cover(t, covered, st)
+        return out + [f'{pad}}} while (0); }}']
+
+    def case_expr(g, e, env, want):
+        c, t = g.case_subject(e, env)
+        sv, r = g.fresh(), g.fresh()
+        arms, covered = [], set()
+        s = env.spec                               # lets  fn F(n) = case n ... F(n - 1) ...  recurse
+        for (pats, guard), value in e.arms:
+            test, binds, inner, tags = g.case_arm(t, sv, pats, env, e)
+            if guard is None: covered |= tags
+            gc = g.cond(guard, inner) if guard is not None else None
+            vc, vt = g.expr(value, inner, want)
+            if vt == 'void': g.err(value, 'that expression has no value')
+            if s and s.top is e and not s.ret and not s.hint: s.hint = vt
+            arms.append((test, binds, gc, vc, vt, value))
+        if e.els is not None:
+            ec, et = g.expr(e.els, env, want)
+            arms.append((None, [], None, ec, et, e.els))
+        elif not g.case_cover(t, covered, e):
+            g.err(e, f'a case on {t} that gives a value needs else, for when nothing matches')
+        types = [a[4] for a in arms]
+        rt = 'float' if all(is_num(x) for x in types) and 'float' in types else types[0]
+        body = []
+        for test, binds, gc, vc, vt, node in arms:
+            set_ = f'{r} = {g.coerce(vc, vt, rt, node)}; break;'
+            if gc: set_ = f'if ({gc}) {{ {set_} }}'
+            body.append(set_ if test is None else f'if ({test}) {{ ' + ' '.join(binds) + f' {set_} }}')
+        if e.els is None: body.append('hs_raise("no case matched");')
+        return f'({{ {g.ctype(t)} {sv} = {c}; {g.ctype(rt)} {r}; do {{ ' + ' '.join(body) + f' }} while (0); {r}; }})', rt
 
     def comprehension(g, e, env, want):
         """[value for x in source where condition]: a new list, filled by a loop inside the expression."""
@@ -1960,6 +2282,10 @@ static {name} *{name}_of(int n, ...) {{
                 if st.value: g.check(st.value, m, c, scopes)
             elif k == 'try':
                 g.check_block(st.body, m, c, scopes); g.check_block(st.handler, m, c, scopes + [{st.var}])
+            elif k == 'case':
+                g.check(st.subj, m, c, scopes)
+                for head, body in st.arms: g.check_block(body, m, c, scopes + [g.check_arm(head, m, c, scopes)])
+                if st.els: g.check_block(st.els, m, c, scopes)
 
     def check(g, e, m, c, scopes):
         k = e.kind
@@ -1979,6 +2305,10 @@ static {name} *{name}_of(int n, ...) {{
                 if not isinstance(part, str): g.check(part[0], m, c, scopes)
         elif k == 'lambda':
             g.check(e.fn.expr, m, c, scopes + [{pn for pn, _ in e.fn.params}])
+        elif k == 'casex':
+            g.check(e.subj, m, c, scopes)
+            for head, value in e.arms: g.check(value, m, c, scopes + [g.check_arm(head, m, c, scopes)])
+            if e.els: g.check(e.els, m, c, scopes)
         elif k == 'comp':
             g.check(e.a, m, c, scopes)
             if e.b: g.check(e.b, m, c, scopes)
@@ -1991,6 +2321,17 @@ static {name} *{name}_of(int n, ...) {{
             for name in ('obj', 'idx', 'e', 'l', 'r', 'cond', 'a', 'b'):
                 sub = getattr(e, name, None)
                 if isinstance(sub, N): g.check(sub, m, c, scopes)
+
+    def check_arm(g, head, m, c, scopes):
+        """The names an arm binds; Shape.Circle in a pattern must name a variant."""
+        pats, guard = head
+        names = set()
+        for p in pats:
+            if p.pk == 'variant':
+                if len(p.parts) > 1 and not g.resolve(p.parts, Env(m), p): g.err(p, f'unknown name {".".join(p.parts)}')
+                names |= set(p.names or ())
+        if guard is not None: g.check(guard, m, c, scopes + [names])
+        return names
 
     def case_hint(g, parts):
         """' (there is lower.haste: ...)' when a module file matches the name except for upper and lower case."""
@@ -2008,11 +2349,16 @@ static {name} *{name}_of(int n, ...) {{
         name = '.'.join(parts)
         r = g.resolve(parts, env, e)
         if not r: g.err(e, f'unknown name {name}' + g.case_hint(parts))
+        if r[0] == 'variant':
+            en, v = r[1], r[2]
+            if v.fields: g.err(e, f'{name} needs its fields: {name}(' + ', '.join(f'{f}: ...' for f, _ in v.fields) + ')')
+            return g.make_variant(en, v, [], e, env)
         if r[0] == 'fn':                         # a function as a value: its type names it, so calls stay direct
             t = 'function ' + (r[2].name if r[1].is_main else f'{r[1].name}.{r[2].name}')
             g.fnrefs[t] = (r[1], r[2])
             return '0', t
-        what = {'module': 'a module', 'class': 'a class; create one with ' + name + '(...)'}[r[0]]
+        what = {'module': 'a module', 'class': 'a class; create one with ' + name + '(...)',
+                'enum': 'an enum; make a value with one of its variants, e.g. ' + name + '.' + r[1].variants[0].name}[r[0]]
         g.err(e, f'{name} is {what}')
 
     def binop(g, e, env):
@@ -2032,6 +2378,9 @@ static {name} *{name}_of(int n, ...) {{
                 return f'(strcmp({l}, {r}) {CMP[op]} 0)', 'bool'
             if lt == rt and lt[:1] in '[{' and op in ('=', '<>'):      # lists and dictionaries: by contents
                 return f'({"!" if op == "<>" else ""}{g.eq_fn(lt)}({l}, {r}))', 'bool'
+            if lt == rt and lt in g.enums:
+                if op not in ('=', '<>'): g.err(e, f'{lt} values can be compared with = and <> only')
+                return f'({"!" if op == "<>" else ""}{g.enum_eq(lt)}({l}, {r}))', 'bool'
             if (is_num(lt) and is_num(rt)) or (lt == rt and op in ('=', '<>')):
                 return f'({l} {CMP[op]} {r})', 'bool'
             g.err(e, f'cannot compare {lt} with {rt}')
@@ -2050,7 +2399,7 @@ static {name} *{name}_of(int n, ...) {{
         c, t = g.expr(e.args[0][1], env)
         text = {'string': c, 'int': f'hs_fmt("%lld", {c})', 'float': f'hs_ftoa({c})',
                 'bool': f'({c} ? "true" : "false")'}
-        if n in ('Str', 'print') and (t[:1] in '[{' or t in g.classes):
+        if n in ('Str', 'print') and (t[:1] in '[{' or t in g.classes or t in g.enums):
             text[t] = g.show(g.known(t, e), c, quoted=False)
         if n == 'Int' and t == 'int': return c, 'int'
         if n == 'Int' and t == 'float': return f'hs_int({c})', 'int'
@@ -2075,6 +2424,7 @@ static {name} *{name}_of(int n, ...) {{
             r = g.resolve(parts, env, e)
             if not r: g.err(e, f'unknown function {".".join(parts)}' + g.case_hint(parts))
             if r[0] == 'class': return g.construct(r[1], e, env)
+            if r[0] == 'variant': return g.make_variant(r[1], r[2], e.args, e, env)
             if r[0] == 'fn':
                 g.mark(r[1], r[2].name)
                 return g.call_fn(r[1], r[2], e.args, e, env)

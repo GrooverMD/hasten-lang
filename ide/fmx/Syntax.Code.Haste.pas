@@ -59,9 +59,9 @@ const
 implementation
 
 const
-  Keywords: array[0..32] of string = ('alias', 'and', 'catch', 'class', 'div', 'elif', 'else', 'end', 'extern',
-    'false', 'fn', 'for', 'if', 'in', 'init', 'let', 'mod', 'need', 'not', 'or', 'parallel', 'return', 'shl',
-    'shr', 'switch', 'then', 'true', 'try', 'var', 'where', 'while', 'write', 'xor');
+  Keywords: array[0..35] of string = ('alias', 'and', 'case', 'catch', 'class', 'div', 'elif', 'else', 'end',
+    'enum', 'extern', 'false', 'fn', 'for', 'if', 'in', 'init', 'let', 'mod', 'need', 'not', 'or', 'parallel',
+    'return', 'shl', 'shr', 'switch', 'then', 'true', 'try', 'var', 'when', 'where', 'while', 'write', 'xor');
 
 class constructor TCodeSyntaxHaste.Create;
 begin
@@ -116,11 +116,12 @@ begin
     end;
     Parts := Line.Trim.Split([' '], TStringSplitOptions.ExcludeEmpty);
     if Length(Parts) < 2 then Continue;
-    if Parts[0] = 'builtin' then Kind := htBuiltin
+    if Parts[0] = 'keyword' then Kind := htKey  // haste.py's own list: a new keyword needs no new Hasten
+    else if Parts[0] = 'builtin' then Kind := htBuiltin
     else if Parts[0] = 'member' then Kind := htMember
     else if (Parts[0] = 'module') or (Parts[0] = 'type') then Kind := htModule
     else if Parts[0] = 'function' then Kind := htFunctionAlias
-    else Continue;                              // keywords are fixed; insight lines are for Help Insight
+    else Continue;                              // insight lines are for Help Insight
     for var I := 1 to High(Parts) do
       FWords.AddOrSetValue(Parts[I], Kind);
   end;

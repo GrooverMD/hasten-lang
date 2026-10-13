@@ -17,12 +17,15 @@
 <p align="center">
 <i>"Any bugs?" — "I don't make mistakes. I make Haste."</i><br>
 <i>"How long did it take?" — "Not long. More Haste, more speed."</i><br>
-<i>"Did you test it?" — "136 times. Haste makes no waste."</i>
+<i>"Did you test it?" — "182 times. Haste makes no waste."</i>
 </p>
 
 Haste is an experimental programming language that compiles to small, dependency-free native executables for
 **Windows, macOS and Linux**, all from any one of them. It keeps the readability of Pascal, makes properties the
 default for everything in a class, works out types for you, and still runs at the speed of C.
+
+It is made for **engineering, mining and science**: units of measure are part of the language, so the compiler
+catches kilonewtons added to metres before the program ever runs, and the check costs nothing at run time.
 
 > **Status: experimental prototype.** The language changes from day to day and the compiler is a proof of concept
 > written in Python. Expect breaking changes. Not for production use.
@@ -72,6 +75,27 @@ Mark: 1500.00 (Gold)
 Rejected: Account.Balance cannot be -20 (requires it >= 0)
 ```
 
+## Units of measure
+
+```haste
+let burden = 3.5 m
+let spacing = 4 m
+let bench = 10 m
+let charge = 120 kg
+let pf = charge / (burden * spacing * bench)
+print(pf)                                  // 0.857142857142857 kg/m^3
+print("Powder factor {pf / 1 kg/m^3:2} kg/m³")
+
+fn Volume(b: m, s: m, h: m): m³ = b * s * h
+print(Volume(burden, spacing, 10 km))      // 140000 m^3: km and m are both lengths
+print(charge + burden)                     // compile error: cannot add kg and m
+```
+
+A number followed by a unit is a quantity. The compiler checks every `+`, `-` and comparison for matching
+dimensions and works out what `*` and `/` make, then compiles quantities to plain decimals. The SI units are built
+in (`m`, `kg`, `s`, `t`, `km`, `N`, `kPa`, `MJ`, `kWh`, ...), and a program can add its own: `unit ft = 0.3048 m`,
+or `unit bcm` for a dimension of its own.
+
 ## Why Haste
 
 - **Properties by default.** Every member of a class is a property. `where` adds validation that runs on every
@@ -87,6 +111,13 @@ Rejected: Account.Balance cannot be -20 (requires it >= 0)
 - **No memory to manage.** No `Free`, no `try ... finally` to release objects, no weak references. A garbage
   collector frees what the program can no longer reach, cycles included, and a program that does no allocating
   doesn't include it.
+- **Units of measure.** `3.5 m`, `9.81 m/s^2`, `1.2 t/m³`: dimensions are checked when the program is built and
+  cost nothing when it runs.
+- **Enums and `case`.** `enum Shape = Circle(R: float) | Rect(W: float, H: float)`, taken apart with
+  `case s when Circle(r) then ... end`. The compiler names any variant a `case` forgets, and with no `nil`, a value
+  that may be missing says so in its type.
+- **Short code for lists.** `[h.Depth for h in holes where h.Charged]` builds a list in one line, and
+  `holes.Sort(fn(a, b) = a.Depth < b.Depth)` sorts with a function written where it is used.
 - **Command-line switches in one line.** `switch Width = 1200 where it >= 16   // image width` gives you
   `--width`, validation and `--help` with no parsing code.
 
@@ -239,6 +270,15 @@ print("total {total}, {squares.Count} squares, last {squares[4]}, flags {flags}"
 | Function, one expression | `fn Square(x) = x * x` |
 | Function, block | `fn Name(args) ... end` |
 | Function as a value | `fn Apply(f, x) = f(x)` then `Apply(Twice, 3)`, `Sort(names, ByLength)` |
+| Inline function | `names.Sort(fn(a, b) = a.Length < b.Length)`; it holds copies of the variables it uses |
+| Building a list | `[x * x for x in 1..10]`, `[w for w in words where w.Length > 6]` |
+| Enum | `enum Colour = Red \| Green \| Blue`, `enum Shape = Circle(R: float) \| Rect(W: float, H: float)` |
+| Enum value | `Colour.Red`, `Shape.Circle(2.5)`, `Shape.Rect(W: 3, H: 4)` |
+| Case statement | `case s` / `when Circle(r)` / ... / `when Rect(w, h) where w = h` / ... / `else` / ... / `end` |
+| Case expression | `case n when 1 then "one" when 2, 3 then "few" when 4..9 then "some" else "many" end` |
+| Quantity | `3.5 m`, `9.81 m/s^2`, `1.2 t/m³`, `2 kN·m`; `d / 1 km` is `d` in kilometres, as a plain number |
+| Unit in a type | `fn Density(mass: kg, volume: m^3): kg/m^3 = mass / volume` |
+| Declare a unit | `unit ft = 0.3048 m`, `unit bcm` (a new dimension) |
 | Loops | `for x in list`, `for i in 1..n`, `while cond`, `parallel for x in list` |
 | Errors | `try ... catch e ... end` |
 | String interpolation | `"{value}"`, `"{price:2}"` for 2 decimals |
@@ -293,8 +333,8 @@ end
 | `System.ReadBytes(path)`, `System.WriteBytes(path, bytes)` | Binary files as lists of bytes (0..255) |
 | `System.Rgb(r, g, b)`, `System.Rgba(r, g, b, a)`, `Red`, `Green`, `Blue`, `Alpha` | Colours for `Bitmap`; a `Rgb` colour is opaque |
 | `Png.Load(path)`, `Png.Save(bitmap, path)` | PNG files, written in Haste itself (zlib, CRC, filters): reads every kind of PNG, saves 8-bit RGB or RGBA |
-| `Math.Max(a, b)`, `Min`, `Abs`, `Sign`, `Clamp` | Whole numbers stay whole: `Math.Max(3, 5)` is `5` |
-| `Math.Sin`, `Cos`, `Tan`, `Atan2`, `Hypot`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round(x, places)`, `Pi()` | Decimals; angles in radians |
+| `Math.Max(a, b)`, `Min`, `Abs`, `Sign`, `Clamp` | Whole numbers stay whole: `Math.Max(3, 5)` is `5`; quantities keep their unit |
+| `Math.Sin`, `Cos`, `Tan`, `Atan2`, `Hypot`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round(x, places)`, `Pi()` | Decimals; angles in radians. `Sqrt(16 m^2)` is `4 m`, `Pow(3 m, 3)` is `27 m^3`, `Hypot(3 m, 4 m)` is `5 m` |
 | `Math.Random()`, `Math.RandomInt(lo, hi)`, `Math.Seed(n)` | Random numbers; a seed repeats the sequence |
 | `Time.Now()`, `Time.Local(t).Text`, `Time.Utc(t).Weekday`, `Time.Make(y, m, d, h, mi, s)`, `Time.Sleep(s)`, `Time.Elapsed()` | Dates, times and waiting; a time is seconds since 1970 |
 
@@ -343,7 +383,9 @@ assets/           logo and icons
 - The compiler checks that `parallel for` doesn't change outer variables or set properties of an outer object,
   but not that two iterations don't change the same object through a method call. Adding to a shared list or
   changing a shared dictionary is safe (it is locked), in no particular order.
-- No generics or GUI yet.
+- No generic classes or enums, and no GUI, yet.
+- Units are declared in the program, not in modules, and switches cannot have units yet. Temperatures are in
+  kelvin: units with an offset, such as °C, are not supported.
 - Class properties holding a list or dictionary need a type (`Items: [Account] = []`); local variables don't.
 
 ## Roadmap

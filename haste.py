@@ -3086,7 +3086,12 @@ KEYWORD_HELP = {
     'and': 'On true/false, stops as soon as the answer is known; on whole numbers, works on the bits.',
     'or': 'On true/false, stops as soon as the answer is known; on whole numbers, works on the bits.',
     'not': 'Negates true/false, or flips the bits of a whole number.',
-    'in': 'for x in ...: the range, list or dictionary to go through.',
+    'in': 'for x in ...: the range, list or dictionary to go through; [value for x in ... where ...] builds a list.',
+    'enum': 'enum Shape = Circle(R: float) | Rect(W: float, H: float): a value that is exactly one of its variants. '
+            'Make one with Shape.Circle(2.5); read its fields with case.',
+    'case': 'case value / when pattern [where condition] / ... / else / ... / end, or as an expression: '
+            'case s when Circle(r) then r * r else 0 end. On an enum without else, every variant must be covered.',
+    'when': 'when Circle(r), when 1, 2, 3, when 4..9, when "text": what an arm of a case matches.',
 }
 
 
@@ -3153,6 +3158,14 @@ def insight(path, dirs):
                 out.append((f'{prefix}{c.name}.{p.name}', 'property', code_at(lines, p.line), help_at(lines, p.line), place(p.line), ''))
             for m in c.methods.values():
                 out.append((f'{prefix}{c.name}.{m.name}', 'method', code_at(lines, m.line), help_at(lines, m.line), place(m.line), ''))
+        for en in prog.enums.values():
+            variants = ', '.join(v.name + ('(' + ', '.join(f'{f}: {t}' for f, t in v.fields) + ')' if v.fields else '')
+                                 for v in en.variants)
+            out.append((prefix + en.name, 'enum', f'enum {en.name}', '\n'.join(x for x in (help_at(lines, en.line),
+                        f'Variants: {variants}') if x), place(en.line), ''))
+            for v in en.variants:
+                out.append((f'{prefix}{en.name}.{v.name}', 'variant', code_at(lines, v.line),
+                            help_at(lines, v.line) if v.line != en.line else '', place(v.line), ''))
         for sw in prog.switches:
             out.append((prefix + sw.name, 'switch', code_at(lines, sw.line),
                         '\n'.join(x for x in (sw.help, f'On the command line: --{sw.name.lower()} value') if x), place(sw.line), ''))
@@ -3181,13 +3194,13 @@ def alias_kinds(path, search):
             parts = prog.aliases[parts[0]][0] + parts[1:]
         if len(parts) == 1:
             n = parts[0]
-            if n in prog.type_aliases or n in prog.classes: return 'type'
+            if n in prog.type_aliases or n in prog.classes or n in prog.enums: return 'type'
             if n in prog.funcs: return 'function'
             if n in seen: return None                                # a circle: the build reports it
         try:
             if len(parts) > 1:
                 head = find_module('.'.join(parts[:-1]), registry, search)
-                if head and parts[-1] in head.prog.classes: return 'type'
+                if head and (parts[-1] in head.prog.classes or parts[-1] in head.prog.enums): return 'type'
                 if head and parts[-1] in head.prog.funcs: return 'function'
             if find_module('.'.join(parts), registry, search): return 'module'
         except HasteError:

@@ -508,8 +508,9 @@ type.
   `total = total + mass` makes `total` a mass.
 
 **Math.** `Sqrt` halves the powers (`Sqrt` of m² is m; of m³ it is an error), `Pow(x, n)` with a written whole
-number `n` multiplies them, and `Abs`, `Sign`, `Min`, `Max` and `Clamp` work on quantities as they are. Other
-`Math` functions, `Int` and `Float` take plain numbers: divide by a unit first.
+number `n` multiplies them, `Hypot(x, y)` of two lengths is a length, `Atan2(y, x)` of two values in the same unit
+is a plain angle, and `Abs`, `Sign`, `Min`, `Max` and `Clamp` work on quantities as they are. Other `Math`
+functions, `Int` and `Float` take plain numbers: divide by a unit first.
 
 **As text,** a quantity shows its value in base units followed by its unit: `2500 m`, `9.81 m/s^2`,
 `0.857142857142857 kg/m^3`. `"{x:2}"` gives `2500.00 m`. Base units come in the order kg, m, s, A, K, mol, cd,

@@ -25,12 +25,14 @@ Module Foreground=clLime
 KEYS
 alias
 and
+case
 catch
 class
 div
 elif
 else
 end
+enum
 extern
 false
 fn
@@ -52,6 +54,7 @@ then
 true
 try
 var
+when
 where
 while
 write

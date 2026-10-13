@@ -58,13 +58,15 @@ begin
   begin
     Parts := Line.Trim.Split([' '], TStringSplitOptions.ExcludeEmpty);
     if Length(Parts) < 2 then Continue;
-    if Parts[0] = 'builtin' then Attr := BuiltinAttri
+    if Parts[0] = 'keyword' then Attr := KeyAttri  // haste.py's own list: keywords newer than the
+                                                   // generated table (case, enum, when) are coloured too
+    else if Parts[0] = 'builtin' then Attr := BuiltinAttri
     else if Parts[0] = 'member' then Attr := MemberAttri
     else if Parts[0] = 'module' then Attr := ModuleAttri
     else if Parts[0] = 'type' then Attr := ModuleAttri     // type and class aliases look like module
                                                            // aliases, so every alias reads as one
     else if Parts[0] = 'function' then Attr := FFunctionAliasAttri
-    else Continue;                             // keywords are already in the generated hash table
+    else Continue;
     for I := 1 to High(Parts) do
     begin
       Name := Parts[I];

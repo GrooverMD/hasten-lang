@@ -17,7 +17,7 @@
 <p align="center">
 <i>"Any bugs?" — "I don't make mistakes. I make Haste."</i><br>
 <i>"How long did it take?" — "Not long. More Haste, more speed."</i><br>
-<i>"Did you test it?" — "182 times. Haste makes no waste."</i>
+<i>"Did you test it?" — "181 times. Haste makes no waste."</i>
 </p>
 
 Haste is an experimental programming language that compiles to small, dependency-free native executables for

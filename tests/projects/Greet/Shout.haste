@@ -1,2 +1,0 @@
-// Shout: a module of the Greet project
-fn Loud(s: string): string = Text.Upper(s) + "!"

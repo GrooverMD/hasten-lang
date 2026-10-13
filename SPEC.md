@@ -29,11 +29,12 @@ case-sensitive: `Total` and `total` are different.
 **Keywords.** These cannot be used as names:
 
 ```
-alias and catch class div elif else end extern false fn for if in init let mod need not or
-parallel return shl shr switch then true try var where while write xor
+alias and case catch class div elif else end enum extern false fn for if in init let mod need not
+or parallel return shl shr switch then true try var when where while write xor
 ```
 
-`it`, `field` and `self` are ordinary names with a special meaning in the places described below.
+`it`, `field` and `self` are ordinary names with a special meaning in the places described below. `unit` is
+one too: only at the start of a top-level line, followed by a name, does it declare a unit (§11).
 
 **Literals.**
 
@@ -41,6 +42,7 @@ parallel return shl shr switch then true try var where while write xor
 |---|---|---|
 | Whole number | `42`, `-7`, `0xFF`, `0b1010`, `1_000_000` | Decimal, hexadecimal (`0x`) or binary (`0b`); `_` may separate digits. Must fit in 64 bits: −9223372036854775808 to 9223372036854775807. A `-` directly before a number is part of it. |
 | Decimal | `3.14`, `0.5`, `1e5`, `2.5e-3` | Digits on both sides of the point; an exponent makes a decimal. A number that runs into letters (`12abc`) is an error. |
+| Quantity | `3.5 m`, `9.81 m/s^2`, `1.2 t/m³` | A number, a space, then a unit (§11). |
 | Text | `"Hello {name}"` | One line. Escapes: `\n` `\r` `\t` `\\` `\"` `\{` `\}`. `{expression}` inserts a value (§6.8). |
 | True/false | `true`, `false` | |
 | List | `[1, 2, 3]`, `[]` | |
@@ -56,15 +58,15 @@ instead.
 A program file holds, in any order:
 
 - statements, which run from top to bottom: this is the program;
-- `fn` functions and `class` declarations, usable anywhere in the file, before or after they appear;
-- `alias`, `switch` and `need` declarations.
+- `fn` functions, `class` and `enum` declarations, usable anywhere in the file, before or after they appear;
+- `alias`, `switch`, `unit` and `need` declarations.
 
-There is no `main`, `program` header or `uses` list. Functions, classes and aliases share one set of names in a
+There is no `main`, `program` header or `uses` list. Functions, classes, enums and aliases share one set of names in a
 file: declaring a name twice is an error.
 
 *Why:* a program should be as short as its idea. `print("Hello")` is a complete program.
 
-Modules (§11) are files that hold only classes, functions, aliases and `init` blocks.
+Modules (§13) are files that hold only classes, enums, functions, aliases and `init` blocks.
 
 ---
 
@@ -79,6 +81,8 @@ Modules (§11) are files that hold only classes, functions, aliases and `init` b
 | List | `[T]` | items of one type, numbered from 0 |
 | Dictionary | `{K: V}` | keys `int`, `string` or `bool`; kept in the order they were added |
 | Object | a class name | an instance of a class |
+| Enum | an enum name | exactly one of the enum's variants, with its fields (§10) |
+| Quantity | a unit: `m`, `kg/m^3` | a decimal with a dimension (§11) |
 
 **There is no nil.** Every variable, property and list item always holds a value of its type. A property whose
 type is a class needs a default object.
@@ -122,13 +126,13 @@ block already has; the inner one hides the outer one until the block ends. Decla
 block is an error.
 
 **Functions see** their parameters and their own variables, plus the functions, classes, aliases and modules of
-their file, and the program's switches (§12). They do not see the program's other top-level variables. Methods
+their file, and the program's switches (§14). They do not see the program's other top-level variables. Methods
 also see their object's properties and methods (§9).
 
 *Why:* a function that depends only on its arguments can be understood, tested and run in parallel on its own.
 
 **Cannot be changed:** parameters, `let` variables, `for` loop variables, switches, `it`, `self`, and outer
-variables inside `parallel for` (§13).
+variables inside `parallel for` (§15).
 
 ---
 
@@ -212,8 +216,41 @@ It cannot be an operand without brackets: `1 + (if c then 1 else 2)`.
 
 ### 6.8 Text interpolation
 
-`"{expression}"` inserts the expression's value as `print` would show it (§14). `"{x:2}"` shows a number with 2
+`"{expression}"` inserts the expression's value as `print` would show it (§16). `"{x:2}"` shows a number with 2
 decimal places. `\{` is a brace that is just text.
+
+### 6.9 Building lists
+
+```haste
+squares = [x * x for x in 1..10]
+long = [w for w in words where w.Length > 6]
+names = [a.Owner for a in accounts where a.Balance >= 1000]
+grid = [[0.0 for c in 1..W] for r in 1..H]
+```
+
+`[value for x in source]` makes a new list holding `value` for each `x`, in order; `where condition` keeps only
+the items for which it is true. The source is a range, a list or a dictionary (its keys), as in `for` (§7). `x`
+is known only inside the brackets and cannot be changed. The list's type is the value's: `[x * x for x in 1..10]`
+is a `[int]`, and it is a `[int]` even when nothing is kept. Lists of lists come from putting one inside another.
+
+*Why:* picking items from a list and working something out from each is most of what programs do with lists.
+One line says it, and `where` reads as it does on a property's rule.
+
+### 6.10 Case expression
+
+`case` (§10.2) is also an expression, giving the value of the arm that matches:
+
+```haste
+fn Area(s) = case s when Circle(r) then Pi() * r * r when Rect(w, h) then w * h end
+fn Name(n) = case n
+  when 1 then "one"
+  when 2, 3 then "a few"
+  else "many"
+end
+```
+
+Every arm's value must have the same type, except that `int` and `float` give `float`, as in `if ... then ...
+else`.
 
 ---
 
@@ -242,7 +279,7 @@ end
 | `for i in a..b` | `i` from `a` to `b` inclusive, up by 1; not at all when `b < a`. `b` may be the largest whole number. |
 | `for x in list` | each item in order. Items added during the loop are reached too. |
 | `for k in dict` | each key in the order it was added. Removing keys during the loop is safe. |
-| `parallel for ...` | the same forms, spread over all cores (§13) |
+| `parallel for ...` | the same forms, spread over all cores (§15) |
 
 The loop variable cannot be changed.
 
@@ -295,6 +332,21 @@ extern fn Sqrt(x: float): float = "sqrt"  // a C function; every type must be wr
 
   *Why:* this covers what passing functions is for (sorting, filtering, mapping, callbacks) using the same
   compile-per-type design as type-free functions, with no hidden function pointers.
+- **Inline functions.** `fn(params) = expression` makes a function where a value is expected:
+
+  ```haste
+  names.Sort(fn(a, b) = a.Length < b.Length)
+  let limit = 1000
+  big = Keep(accounts, fn(a) = a.Balance > limit)
+  ```
+
+  It is a function value like a named one: its parameters may have types or not, it is compiled for the types
+  it is called with, and its type is itself. It sees the variables around it as they are when it is made, and
+  cannot change them (it holds copies); inside a method it sees the object's properties and methods. It cannot
+  call itself, and it is one expression: anything longer deserves a name.
+
+  *Why:* a comparison or a test used once reads best where it is used. Copies keep it safe to pass anywhere,
+  `parallel for` included.
 - **Recursion** may go about 16 million calls deep for small functions (the program's stack is 256 MB). Deeper is
   the error *recursion too deep*, which can be caught.
 
@@ -348,7 +400,157 @@ copied: assigning an object or putting it in a list refers to the same object.
 
 ---
 
-## 10. Errors
+## 10. Enums and case
+
+### 10.1 Enums
+
+```haste
+enum Colour = Red | Green | Blue
+enum Shape = Circle(R: float) | Rect(W: float, H: float)
+enum Reading                        // one variant a line, for long ones
+  Missing
+  Depth(Value: m, Hole: string)
+end
+```
+
+An enum is a type whose value is always exactly one of its **variants**. A variant may carry values, its
+**fields**, each with a written type. Enums are declared at the top level and share one set of names with
+functions, classes and aliases. Variant names in one enum must differ.
+
+**Making a value.** `Colour.Red`; `Shape.Circle(R: 2.5)` or `Shape.Circle(2.5)`: fields by name, each once in any
+order, or all by position. Every field must be given. A whole number is accepted for a decimal field.
+
+**Values, not objects.** An enum value is copied when assigned and compared by contents: `=` is true when both
+are the same variant with equal fields. It prints as it is written: `Colour.Red`, `Shape.Circle(R: 2.5)`.
+
+**Fields are read through `case`** (§10.2), never as `s.R`.
+
+*Why:* a field exists in one variant only. Reading `R` from a `Rect` would bring back the nil problem that Haste
+leaves out (§3); `case` binds `R` only where it exists.
+
+A property whose type is an enum takes its first variant as its default when that variant has no fields;
+otherwise it needs a default, as a property holding an object does. Enums cannot be dictionary keys.
+
+*Why enums:* "one of these" is everywhere: a state, a reading that may be missing, a result that may be an
+error. Without nil, an enum is how a value says it is not there: `enum Found = Yes(Index: int) | No`.
+
+### 10.2 Case
+
+```haste
+case shape
+when Circle(r)
+  print("circle, radius {r}")
+when Rect(w, h) where w = h
+  print("square, side {w}")
+when Rect(w, h)
+  print("{w} by {h}")
+end
+```
+
+`case value` tries its arms in order and runs the first that matches; `then` after a pattern is optional, as
+after `if`. The value is worked out once. `else` matches anything and comes last.
+
+| Pattern | Matches |
+|---|---|
+| `Circle(r)`, `Shape.Circle(r)` | that variant; its fields are bound, in order, to new names that cannot be changed and are known only in the arm; `_` skips a field |
+| `Circle`, `Colour.Red` | that variant, whatever its fields |
+| `3`, `"text"`, `true` | a whole number, text or true/false equal to it |
+| `1..5` | a whole number in the range, both ends included |
+| `1, 2, 3` | any of them; patterns that bind names cannot be listed together |
+
+**Where.** `when pattern where condition` matches only when the condition, which may use the pattern's names, is
+true.
+
+**Every case is covered.** A `case` on an enum without `else` must have an arm without `where` for every
+variant; the compiler names any that are missing. A `case` on `true`/`false` must cover both. Any other `case`
+expression needs `else`; a `case` statement without `else` does nothing when no arm matches.
+
+*Why:* adding a variant to an enum then shows every `case` that must now handle it, before the program runs.
+
+---
+
+## 11. Units
+
+```haste
+let burden = 3.5 m
+let spacing = 4 m
+let bench = 10 m
+let charge = 120 kg
+let pf = charge / (burden * spacing * bench)
+print(pf)                          // 0.857142857142857 kg/m^3
+print("{pf / 1 kg/m^3:2} kg/m³")   // 0.86 kg/m³
+let speed = 1.2 km / 1 h
+print(speed + 3 kg)                // error: cannot add m/s and kg
+```
+
+A **quantity** is a decimal with a dimension: a length, a mass, a pressure. The compiler checks dimensions and
+then forgets them: a quantity is a plain decimal at run time and costs nothing.
+
+**Writing one.** A number, a space, then a unit: `3.5 m`, `120 kg`, `9.81 m/s^2`, `1.2 t/m³`. A unit is written
+without spaces inside it: names joined by `*` or `·` (multiply) and one `/`, after which everything is below the
+line (`W/m^2*K` is watts per square metre per kelvin). A power is `^2`, `^-1`, `²`, `³`, or digits right after
+the letters (`m3`). A space ends the unit, so `10 m / t` divides 10 m by the variable `t`. A whole number with a
+unit is a decimal.
+
+**Stored in base units.** `2.5 km` is 2500 m and `1 t` is 1000 kg, so a length in km and one in m add up
+correctly. What is checked is the **dimension**, not the unit.
+
+**In types,** a unit stands for its dimension: `fn Volume(b: m, s: m, h: m): m^3`; `km` and `m` are the same
+type.
+
+**Arithmetic.**
+
+- `+`, `-`, `mod` and comparisons need the same dimension: adding m to kg is a compile error.
+- `*` and `/` combine dimensions: m times m is m², kg divided by m³ is kg/m³. A plain number scales a quantity.
+- When the units cancel, the result is a plain decimal: `d / 1 km` is the length `d` in kilometres. That is how
+  a quantity is shown, saved or passed on in any unit, and how a plain number gets a unit: `x * 1 m`.
+- **Zero fits any unit:** the number `0` compares with, adds to, and starts any quantity. `total = 0` followed by
+  `total = total + mass` makes `total` a mass.
+
+**Math.** `Sqrt` halves the powers (`Sqrt` of m² is m; of m³ it is an error), `Pow(x, n)` with a written whole
+number `n` multiplies them, and `Abs`, `Sign`, `Min`, `Max` and `Clamp` work on quantities as they are. Other
+`Math` functions, `Int` and `Float` take plain numbers: divide by a unit first.
+
+**As text,** a quantity shows its value in base units followed by its unit: `2500 m`, `9.81 m/s^2`,
+`0.857142857142857 kg/m^3`. `"{x:2}"` gives `2500.00 m`. Base units come in the order kg, m, s, A, K, mol, cd,
+then units the program declares.
+
+**Built-in units:**
+
+| Kind | Units |
+|---|---|
+| Base | `m`, `kg`, `s`, `A`, `K`, `mol`, `cd` |
+| Length | `mm`, `cm`, `km` |
+| Mass | `g`, `t` (tonne) |
+| Time | `min`, `h`, `day` |
+| Volume | `L` (litre) |
+| Force | `N`, `kN`, `MN` |
+| Pressure | `Pa`, `kPa`, `MPa`, `GPa` |
+| Energy | `J`, `kJ`, `MJ`, `GJ`, `kWh` |
+| Power | `W`, `kW`, `MW` |
+| Frequency | `Hz` |
+
+**Declaring units,** at the top level of the program:
+
+```haste
+unit bcm                 // a new base unit, with a dimension of its own: bank cubic metres
+unit ft = 0.3048 m       // a unit of an existing dimension
+unit kNm = 1 kN*m
+```
+
+A unit's name is letters only and must be new. Units are kept apart from other names, so a variable may be
+called `t` or `m`.
+
+*Why:* engineering arithmetic goes wrong by mixing units: kilonewtons with newtons, a burden in feet. A checked
+dimension catches it when the program is built, and costs nothing when it runs.
+
+*Not included:* temperatures with offsets (°C, °F): `20 °C` plus `10 °C` is not `30 °C` in kelvin, so offset
+units would give wrong answers that look right. Temperatures are in `K`. Units declared in modules, and switches
+with units, wait for a program that needs them.
+
+---
+
+## 12. Errors
 
 **Compile-time errors** stop the build with *file:line: message*. A missing `end` is reported at the line where
 the block begins.
@@ -373,7 +575,7 @@ A recursion's repeats are shown once, with how many more times they repeat.
 
 ---
 
-## 11. Modules
+## 13. Modules
 
 **A module is a file.** `Text.Upper` refers to the function `Upper` in `Text.haste`. A module is looked for first
 in the program's folder, then in `lib/`. A folder makes a dotted name: `Shapes.Rect` is `Shapes/Rect.haste`. Names
@@ -382,7 +584,7 @@ must match the file name exactly, including upper and lower case, on every syste
 **No imports.** Using a module's name loads it. Only the functions and classes a program reaches are compiled in.
 `need Module` keeps all of a module's functions that have written types, whether used or not (rarely needed).
 
-**A module holds** classes, functions, aliases and `init` blocks; a statement in a module is an error. Modules may
+**A module holds** classes, enums, functions, aliases and `init` blocks; a statement in a module is an error. Modules may
 use each other, in a circle too. The same name may be used in different modules and in the program.
 
 **Init blocks** (`init` ... `end`) run once, before the program, for each module the program uses.
@@ -393,7 +595,7 @@ a circle is an error.
 
 ---
 
-## 12. Switches
+## 14. Switches
 
 ```haste
 switch Width = 640 where it > 0          // the window width
@@ -420,7 +622,7 @@ counts.
 
 ---
 
-## 13. Parallel for
+## 15. Parallel for
 
 `parallel for` runs its iterations at the same time on all cores, in no particular order.
 
@@ -438,7 +640,7 @@ object is a mistake it does not catch.
 
 ---
 
-## 14. Text and numbers as text
+## 16. Text and numbers as text
 
 **Characters.** Lengths and positions count characters (Unicode code points), not bytes: `"café".Length` is 4.
 A byte that is not valid UTF-8 counts as one character.
@@ -490,7 +692,7 @@ that holds itself still prints as one line.
 | `Slice(start, count)`, `Copy()` | a new list with `count` items from `start`; a new list with all of them |
 
 Equal means equal as `=` sees it (§6.5). A position outside the list is an error. Adding, inserting, removing and
-clearing are locked during `parallel for` (§13); sorting and reversing are not, so sort before or after the loop.
+clearing are locked during `parallel for` (§15); sorting and reversing are not, so sort before or after the loop.
 
 **Math.** `Abs`, `Sign`, `Max`, `Min` and `Clamp` have no types, so whole numbers stay whole (`Max(3, 5)` is `5`).
 `Sqrt`, `Pow`, `Floor`, `Ceil`, `Exp`, `Log` (natural), `Log10`, `Sin`, `Cos`, `Tan`, `Asin`, `Acos`, `Atan`,
@@ -525,7 +727,7 @@ an error.
 
 ---
 
-## 15. Memory
+## 17. Memory
 
 Memory is managed by a garbage collector: there is no `Free`, and cycles are no problem. It runs when 8 MB have
 been allocated since the last collection (or as much as was in use, if more), including during `parallel for`,
@@ -535,7 +737,7 @@ call returns.
 
 ---
 
-## 16. Limits
+## 18. Limits
 
 | Limit | Value |
 |---|---|
@@ -547,24 +749,33 @@ call returns.
 
 ---
 
-## 17. Decisions
+## 19. Decisions
 
 Questions that were open, and what was decided.
 
-1. **Switches in functions:** readable everywhere, as settings; never changeable (§12).
+1. **Switches in functions:** readable everywhere, as settings; never changeable (§14).
 2. **`then` after `while`:** optional, as after `if` (§7).
 3. **Hexadecimal, binary and exponent literals, and `_` between digits:** added (§1).
 4. **Rules on list properties:** not allowed, because they could not see items being added (§9).
-5. **Printing lists, dictionaries and objects:** shown as they would be written (§14).
+5. **Printing lists, dictionaries and objects:** shown as they would be written (§16).
 6. **Functions as values:** added, compiled per function passed (§8).
 7. **Local aliases:** not added. An alias is top-level but may be placed anywhere in the file, so it can sit
    just before the code that uses it; inside a block it would let a type or function name mean different things
-   on different lines (§11).
+   on different lines (§13).
 
-## 18. Open questions
+8. **Building lists:** `[value for x in source where condition]` (§6.9).
+9. **Inline functions:** added, one expression, holding copies of the variables they see (§8).
+10. **Enums and case:** added; fields are read only through `case`, and a `case` on an enum must cover every
+    variant (§10).
+11. **Units:** checked dimensions with no run-time cost, values kept in base units, no offset units (§11).
 
-1. **Generic classes**, such as a `Stack` that works for any item type. Lists and dictionaries are already generic,
+## 20. Open questions
+
+1. **Generic classes and enums**, such as a `Stack` that works for any item type. Lists and dictionaries are already generic,
    and type-free functions already work on any type, so most programs do not need them. The design that fits Haste
    is the one functions use: a class whose properties have no type and no default would be compiled once for each
    combination of property types it is made with (`Pair(First: 1, Second: "a")`). That changes how every class type
-   is named and checked, so it waits for a program that needs it.
+   is named and checked, so it waits for a program that needs it. The same goes for enums whose fields have no
+   type (`enum Found = Yes(Value) | No`).
+2. **Units in modules and switches:** a library of mining units, and `switch Burden = 3.5 m` read from the command
+   line in its written unit.

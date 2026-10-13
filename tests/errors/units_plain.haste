@@ -1,0 +1,3 @@
+// a plain number other than 0 has no unit to add to a length
+print(3 m + 2)
+// error: units_plain.haste:2: cannot add m and a whole number

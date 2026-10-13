@@ -1,0 +1,4 @@
+// a total that will hold a unit starts at 0, or with the unit
+total = 5
+total = total + 3 kg
+// error: units_start.haste:2: total starts as a plain number, so it cannot hold kg; give it a unit from the start, e.g. total = 0 kg

@@ -1,0 +1,4 @@
+// a written result type with a unit is checked
+fn Area(w: m, h: m): m^2 = w + h
+print(Area(1 m, 2 m))
+// error: units_return.haste:2: expected m^2, got m

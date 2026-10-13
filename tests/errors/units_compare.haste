@@ -1,0 +1,3 @@
+// comparisons need one dimension
+print(3 m < 2 kg)
+// error: units_compare.haste:2: cannot compare m with kg

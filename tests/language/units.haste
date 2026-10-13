@@ -1,0 +1,105 @@
+// units: quantities whose dimensions are checked when the program is built, kept in base units
+let burden = 3.5 m
+let spacing = 4 m
+let bench = 10 m
+let charge = 120 kg
+let pf = charge / (burden * spacing * bench)
+print(pf)
+// out: 0.857142857142857 kg/m^3
+print("{pf / 1 kg/m^3:2} kg/m³")
+// out: 0.86 kg/m³
+print(1.2 t/m³)
+// out: 1200 kg/m^3
+print(1.2 t/m3 = 1.2 t/m³)
+// out: true
+print(2.5 km + 300 m)
+// out: 2800 m
+print(36 km / 1 h)
+// out: 10 m/s
+print(9.81 m/s^2 * 80 kg)
+// out: 784.8 kg*m/s^2
+print(784.8 N / 1 kN)
+// out: 0.7848
+print(1 kWh / 1 MJ)
+// out: 3.6
+print(50 Hz * 2 s)
+// out: 100
+print(2 kN·m)
+// out: 2000 kg*m^2/s^2
+print(Math.Sqrt(16 m^2))
+// out: 4 m
+print(Math.Pow(3 m, 3))
+// out: 27 m^3
+print(Math.Hypot(3 m, 4 m))
+// out: 5 m
+print(Math.Abs(-3 m))
+// out: 3 m
+print(Math.Max(3 m, 2 km))
+// out: 2000 m
+print(Math.Clamp(5 m, 0 m, 4 m))
+// out: 4 m
+// a unit in a type is its dimension: km and m are both lengths
+fn Volume(b: m, s: m, h: km): m³ = b * s * h
+print(Volume(burden, spacing, bench))
+// out: 140 m^3
+fn Density(mass: kg, volume: m^3): kg/m^3 = mass / volume
+print(Density(2.4 t, 1 m^3))
+// out: 2400 kg/m^3
+// zero fits any unit, and a total that starts at 0 takes the unit added to it
+total = 0
+for m in [10 kg, 20 kg, 1.5 t]
+  total = total + m
+end
+print(total)
+// out: 1530 kg
+print(burden > 0)
+// out: true
+print(if burden > 5 m then burden else 0)
+// out: 0 m
+holes = [3 m, 1 m, 2 m]
+holes.Sort()
+print(holes)
+// out: [1 m, 2 m, 3 m]
+print([h * 2 for h in holes where h > 1 m])
+// out: [4 m, 6 m]
+print(-holes[0])
+// out: -1 m
+print(7 m mod 2 m)
+// out: 1 m
+// units the program declares
+unit ft = 0.3048 m
+unit bcm
+unit kNm = 1 kN*m
+print(10 ft)
+// out: 3.048 m
+print(5 bcm + 1 bcm)
+// out: 6 bcm
+print(2 kNm / 1 J)
+// out: 2000
+print(10 bcm / 2 h)
+// out: 0.00138888888888889 bcm/s
+// a plain number, a unit away: units that cancel give a plain decimal
+x = 2 km / 1 km
+print(x + 1)
+// out: 3
+print(Str(3 m) + "!")
+// out: 3 m!
+print(Text.ToFloat("4.5") * 1 m)
+// out: 4.5 m
+class Hole
+  Depth = 10 m where it > 0
+  Charge: kg = 0
+end
+print(Hole(Depth: 12 m))
+// out: Hole(Depth: 12 m, Charge: 0 kg)
+try
+  Hole(Depth: -1 m)
+catch e
+  print(e)
+end
+// out: Hole.Depth cannot be -1 m (requires it > 0)
+// variables can be named like units: units only follow numbers and appear in types
+let t = 3
+let m = 2
+print(t * m)
+// out: 6

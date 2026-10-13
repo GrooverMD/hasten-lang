@@ -1,0 +1,4 @@
+// Pow on a quantity needs the power written as a whole number
+let n = 2
+print(Math.Pow(3 m, n))
+// error: units_pow.haste:3: Pow of a quantity needs a written whole-number power, e.g. Math.Pow(x, 2)

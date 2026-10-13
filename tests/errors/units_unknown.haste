@@ -1,0 +1,3 @@
+// a unit must be built in or declared
+print(3 furlong)
+// error: units_unknown.haste:2: unknown unit furlong

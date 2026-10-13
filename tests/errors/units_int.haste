@@ -1,0 +1,3 @@
+// Int takes a plain number
+print(Int(3 m))
+// error: units_int.haste:2: Int takes a plain number: divide by a unit first, e.g. Int(x / 1 m)

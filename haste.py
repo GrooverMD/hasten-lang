@@ -29,7 +29,8 @@ KEYWORDS = {'need', 'class', 'end', 'fn', 'let', 'var', 'if', 'then', 'elif', 'e
             'mod', 'div', 'extern', 'init', 'where', 'alias', 'xor', 'shl', 'shr', 'parallel', 'switch', 'write',
             'enum', 'case', 'when'}
 OPS2 = ('<>', '<=', '>=', '..', '=>')
-OPS1 = '=<>+-*/()[]{},.:|'
+OPS1 = '=<>+-*/()[]{},.:|^'
+UNIT_MARKS = '²³·'                                 # only right after a unit's letters: x: m², N·m
 HINTS = {'!=': "Haste writes 'not equal' as <>", '==': 'Haste compares with a single =',
          '+=': 'Haste has no +=; write x = x + 1', '-=': 'Haste has no -=; write x = x - 1',
          '*=': 'Haste has no *=; write x = x * 2', '/=': 'Haste has no /=; write x = x / 2',
@@ -103,10 +104,15 @@ def lex(src, file, line=1):
             m = NUM.match(src, i)
             if m.end() < n and (src[m.end()].isalnum() or src[m.end()] == '_'):
                 bad = re.match(r'\w+', src[i:]).group()
+                unit = re.fullmatch(r'(\d+(?:\.\d+)?)([A-Za-z]+)', bad)
                 raise HasteError(f"{file}:{line}: '{bad}' is not a number: write whole numbers like 255, 0xFF or "
-                                 f"0b1010 and decimals like 2.5 or 1e-3, with _ between digits if you like")
+                                 f"0b1010 and decimals like 2.5 or 1e-3, with _ between digits if you like" +
+                                 (f"; a unit goes after a space: {unit.group(1)} {unit.group(2)}" if unit else ''))
             text = m.group().replace('_', '')
             toks.append(Tok('FLOAT' if m.group(1) or m.group(2) else 'INT', text, line, file)); i = m.end()
+            u = UNIT.match(src, i)                 # 3.5 m, 9.81 m/s^2: a unit, unless the word is a keyword
+            if u and re.match('[A-Za-z]+', u.group(1)).group() not in KEYWORDS:
+                toks.append(Tok('UNIT', u.group(1), line, file)); i = u.end()
         elif c.isalpha() or c == '_':
             w = WORD.match(src, i).group()
             toks.append(Tok('KW' if w in KEYWORDS else 'NAME', w, line, file)); i += len(w)
@@ -117,7 +123,7 @@ def lex(src, file, line=1):
             raise HasteError(f'{file}:{line}: {HINTS.get(src[i:i + 2]) or HINTS[c]}')
         elif src[i:i + 2] in OPS2:
             toks.append(Tok('OP', src[i:i + 2], line, file)); i += 2
-        elif c in OPS1:
+        elif c in OPS1 or (c in UNIT_MARKS and i and src[i - 1].isalnum()):
             toks.append(Tok('OP', c, line, file)); i += 1
             if c in '([{': depth += 1
             elif c in ')]}': depth = max(0, depth - 1)
@@ -237,12 +243,20 @@ class Parser:
             s.next(); t = s.type(); s.eat(']'); return f'[{t}]'
         if s.at('{'):                                    # {string: int}
             s.next(); k = s.type(); s.eat(':'); v = s.type(); s.eat('}'); return '{' + k + ':' + v + '}'
-        return '.'.join(s.dotted())
+        t = '.'.join(s.dotted())
+        while s.at('*', '·', '/', '^', '²', '³'):        # a unit: kg/m^3, m/s², N*m
+            op = s.next().val; t += op
+            if op in '*·/': t += s.name()
+            elif op == '^':
+                if s.at('-'): s.next(); t += '-'
+                if s.peek().kind != 'INT': s.fail('expected a whole-number power')
+                t += s.next().val
+        return t
 
     # top level
     def program(s):
         prog = N('program', imports=[], classes={}, funcs={}, stmts=[], inits=[], aliases={}, type_aliases={},
-                 switches=[], enums={})
+                 switches=[], enums={}, units=[])
         seen = {}                            # functions, classes and aliases share one set of names
 
         def declare(name, line, what):
@@ -261,6 +275,14 @@ class Parser:
                 s.nl()
             elif s.at('switch'):
                 prog.switches.append(s.switch())
+            elif s.peek().kind == 'NAME' and s.peek().val == 'unit' and s.peek(1).kind == 'NAME':
+                line = s.next().line; t = s.peek(); nm = s.name(); value = None
+                if not re.fullmatch('[A-Za-z]+', nm): s.error(f'a unit name is letters only, not {nm}', t)
+                if s.at('='):
+                    s.next(); value = s.primary()
+                    if value.kind != 'qty': s.error(f'a unit is declared from another: unit {nm} = 1000 m', t)
+                s.nl()
+                prog.units.append(N('unit', line, name=nm, value=value))
             elif s.at('alias'):
                 line = s.next().line; nm = s.name(); s.eat('=')
                 declare(nm, line, 'an alias')
@@ -523,6 +545,7 @@ class Parser:
                 L = s.next().line; return N('un', L, op='not', e=s.binary(lvl))
             return s.binary(lvl + 1)
         e = s.binary(lvl + 1)
+        if s.at('^'): s.error('Haste has no ^ for powers: write Math.Pow(x, n), or x * x')
         while s.at(*s.LEVELS[lvl]):
             t = s.next()
             e = N('bin', t.line, op=t.val, l=e, r=s.binary(lvl + 1))
@@ -562,6 +585,8 @@ class Parser:
 
     def primary(s):
         t = s.next(); L = t.line
+        if t.kind in ('INT', 'FLOAT') and s.peek().kind == 'UNIT':
+            return N('qty', L, v=t.val, unit=s.next().val)
         if t.kind == 'INT':
             v = t.val.lower()
             return N('int', L, v=int(v[2:], 16) if v.startswith('0x') else int(v[2:], 2) if v.startswith('0b') else int(v))
@@ -665,6 +690,8 @@ def load(path, registry, search, name, is_main=False):
     prog = Parser(lex(src, os.path.basename(path)), src.split('\n')).program()
     mod = N('module', name=name, path=os.path.abspath(path), prog=prog, imports={}, needed=False, is_main=is_main,
             cprefix='f' if is_main else 'm_' + name.replace('.', '__'))
+    if not is_main and prog.units:
+        raise HasteError(f'{os.path.basename(path)}:{prog.units[0].line}: units are declared in the program, not in a module')
     if not is_main and prog.stmts:
         raise HasteError(f'{os.path.basename(path)}:{prog.stmts[0].line}: a module may only contain classes, functions, '
                          'aliases and init blocks; put this statement in an init block or a function')
@@ -765,6 +792,89 @@ def cstr(v):
 def is_num(t): return t in ('int', 'float')
 
 
+def is_qty(t): return t.startswith('float ')               # 'float kg/m^3': a decimal with a dimension
+
+
+def plain(t): return t in ('int', 'float', 'bool') or is_qty(t)   # holds no pointers
+
+
+def is_zero(e):
+    """The number 0 as written, which fits any unit."""
+    return e.kind in ('int', 'float') and float(e.v) == 0
+
+
+# ─────────────────────────── units ───────────────────────────
+# A quantity's type is 'float ' and its dimension in base units: 'float kg/m^3', 'float m/s^2', 'float 1/s'.
+# Values are kept in base units, so the dimension is all a type needs; a unit's factor is used once, where a
+# number is written with it (2.5 km is 2500.0).
+
+BUILTIN_UNITS = [
+    ('kg', ''), ('m', ''), ('s', ''), ('A', ''), ('K', ''), ('mol', ''), ('cd', ''),
+    ('mm', '0.001 m'), ('cm', '0.01 m'), ('km', '1000 m'),
+    ('g', '0.001 kg'), ('t', '1000 kg'),
+    ('min', '60 s'), ('h', '3600 s'), ('day', '86400 s'),
+    ('L', '0.001 m^3'),
+    ('N', '1 kg*m/s^2'), ('kN', '1000 N'), ('MN', '1000000 N'),
+    ('Pa', '1 N/m^2'), ('kPa', '1000 Pa'), ('MPa', '1000000 Pa'), ('GPa', '1000000000 Pa'),
+    ('J', '1 N*m'), ('kJ', '1000 J'), ('MJ', '1000000 J'), ('GJ', '1000000000 J'), ('kWh', '3600000 J'),
+    ('W', '1 J/s'), ('kW', '1000 W'), ('MW', '1000000 W'),
+    ('Hz', '1 s^-1'),
+]
+UNIT_FACTOR = r'[A-Za-z]+(?:\^-?\d+|[²³]|\d+)?'
+UNIT = re.compile(r'[ \t]+(' + UNIT_FACTOR + r'(?:[*·/]' + UNIT_FACTOR + r')*)')    # after a number: 3.5 m
+
+
+class Units:
+    def __init__(u):
+        u.table, u.bases = {}, []                 # name -> (factor, {base: power}); base units in order
+        for name, value in BUILTIN_UNITS:
+            u.declare(name, value, None)
+
+    def declare(u, name, value, node, where='built in'):
+        if name in u.table:
+            raise HasteError(f'{where}: unit {name} is already declared' +
+                             (' (it is built in)' if any(name == b for b, _ in BUILTIN_UNITS) and node else ''))
+        if not value:
+            u.table[name] = (1.0, {name: 1}); u.bases.append(name)
+        else:
+            num, text = value.split(' ', 1)
+            f, dims = u.parse(text, where)
+            u.table[name] = (float(int(num, 0) if re.fullmatch(r'0[xXbB]\w+|\d+', num) else num) * f, dims)
+
+    def parse(u, text, where):
+        """'kg/m^3' -> (factor to base units, {'kg': 1, 'm': -3})."""
+        if text.count('/') > 1:
+            raise HasteError(f"{where}: a unit has one '/', and everything after it is below the line: write "
+                             f"{text.split('/')[0]}/{'*'.join(text.split('/')[1:])}")
+        factor, dims = 1.0, {}
+        top, _, below = text.partition('/')
+        for side, sign in ((top, 1), (below, -1)):
+            for f in re.split('[*·]', side) if side and side != '1' else []:
+                m = re.fullmatch(r'([A-Za-z]+)(?:\^(-?\d+)|([²³])|(\d+))?', f)
+                if not m: raise HasteError(f'{where}: {text} is not a unit')
+                name = m.group(1)
+                power = int(m.group(2) or {'²': 2, '³': 3}.get(m.group(3) or '', 0) or m.group(4) or 1) * sign
+                if name not in u.table:
+                    raise HasteError(f'{where}: unknown unit {name}' + (f' in {text}' if text != name else ''))
+                uf, ud = u.table[name]
+                factor *= uf ** power
+                for b, p in ud.items(): dims[b] = dims.get(b, 0) + p * power
+        return factor, {b: p for b, p in dims.items() if p}
+
+    def text(u, dims):
+        """{'kg': 1, 'm': -3} -> 'kg/m^3', in the order kg, m, s, A, K, mol, cd, then declared base units."""
+        def part(b, p): return b if p == 1 else f'{b}^{p}'
+        top = [part(b, dims[b]) for b in u.bases if dims.get(b, 0) > 0]
+        below = [part(b, -dims[b]) for b in u.bases if dims.get(b, 0) < 0]
+        return ('*'.join(top) or '1') + ('/' + '*'.join(below) if below else '')
+
+    def type(u, dims): return 'float ' + u.text(dims) if dims else 'float'
+
+    def dims(u, t):
+        """The dimension of a type: {} for a plain number."""
+        return u.parse(t[6:], t)[1] if is_qty(t) else {}
+
+
 def node_t(vs):
     """'[' or '{' for the pending type a tracked variable was declared with."""
     env, name, _ = vs[0]
@@ -790,6 +900,7 @@ def fname(t):
 
 
 def mangle(t):
+    if is_qty(t): return 'U' + re.sub(r'[*/^-]', lambda m: {'*': '_x_', '/': '_p_', '^': '_e_', '-': 'n'}[m.group()], t[6:])
     if t.startswith('function '): return 'F_' + t[9:].replace('.', '_').replace('#', '0')   # no name starts with 0
     if t.startswith('['): return 'L' + mangle(t[1:-1])
     if t.startswith('{'): k, v = kv(t); return 'D' + mangle(k) + '_' + mangle(v) + '_E'
@@ -823,9 +934,12 @@ def dotted(e):
 
 
 class Gen:
-    def __init__(g, main, registry, search, widen=frozenset()):
+    def __init__(g, main, registry, search, widen=None):
         g.main, g.reg, g.search = main, registry, search
-        g.widen = widen                      # variables to declare as decimals (see Widen)
+        g.widen = widen or {}                # declaration -> the type to give it: 'float' or a quantity (see Widen)
+        g.units = Units()                    # the built-in units and the program's own
+        for d in main.prog.units:
+            g.units.declare(d.name, f'{d.value.v} {d.value.unit}' if d.value else '', d, f'{d.file}:{d.line}')
         g.depth = 0                          # how deeply the expression being generated is nested
         g.try_names = {}                     # module -> names assigned inside a try (made volatile)
         g.fnrefs = {}                        # 'function Name' -> (module, fn): functions used as values
@@ -927,13 +1041,29 @@ class Gen:
         if t.startswith('{'):
             k, v = kv(t)
             return '{' + g.tname(k, env, node, seen) + ':' + g.tname(v, env, node, seen) + '}'
+        if re.search('[*·/^²³]', t): return g.unit_type(t, node)        # kg/m^3
         r = g.resolve(t.split('.'), env, node)
+        if (not r or r[0] not in ('class', 'enum')) and t in g.units.table: return g.unit_type(t, node)   # m
         if not r or r[0] not in ('class', 'enum'): g.err(node, f'unknown type {t}')
         return r[1].qname
+
+    def unit_type(g, text, node):
+        return g.units.type(g.units.parse(text, f'{node.file}:{node.line}')[1])
+
+    def tdesc(g, t):
+        """A type as messages about units say it."""
+        return t[6:] if is_qty(t) else {'float': 'a plain decimal', 'int': 'a whole number', 'string': 'text'}.get(t, t)
+
+    def join(g, types):
+        """The type of a value that may come from any of these: whole numbers and decimals give a decimal; a
+        quantity wins over the number 0 (checked when each is coerced)."""
+        if all(is_num(t) for t in types) and 'float' in types: return 'float'
+        return next((t for t in types if is_qty(t)), types[0])
 
     # ── types ──
     def ctype(g, t):
         if t in PRIM: return PRIM[t]
+        if is_qty(t): return 'double'
         if t.startswith('function '):                    # the type itself says which function: nothing to hold,
             return getattr(g.fnrefs[t][1], 'ctx', None) or 'char'    # unless it is inline and holds variables
         if t[1:2] == '?': return f'@@P{t[2:-1]}@@*'       # filled in once the first Add or d[k] = v is seen
@@ -952,7 +1082,7 @@ class Gen:
         name = 'L_' + mangle(elem)
         g.list_types[elem] = name
         va = 'int' if elem == 'bool' else et
-        at = int(elem in ('int', 'float', 'bool'))           # numbers hold no pointers: the collector skips them
+        at = int(plain(elem))           # numbers hold no pointers: the collector skips them
         g.lists.append(f'''typedef struct {{ {et} *items; long long count, cap; }} {name};
 static {name} *{name}_new(void) {{ return hs_alloc(sizeof({name})); }}
 static void {name}_add({name} *l, {et} v) {{
@@ -975,6 +1105,7 @@ static {name} *{name}_of(int n, ...) {{
 
     def show(g, t, c, quoted=True, depth='0'):
         """C text for value c of type t: as print shows it. Inside a list, dictionary or object, text is quoted."""
+        if is_qty(t): return f'hs_fmt("%s {t[6:]}", hs_ftoa({c}))'          # 2500 m: base units, then the unit
         if t == 'string': return f'hs_fmt("\\"%s\\"", {c})' if quoted else c
         if t == 'int': return f'hs_fmt("%lld", {c})'
         if t == 'float': return f'hs_ftoa({c})'
@@ -1055,7 +1186,7 @@ static {name} *{name}_of(int n, ...) {{
                 if not t.startswith('function '): g.err(a, 'Sort takes a function that says whether one item goes before another')
                 held = getattr(g.fnrefs[t][1], 'ctx', None)
                 return f'{g.sort_fn(lt, t, a)}({oc}{", " + c if held else ""})', 'void'
-            if et not in ('int', 'float', 'string', 'bool'):
+            if et not in ('int', 'float', 'string', 'bool') and not is_qty(et):
                 g.err(e, f'a list of {et} has no natural order; give Sort a function, e.g. Sort(Before) with fn Before(a, b) = ...')
             return f'{g.sort_fn(lt, None, e)}({oc})', 'void'
         ret = {'Insert': 'void', 'RemoveAt': et, 'Remove': 'void', 'Has': 'bool', 'IndexOf': 'int', 'Clear': 'void',
@@ -1073,7 +1204,7 @@ static {name} *{name}_of(int n, ...) {{
         g.funcs.append(f'''static void {L}_insert({L} *l, long long i, {T} v) {{
     int par = hs_lock_shared();
     if (i < 0 || i > l->count) {{ hs_unlock_shared(par); hs_raise(hs_fmt("cannot insert at %lld: the list has %lld item%s", i, l->count, l->count == 1 ? "" : "s")); }}
-    if (l->count == l->cap) {{ long long cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({T}) * (size_t)l->count, sizeof({T}) * (size_t)cap, {int(et in ('int', 'float', 'bool'))}); l->cap = cap; }}
+    if (l->count == l->cap) {{ long long cap = l->cap ? l->cap * 2 : 8; l->items = hs_grow(l->items, sizeof({T}) * (size_t)l->count, sizeof({T}) * (size_t)cap, {int(plain(et))}); l->cap = cap; }}
     memmove(l->items + i + 1, l->items + i, sizeof({T}) * (size_t)(l->count - i));
     l->items[i] = v; l->count++;
     hs_unlock_shared(par);
@@ -1130,7 +1261,7 @@ static {L} *{L}_copy({L} *l) {{ return {L}_slice(l, 0, l->count); }}''')
             before = lambda a, b: f'(strcmp({a}, {b}) < 0)'
         else:
             before = lambda a, b: f'({a} < {b})'
-        atomic = int(et in ('int', 'float', 'bool'))
+        atomic = int(plain(et))
         ctx = getattr(g.fnrefs[ft][1], 'ctx', None) if ft else None
         g.funcs.append(f'''static void {name}({L} *l{f", {ctx} _c" if ctx else ""}) {{
     long long n = l->count;
@@ -1195,7 +1326,7 @@ static {L} *{L}_copy({L} *l) {{ return {L}_slice(l, 0, l->count); }}''')
         name = 'D_' + mangle(key)[1:]
         g.list_types[key] = name
         kva, vva = ('int' if k == 'bool' else kt), ('int' if v == 'bool' else vt)
-        ka, va = int(k != 'string'), int(v in ('int', 'float', 'bool'))
+        ka, va = int(k != 'string'), int(plain(v))
         if k == 'string':
             hash_ = 'unsigned long long x = 1469598103934665603ULL; while (*k) { x ^= (unsigned char)*k++; x *= 1099511628211ULL; } return x;'
             eq, show = 'strcmp(a, b) == 0', 'hs_fmt("\\"%s\\"", k)'
@@ -1325,8 +1456,8 @@ static {name} *{name}_of(int n, ...) {{
             ft = g.field_type(en, v, f)
             c, t = g.expr(given[f], env, ft)
             sets.append(f'_p->f_{f} = {g.coerce(c, t, ft, given[f])};')
-        plain = all(g.field_type(en, v, f) in ('int', 'float', 'bool') for f in fields)
-        alloc = 'hs_alloc_atomic' if plain else 'hs_alloc'
+        flat = all(plain(g.field_type(en, v, f)) for f in fields)
+        alloc = 'hs_alloc_atomic' if flat else 'hs_alloc'
         st = f'{en.cname}_{v.name}'
         return f'({{ {st} *_p = {alloc}(sizeof({st})); ' + ' '.join(sets) + f' (({en.cname}){{ {tag}, _p }}); }})', en.qname
 
@@ -1429,6 +1560,11 @@ static {name} *{name}_of(int n, ...) {{
 
     def coerce(g, code, frm, to, node):
         if frm == to: return code
+        if is_qty(to) and is_num(frm) and re.fullmatch(r'\(?0+(\.0*)?(LL)?\)?', code): return '0.0'   # 0 fits any unit
+        if is_qty(frm) or is_qty(to):
+            hint = (f': divide by a unit to get a plain number, e.g. x / 1 {frm[6:].split("/")[0].split("*")[0].split("^")[0]}'
+                    if is_qty(frm) and is_num(to) else '')
+            g.err(node, f'expected {g.tdesc(to)}, got {g.tdesc(frm)}{hint}')
         if frm[1:2] == '?' and to[:1] == frm[:1] and '?' not in to:
             g.settle(frm, to); return code
         if frm == 'int' and to == 'float': return f'(double)({code})'
@@ -1483,7 +1619,7 @@ static {name} *{name}_of(int n, ...) {{
         c, ct = g.expr(p.where, env)
         if ct != 'bool': g.err(p, 'a where clause must be true or false')
         show = {'string': 'hs_fmt("\\"%s\\"", it)', 'int': 'hs_fmt("%lld", it)',
-                'float': 'hs_ftoa(it)', 'bool': '(it ? "true" : "false")'}.get(t, '"(object)"')
+                'float': 'hs_ftoa(it)', 'bool': '(it ? "true" : "false")'}.get(t, g.show(t, 'it') if is_qty(t) else '"(object)"')
         return f'    if (!({c})) hs_require_fail("{cls.qname}.{p.name}", {show}, {cstr(p.wtext)});'
 
     def emit_valid(g, qname):
@@ -1538,8 +1674,8 @@ static {name} *{name}_of(int n, ...) {{
         g.default_cycle(cls)
         sig = f'static C_{cls.cname} *{cls.cname}_new(void)'
         g.protos.append(sig + ';')
-        plain = all(g.prop_type(cls, p) in ('int', 'float', 'bool') for p in cls.props.values() if not p.computed)
-        alloc = 'hs_alloc_atomic' if plain else 'hs_alloc'   # only numbers inside: nothing for the collector to follow
+        flat = all(plain(g.prop_type(cls, p)) for p in cls.props.values() if not p.computed)
+        alloc = 'hs_alloc_atomic' if flat else 'hs_alloc'   # only numbers inside: nothing for the collector to follow
         body = ['    hs_enter();', f'    C_{cls.cname} *self = {alloc}(sizeof(C_{cls.cname}));']
         for p in cls.props.values():
             if p.computed: continue
@@ -1667,7 +1803,13 @@ static {name} *{name}_of(int n, ...) {{
         gives it one (found on an earlier pass)."""
         key = (env.spec.cname if env.spec else env.mod.name, name, node.line)
         env.decls[name] = key
-        if t == 'int' and key in g.widen: return g.coerce(c, 'int', 'float', node), 'float'
+        target = g.widen.get(key)
+        if target == 'float' and t == 'int': return g.coerce(c, 'int', 'float', node), 'float'
+        if target and is_qty(target) and is_num(t):          # total = 0, then total = total + 3 kg
+            if not (getattr(node, 'value', None) is not None and is_zero(node.value)):
+                g.err(node, f'{name} starts as a plain number, so it cannot hold {target[6:]}; give it a unit from '
+                            f'the start, e.g. {name} = 0 {target[6:]}')
+            return '0.0', target
         return c, t
 
     def vol(g, env, name):
@@ -1839,7 +1981,9 @@ static {name} *{name}_of(int n, ...) {{
                 if not mutable: g.err(st, env.fixed_reason(tg.name))
                 c, ct = g.expr(st.value, env, t)
                 if t == 'int' and ct == 'float' and env.decl(tg.name):
-                    raise Widen(env.decl(tg.name))
+                    raise Widen((env.decl(tg.name), 'float'))
+                if is_num(t) and is_qty(ct) and env.decl(tg.name):
+                    raise Widen((env.decl(tg.name), ct))
                 return f'{cname} = {g.coerce(c, ct, t, st)}'
             if env.cls and tg.name in env.cls.props:
                 g.shared_write(env, 'self', st, tg.name)
@@ -1920,6 +2064,9 @@ static {name} *{name}_of(int n, ...) {{
                 g.err(e, f'{e.v} is too big for a whole number (they go from {-2**63} to {2**63 - 1})')
             return (f'{e.v}LL' if e.v > -2**63 else '(-9223372036854775807LL - 1)'), 'int'
         if k == 'float': return e.v, 'float'
+        if k == 'qty':                              # 2.5 km: the number in base units, 2500.0, with its dimension
+            f, dims = g.units.parse(e.unit, f'{e.file}:{e.line}')
+            return (f'((double){e.v} * {f!r})' if f != 1 else f'((double){e.v})'), g.units.type(dims)
         if k == 'bool': return ('true' if e.v else 'false'), 'bool'
         if k == 'str': return cstr(e.v), 'string'
         if k == 'interp':
@@ -1932,6 +2079,8 @@ static {name} *{name}_of(int n, ...) {{
                 if t == 'string': fmt += '%s'; args.append(c)
                 elif t == 'bool': fmt += '%s'; args.append(f'({c} ? "true" : "false")')
                 elif is_num(t) and spec is not None: fmt += f'%.{spec}f'; args.append(f'(double)({c})')
+                elif is_qty(t) and spec is not None: fmt += f'%.{spec}f {t[6:]}'; args.append(c)
+                elif is_qty(t): fmt += f'%s {t[6:]}'; args.append(f'hs_ftoa({c})')
                 elif t == 'int': fmt += '%lld'; args.append(c)
                 elif t == 'float': fmt += '%s'; args.append(f'hs_ftoa({c})')
                 elif t[:1] in '[{' or t in g.classes or t in g.enums: fmt += '%s'; args.append(g.show(g.known(t, x), c, quoted=False))
@@ -1952,8 +2101,7 @@ static {name} *{name}_of(int n, ...) {{
             for (_, t), x in zip(items, e.items):
                 if t.startswith('function '): g.err(x, f'{fname(t)} is a function: functions can be passed to a function '
                                                        'and called, but not kept in a list or dictionary')
-            et = elem_want or ('float' if any(t == 'float' for _, t in items) and all(is_num(t) for _, t in items)
-                               else items[0][1])
+            et = elem_want or g.join([t for _, t in items])
             codes = [g.coerce(c, t, et, x) for (c, t), x in zip(items, e.items)]
             return f'{g.list_type(et)}_of({len(codes)}, {", ".join(codes)})', f'[{et}]'
         if k == 'comp': return g.comprehension(e, env, want)
@@ -1979,7 +2127,7 @@ static {name} *{name}_of(int n, ...) {{
             s = env.spec                         # lets  fn Fib(n) = if .. then n else Fib(..)  recurse
             if s and s.top is e and not s.ret and not s.hint: s.hint = at
             b, bt = g.expr(e.b, env, want)
-            t = 'float' if is_num(at) and is_num(bt) and 'float' in (at, bt) else at
+            t = g.join([at, bt])
             return f'(({c}) ? ({g.coerce(a, at, t, e.a)}) : ({g.coerce(b, bt, t, e.b)}))', t
         if k == 'un':
             c, t = g.expr(e.e, env)
@@ -1987,7 +2135,7 @@ static {name} *{name}_of(int n, ...) {{
                 if t == 'int': return f'(~{c})', 'int'
                 if t != 'bool': g.err(e, 'not needs true or false, or a whole number')
                 return f'(!{c})', 'bool'
-            if not is_num(t): g.err(e, f'cannot negate {t}')
+            if not (is_num(t) or is_qty(t)): g.err(e, f'cannot negate {t}')
             return (f'hs_ineg({c})' if t == 'int' else f'(-{c})'), t
         if k == 'bin': return g.binop(e, env)
         if k == 'member':
@@ -2145,7 +2293,7 @@ static {name} *{name}_of(int n, ...) {{
         elif not g.case_cover(t, covered, e):
             g.err(e, f'a case on {t} that gives a value needs else, for when nothing matches')
         types = [a[4] for a in arms]
-        rt = 'float' if all(is_num(x) for x in types) and 'float' in types else types[0]
+        rt = g.join(types)
         body = []
         for test, binds, gc, vc, vt, node in arms:
             set_ = f'{r} = {g.coerce(vc, vt, rt, node)}; break;'
@@ -2366,6 +2514,7 @@ static {name} *{name}_of(int n, ...) {{
         op = e.op
         if lt.startswith('function ') or rt.startswith('function '):
             g.err(e, f"'{op}' cannot work on a function; functions can only be called, or passed to a function")
+        if is_qty(lt) or is_qty(rt): return g.qty_binop(e, env, op, l, lt, r, rt)
         if op in BITS:                       # Pascal style: on whole numbers they work on bits
             if lt == rt == 'int':
                 if op in ('shl', 'shr'): return f'hs_{op}({l}, {r})', 'int'
@@ -2394,13 +2543,58 @@ static {name} *{name}_of(int n, ...) {{
         if lt == rt == 'int': return f'hs_i{ {"+": "add", "-": "sub", "*": "mul"}[op] }({l}, {r})', 'int'
         return f'({l} {op} {r})', 'float'
 
+    def qty_binop(g, e, env, op, l, lt, r, rt):
+        """Quantities: + - mod and comparisons need one dimension (0 fits any); * and / combine them."""
+        zero = lambda c: re.fullmatch(r'\(?0+(\.0*)?(LL)?\)?', c)
+        if op in BITS or op == 'div':
+            g.err(e, f"'{op}' works on whole numbers, not on {g.tdesc(lt if is_qty(lt) else rt)}")
+        if op in ('*', '/'):
+            for t in (lt, rt):
+                if not (is_qty(t) or is_num(t)): g.err(e, f"'{op}' needs numbers, got {g.tdesc(lt)} and {g.tdesc(rt)}")
+            d = dict(g.units.dims(lt))
+            for b, p in g.units.dims(rt).items(): d[b] = d.get(b, 0) + (p if op == '*' else -p)
+            return f'((double)({l}) {op} (double)({r}))', g.units.type({b: p for b, p in d.items() if p})
+        if is_num(lt) and zero(l): lt = rt
+        if is_num(rt) and zero(r): rt = lt
+        if lt != rt:
+            if op in ('+', '-'):                       # total = 0 ... total = total + mass: total is a mass
+                for side, t in ((e.l, lt), (e.r, rt)):
+                    if side.kind == 'name' and is_num(t) and env.decl(side.name) and (env.lookup(side.name) or ('',))[1]:
+                        raise Widen((env.decl(side.name), lt if is_qty(lt) else rt))
+            verb = {'+': 'add', '-': 'subtract', 'mod': 'take the remainder of'}.get(op)
+            g.err(e, f'cannot {verb} {g.tdesc(lt)} and {g.tdesc(rt)}' if verb else
+                     f'cannot compare {g.tdesc(lt)} with {g.tdesc(rt)}')
+        if op in CMP: return f'({l} {CMP[op]} {r})', 'bool'
+        if op == 'mod': return f'fmod({l}, {r})', lt
+        return f'((double)({l}) {op} (double)({r}))', lt
+
+    def math_units(g, name, e, env):
+        """Sqrt, Pow, Hypot and Atan2 on quantities: what they do to the dimension. None: an ordinary call."""
+        want = {'Sqrt': 1, 'Pow': 2, 'Hypot': 2, 'Atan2': 2}.get(name)
+        if not want or len(e.args) != want: return None
+        c, t = g.expr(e.args[0][1], env)
+        if not is_qty(t): return None
+        d = g.units.dims(t)
+        if name == 'Sqrt':
+            if any(p % 2 for p in d.values()): g.err(e, f'Sqrt of {t[6:]} has no unit: every power must be even')
+            return f'sqrt({c})', g.units.type({b: p // 2 for b, p in d.items()})
+        n = e.args[1][1]
+        if name == 'Pow':
+            if n.kind != 'int': g.err(n, 'Pow of a quantity needs a written whole-number power, e.g. Math.Pow(x, 2)')
+            return f'pow({c}, {n.v}.0)', g.units.type({b: p * n.v for b, p in d.items() if p * n.v})
+        c2, t2 = g.expr(n, env)
+        if t2 != t: g.err(e, f'{name} needs two values of the same unit, got {g.tdesc(t)} and {g.tdesc(t2)}')
+        return (f'hypot({c}, {c2})', t) if name == 'Hypot' else (f'atan2({c}, {c2})', 'float')
+
     def builtin(g, n, e, env):
         if len(e.args) != 1: g.err(e, f'{n} takes one value')
         c, t = g.expr(e.args[0][1], env)
         text = {'string': c, 'int': f'hs_fmt("%lld", {c})', 'float': f'hs_ftoa({c})',
                 'bool': f'({c} ? "true" : "false")'}
-        if n in ('Str', 'print') and (t[:1] in '[{' or t in g.classes or t in g.enums):
+        if n in ('Str', 'print') and (t[:1] in '[{' or t in g.classes or t in g.enums or is_qty(t)):
             text[t] = g.show(g.known(t, e), c, quoted=False)
+        if n in ('Int', 'Float') and is_qty(t):
+            g.err(e, f'{n} takes a plain number: divide by a unit first, e.g. {n}(x / 1 {t[6:].split("/")[0].split("*")[0].split("^")[0]})')
         if n == 'Int' and t == 'int': return c, 'int'
         if n == 'Int' and t == 'float': return f'hs_int({c})', 'int'
         if n == 'Float' and is_num(t): return f'((double)({c}))', 'float'
@@ -2427,6 +2621,9 @@ static {name} *{name}_of(int n, ...) {{
             if r[0] == 'variant': return g.make_variant(r[1], r[2], e.args, e, env)
             if r[0] == 'fn':
                 g.mark(r[1], r[2].name)
+                if r[1].name == 'Math':
+                    q = g.math_units(r[2].name, e, env)
+                    if q: return q
                 return g.call_fn(r[1], r[2], e.args, e, env)
             g.err(e, f'{".".join(parts)} is a module, not a function')
         if f.kind == 'member':
@@ -2588,13 +2785,14 @@ def compile_now(path):
     registry = {}
     search = [os.path.dirname(os.path.abspath(path)), os.path.join(HERE, 'lib')]
     main = load(path, registry, search, '__main__', is_main=True)
-    widen = set()
+    widen = {}
     while True:                              # var t = 0 ... t = t + 2.5: t becomes a decimal, compile again
-        g = Gen(main, registry, search, frozenset(widen))
+        g = Gen(main, registry, search, dict(widen))
         try:
             return g.program(), g.report()
         except Widen as w:
-            widen.add(w.args[0])
+            key, t = w.args[0]
+            widen[key] = t
 
 
 def deep(path, work):

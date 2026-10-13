@@ -1,0 +1,3 @@
+// a unit name is new
+unit m = 1 m
+// error: units_redeclare.haste:2: unit m is already declared (it is built in)

@@ -1,0 +1,3 @@
+// powers are written with Math.Pow
+print(2 ^ 3)
+// error: units_power_op.haste:2: Haste has no ^ for powers: write Math.Pow(x, n), or x * x

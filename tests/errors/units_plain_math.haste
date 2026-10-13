@@ -1,0 +1,3 @@
+// other Math functions take plain numbers
+print(Math.Sin(3 m))
+// error: units_plain_math.haste:2: expected a plain decimal, got m: divide by a unit to get a plain number, e.g. x / 1 m

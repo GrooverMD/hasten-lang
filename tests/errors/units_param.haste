@@ -1,0 +1,4 @@
+// a parameter with a unit takes that dimension only
+fn Volume(b: m, s: m, h: m): m^3 = b * s * h
+print(Volume(3 kg, 1 m, 1 m))
+// error: units_param.haste:3: expected m, got kg

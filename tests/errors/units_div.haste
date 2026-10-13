@@ -1,0 +1,3 @@
+// div works on whole numbers
+print(7 m div 2 m)
+// error: units_div.haste:2: 'div' works on whole numbers, not on m

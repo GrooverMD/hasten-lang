@@ -1,0 +1,3 @@
+// units are declared in the program, not in a module
+print(mods.Mining.Burden())
+// error: Mining.haste:2: units are declared in the program, not in a module

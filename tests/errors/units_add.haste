@@ -1,0 +1,4 @@
+// + needs one dimension on both sides
+let speed = 1.2 km / 1 h
+print(speed + 3 kg)
+// error: units_add.haste:3: cannot add m/s and kg

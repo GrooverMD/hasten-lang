@@ -1,0 +1,3 @@
+// a unit goes after a space
+print(5m)
+// error: units_space.haste:2: '5m' is not a number

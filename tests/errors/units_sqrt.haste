@@ -1,0 +1,3 @@
+// Sqrt halves the powers, so they must be even
+print(Math.Sqrt(8 m^3))
+// error: units_sqrt.haste:2: Sqrt of m^3 has no unit: every power must be even

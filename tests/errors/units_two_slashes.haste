@@ -1,0 +1,3 @@
+// a unit has one /, and everything after it is below the line
+print(3 kg/m/s)
+// error: units_two_slashes.haste:2: a unit has one '/', and everything after it is below the line: write kg/m*s

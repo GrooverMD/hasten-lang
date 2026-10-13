@@ -1,0 +1,3 @@
+// a module that declares a unit
+unit bcm
+fn Burden() = 3 m

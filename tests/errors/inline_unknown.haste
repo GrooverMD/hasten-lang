@@ -1,0 +1,3 @@
+// names inside an inline function are checked, even where nothing calls it
+fn Never(l) = l.Sort(fn(a, b) = a < c)
+// error: inline_unknown.haste:2: unknown name c

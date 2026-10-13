@@ -1,0 +1,49 @@
+// inline functions: fn(params) = expression, holding copies of the variables they use
+fn Apply(f, x) = f(x)
+fn Keep(l, test) = [x for x in l where test(x)]
+print(Apply(fn(x) = x * 2, 21))
+// out: 42
+let limit = 3
+print(Keep([1, 5, 2, 8], fn(n) = n > limit))
+// out: [5, 8]
+names = ["blast", "pit", "crusher", "ore"]
+names.Sort(fn(a, b) = a.Length < b.Length)
+print(names)
+// out: ["pit", "ore", "blast", "crusher"]
+let by = 3
+let nums = [5, 3, 9, 1, 4]
+nums.Sort(fn(a, b) = a mod by < b mod by)
+print(nums)
+// out: [3, 9, 1, 4, 5]
+sq = fn(x) = x * x
+print(sq(4))
+// out: 16
+print(sq(1.5))
+// out: 2.25
+// copies: changing a variable afterwards does not change what the function holds
+var k = 10
+times = fn(x) = x * k
+k = 20
+print(times(2))
+// out: 20
+// inside a method it sees the object's properties
+class Pit
+  Depth = 10.0
+  fn Deeper(l) = Keep(l, fn(d) = d > Depth)
+end
+p = Pit(Depth: 12)
+print(p.Deeper([5.0, 15.0, 20.0]))
+// out: [15, 20]
+// made inside a type-free function: one for each set of types
+fn Scale(l, k) = [Apply(fn(v) = v * k, x) for x in l]
+print(Scale([1, 2], 3))
+// out: [3, 6]
+print(Scale([1, 2], 0.5))
+// out: [0.5, 1]
+add = fn(a, b: float) = a + b
+print(add(1, 2))
+// out: 3
+// one inside another
+fn Twice(f) = fn(x) = f(f(x))
+print(Twice(fn(x) = x + 3)(1))
+// out: 7

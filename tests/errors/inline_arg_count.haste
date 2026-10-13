@@ -1,0 +1,4 @@
+// an inline function is called with as many values as it has parameters
+f = fn(x) = x + 1
+print(f(1, 2))
+// error: inline_arg_count.haste:3: the inline function on line 2 expects 1 argument(s), got 2

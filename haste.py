@@ -9,7 +9,7 @@
     python haste.py words [examples/bank.haste]         (names an editor should colour)
     python haste.py setup                               (download Zig, the C compiler, into tools/zig)
 """
-import os, re, sys, shutil, subprocess
+import copy, os, re, sys, shutil, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -151,6 +151,8 @@ def shown(t):
 
 
 class Parser:
+    inline = 0                                           # inline functions made so far: each gets its own name
+
     def __init__(s, toks, lines=()):
         s.t, s.p, s.lines, s.opens, s.misfit = toks, 0, lines, [], None
         if toks: N.current_file = toks[0].file
@@ -478,6 +480,21 @@ class Parser:
         if t.kind == 'STR': return s.string(t)
         if t.kind == 'NAME': return N('name', L, name=t.val)
         if t.kind == 'KW' and t.val in ('true', 'false'): return N('bool', L, v=t.val == 'true')
+        if t.kind == 'KW' and t.val == 'fn':                # fn(a, b) = expression: an inline function
+            Parser.inline += 1
+            f = N('fn', L, name=f'#{Parser.inline}', params=[], ret=None, body=None, cname=None)
+            s.eat('(')
+            while not s.at(')'):
+                p = s.peek(); pn = s.name(); pt = None
+                if any(pn == q for q, _ in f.params): s.error(f'parameter {pn} is listed twice', p)
+                if s.at(':'): s.next(); pt = s.type()
+                f.params.append((pn, pt))
+                if not s.at(')'): s.eat(',')
+            s.eat(')')
+            if s.at(':'): s.next(); f.ret = s.type()
+            if not s.at('='): s.fail("an inline function is fn(parameters) = expression; expected '='")
+            s.next(); f.expr = s.expr()
+            return N('lambda', L, fn=f)
         if t.kind == 'OP' and t.val == '(':
             e = s.expr()
             if not s.at(')'): s.unclosed_bracket(')', '(', L)
@@ -675,8 +692,16 @@ def kv(t):
     raise HasteError(f'bad dictionary type {t}')
 
 
+FN_LABELS = {}                                      # '#3' -> 'the inline function on line 12'
+
+
+def fname(t):
+    """'function Text.Upper' -> 'Text.Upper'; an inline function by where it is."""
+    return FN_LABELS.get(t[9:], t[9:])
+
+
 def mangle(t):
-    if t.startswith('function '): return 'F_' + t[9:].replace('.', '_')
+    if t.startswith('function '): return 'F_' + t[9:].replace('.', '_').replace('#', '0')   # no name starts with 0
     if t.startswith('['): return 'L' + mangle(t[1:-1])
     if t.startswith('{'): k, v = kv(t); return 'D' + mangle(k) + '_' + mangle(v) + '_E'
     return {'int': 'i', 'float': 'f', 'string': 's', 'bool': 'b'}.get(t, t.replace('.', '_'))
@@ -688,6 +713,15 @@ def returns_value(stmts):
         kids = [b for _, b in getattr(st, 'arms', [])] + [getattr(st, k, None) for k in ('els', 'body', 'handler')]
         if any(isinstance(b, list) and returns_value(b) for b in kids): return True
     return False
+
+
+def names_in(e):
+    """Every name an expression uses, nested expressions included (in order, with repeats)."""
+    if isinstance(e, N):
+        if e.kind == 'name': yield e.name
+        for v in e.__dict__.values(): yield from names_in(v)
+    elif isinstance(e, (list, tuple)):
+        for v in e: yield from names_in(v)
 
 
 def dotted(e):
@@ -714,6 +748,7 @@ class Gen:
         g.pending, g.pending_vars = {}, {}          # empty lists whose element type the first Add decides
         g.used = {}
         g.tmp = 0
+        g.inline = {}                        # (inline function, types of what it holds, class) -> its function
 
     def register(g, mod):
         for c in mod.prog.classes.values():
@@ -789,7 +824,8 @@ class Gen:
     # ── types ──
     def ctype(g, t):
         if t in PRIM: return PRIM[t]
-        if t.startswith('function '): return 'char'      # nothing to hold: the type itself says which function
+        if t.startswith('function '):                    # the type itself says which function: nothing to hold,
+            return getattr(g.fnrefs[t][1], 'ctx', None) or 'char'    # unless it is inline and holds variables
         if t[1:2] == '?': return f'@@P{t[2:-1]}@@*'       # filled in once the first Add or d[k] = v is seen
         if t.startswith('['): return g.list_type(t[1:-1]) + '*'
         if t.startswith('{'): return g.dict_type(*kv(t)) + '*'
@@ -799,7 +835,7 @@ class Gen:
     def list_type(g, elem):
         if elem in g.list_types: return g.list_types[elem]
         if elem.startswith('function '):
-            raise HasteError(f'{elem[9:]} is a function: functions can be passed to a function and called, '
+            raise HasteError(f'{fname(elem)} is a function: functions can be passed to a function and called, '
                              'but not kept in a list or dictionary')
         et = g.ctype(elem)
         name = 'L_' + mangle(elem)
@@ -903,7 +939,8 @@ static {name} *{name}_of(int n, ...) {{
             if vals:
                 c, t, a = vals[0]
                 if not t.startswith('function '): g.err(a, 'Sort takes a function that says whether one item goes before another')
-                return f'{g.sort_fn(lt, t, a)}({oc})', 'void'
+                held = getattr(g.fnrefs[t][1], 'ctx', None)
+                return f'{g.sort_fn(lt, t, a)}({oc}{", " + c if held else ""})', 'void'
             if et not in ('int', 'float', 'string', 'bool'):
                 g.err(e, f'a list of {et} has no natural order; give Sort a function, e.g. Sort(Before) with fn Before(a, b) = ...')
             return f'{g.sort_fn(lt, None, e)}({oc})', 'void'
@@ -969,16 +1006,19 @@ static {L} *{L}_copy({L} *l) {{ return {L}_slice(l, 0, l->count); }}''')
         if ft:
             mod, fn = g.fnrefs[ft]
             g.mark(mod, fn.name)
-            if len(fn.params) != 2: g.err(node, f'{fn.name} must take two items to say whether the first goes before the second')
+            label = FN_LABELS.get(fn.name, fn.name)
+            if len(fn.params) != 2: g.err(node, f'{label} must take two items to say whether the first goes before the second')
             cname, ret = g.specialize(mod, fn, None, (et, et), node)
-            if ret != 'bool': g.err(node, f'{fn.name} must give true or false, not {ret}')
-            before = lambda a, b: f'{cname}({a}, {b})'
+            if ret != 'bool': g.err(node, f'{label} must give true or false, not {ret}')
+            held = getattr(fn, 'ctx', None)
+            before = lambda a, b: f'{cname}({"_c, " if held else ""}{a}, {b})'
         elif et == 'string':
             before = lambda a, b: f'(strcmp({a}, {b}) < 0)'
         else:
             before = lambda a, b: f'({a} < {b})'
         atomic = int(et in ('int', 'float', 'bool'))
-        g.funcs.append(f'''static void {name}({L} *l) {{
+        ctx = getattr(g.fnrefs[ft][1], 'ctx', None) if ft else None
+        g.funcs.append(f'''static void {name}({L} *l{f", {ctx} _c" if ctx else ""}) {{
     long long n = l->count;
     if (n < 2) return;
     {T} *tmp = {'hs_alloc_atomic' if atomic else 'hs_alloc'}(sizeof({T}) * (size_t)n);
@@ -1193,7 +1233,7 @@ static {name} *{name}_of(int n, ...) {{
             g.settle(frm, to); return code
         if frm == 'int' and to == 'float': return f'(double)({code})'
         if frm.startswith('function ') and to.startswith('function '):
-            g.err(node, f'this holds the function {to[9:]}, so it cannot take {frm[9:]}: a variable or parameter that '
+            g.err(node, f'this holds the function {fname(to)}, so it cannot take {fname(frm)}: a variable or parameter that '
                         'holds a function always holds the same one')
         g.err(node, f'expected {to}, got {frm}')
 
@@ -1320,11 +1360,12 @@ static {name} *{name}_of(int n, ...) {{
         g.funcs.append(sig + ' {\n' + '\n'.join(body) + '\n}')
 
     # ── functions: one C version per combination of argument types ──
-    def call_fn(g, mod, f, args, node, env, cls=None, obj=None):
-        if any(nm for nm, _ in args): g.err(node, f'{f.name} takes positional arguments')
+    def call_fn(g, mod, f, args, node, env, cls=None, obj=None, ctx=None):
+        label = FN_LABELS.get(f.name, f.name)
+        if any(nm for nm, _ in args): g.err(node, f'{label} takes positional arguments')
         if len(args) != len(f.params):
-            g.err(node, f'{f.name} expects {len(f.params)} argument(s), got {len(args)}')
-        codes, types = ([obj] if cls else []), []
+            g.err(node, f'{label} expects {len(f.params)} argument(s), got {len(args)}')
+        codes, types = ([obj] if cls else []) + ([ctx] if getattr(f, 'ctx', None) else []), []
         for (_, a), (pn, pt) in zip(args, f.params):
             pt = pt and g.tname(pt, Env(mod), f)
             c, t = g.expr(a, env, pt)
@@ -1350,16 +1391,24 @@ static {name} *{name}_of(int n, ...) {{
             if s.hint: return s.cname, s.hint
             g.err(node, f'{f.name} calls itself before its result type is known; '
                         f'write its type, e.g. fn {f.name}(...): int')
-        base = f'{cls.cname}_m_{f.name}' if cls else f'{mod.cprefix}_{f.name}'
+        inline = f.name.startswith('#')
+        base = f'hs_inline{f.name[1:].split("_")[0]}' if inline else f'{cls.cname}_m_{f.name}' if cls else f'{mod.cprefix}_{f.name}'
         generic = any(pt is None for _, pt in f.params)
         cname = base + ('__' + '_'.join(mangle(t) for t in types) if generic else '')
         s = N('spec', cname=cname, ret=None, hint=None, rets=[], f=f, top=f.expr, generic=generic,
-              label=f'{cls.name + "." if cls else ""}{f.name}({", ".join(types)})')
+              label=f'{cls.name + "." if cls else ""}{FN_LABELS.get(f.name, f.name)}({", ".join(types)})')
         if f.ret: s.ret = g.tname(f.ret, Env(mod), f)
         elif f.body is not None and not returns_value(f.body): s.ret = 'void'
         g.specs[key] = s
         env = Env(mod, cls); env.spec = s
         if cls: env.vars['self'] = (cls.qname, False, 'self')
+        held = []                                    # an inline function's copies of the variables it uses
+        if inline:
+            env.cls = f.cls
+            for i, (n, t) in enumerate(f.captures):
+                local = 'self' if n == 'self' else f'v_{n}'
+                env.vars[n] = (t, False, local)
+                if f.ctx: held.append(f'    {g.ctype(t)} {local} = _c.k{i};')
         for (pn, _), t in zip(f.params, types):
             env.vars[pn] = (t, False, 'v_' + pn); env.params.add(pn)
         try:
@@ -1378,7 +1427,8 @@ static {name} *{name}_of(int n, ...) {{
                 raise HasteError(f'{ex}\n  in {s.label}, called from {node.file}:{node.line}')
             raise
         s.ret = ret
-        params = ([f'C_{cls.cname} *self'] if cls else []) + \
+        body = held + body
+        params = ([f'C_{cls.cname} *self'] if cls else []) + ([f'{f.ctx} _c'] if inline and f.ctx else []) + \
                  [f'{g.ctype(t)} v_{pn}' for (pn, _), t in zip(f.params, types)]
         sig = f'static {g.ctype(ret)} {cname}({", ".join(params) or "void"})'
         g.protos.append(sig + ';')
@@ -1694,13 +1744,14 @@ static {name} *{name}_of(int n, ...) {{
             elem_want = want[1:-1] if want and want.startswith('[') else None
             items = [g.expr(x, env, elem_want) for x in e.items]
             for (_, t), x in zip(items, e.items):
-                if t.startswith('function '): g.err(x, f'{t[9:]} is a function: functions can be passed to a function '
+                if t.startswith('function '): g.err(x, f'{fname(t)} is a function: functions can be passed to a function '
                                                        'and called, but not kept in a list or dictionary')
             et = elem_want or ('float' if any(t == 'float' for _, t in items) and all(is_num(t) for _, t in items)
                                else items[0][1])
             codes = [g.coerce(c, t, et, x) for (c, t), x in zip(items, e.items)]
             return f'{g.list_type(et)}_of({len(codes)}, {", ".join(codes)})', f'[{et}]'
         if k == 'comp': return g.comprehension(e, env, want)
+        if k == 'lambda': return g.inline_fn(e, env)
         if k == 'dict':
             if not e.pairs:
                 if not (want and want.startswith('{')): return g.new_pending('{')
@@ -1757,6 +1808,30 @@ static {name} *{name}_of(int n, ...) {{
         if k == 'call': return g.call(e, env)
         g.err(e, f'unknown expression {k}')
 
+    def inline_fn(g, e, env):
+        """fn(x) = expression. It holds copies of the variables it uses from around it, in a struct passed to it
+        as its first argument; one that uses none is like a named function, with nothing to hold. Each place
+        it is made, with the types the variables have there, is a function of its own."""
+        params = {pn for pn, _ in e.fn.params}
+        names = [n for n in dict.fromkeys(names_in(e.fn.expr)) if n not in params and env.lookup(n)]
+        if env.cls and env.lookup('self') and 'self' not in names: names.append('self')
+        caps = [(n,) + env.lookup(n)[0:1] + env.lookup(n)[2:3] for n in names]      # (name, type, C code)
+        key = (id(e.fn), tuple(t for _, t, _ in caps), env.cls and env.cls.qname)
+        if key not in g.inline:
+            g.inline[key] = f = copy.copy(e.fn)
+            f.name = f'#{len(g.inline)}_{e.fn.name[1:]}'
+            FN_LABELS[f.name] = f'the inline function on line {e.line}'
+            f.captures, f.cls = [(n, t) for n, t, _ in caps], env.cls
+            f.ctx = f'hs_inline{len(g.inline)}_ctx' if caps else None
+            if caps:
+                g.structs.append('typedef struct {\n' + '\n'.join(f'    {g.ctype(t)} k{i};' for i, (_, t, _) in enumerate(caps))
+                                 + f'\n}} {f.ctx};')
+            g.fnrefs['function ' + f.name] = (env.mod, f)
+        f = g.inline[key]
+        t = 'function ' + f.name
+        if not caps: return '0', t
+        return f'(({f.ctx}){{ ' + ', '.join(c for _, _, c in caps) + ' })', t
+
     def comprehension(g, e, env, want):
         """[value for x in source where condition]: a new list, filled by a loop inside the expression."""
         inner = env.child()
@@ -1787,7 +1862,7 @@ static {name} *{name}_of(int n, ...) {{
         ew = want[1:-1] if want and want.startswith('[') and '?' not in want else None
         vc, vt = g.expr(e.value, inner, ew)
         if vt == 'void': g.err(e.value, 'that expression has no value')
-        if vt.startswith('function '): g.err(e.value, f'{vt[9:]} is a function: functions can be passed to a function '
+        if vt.startswith('function '): g.err(e.value, f'{fname(vt)} is a function: functions can be passed to a function '
                                                       'and called, but not kept in a list or dictionary')
         et = ew if ew and (ew == vt or (vt == 'int' and ew == 'float')) else g.known(vt, e.value)
         L = g.list_type(et)
@@ -1902,6 +1977,8 @@ static {name} *{name}_of(int n, ...) {{
         elif k == 'interp':
             for part in e.parts:
                 if not isinstance(part, str): g.check(part[0], m, c, scopes)
+        elif k == 'lambda':
+            g.check(e.fn.expr, m, c, scopes + [{pn for pn, _ in e.fn.params}])
         elif k == 'comp':
             g.check(e.a, m, c, scopes)
             if e.b: g.check(e.b, m, c, scopes)
@@ -1987,9 +2064,10 @@ static {name} *{name}_of(int n, ...) {{
         if f.kind == 'name' and f.name in BUILTINS and not env.lookup(f.name):
             return g.builtin(f.name, e, env)
         if f.kind == 'name' and (env.lookup(f.name) or ('',))[0].startswith('function '):
-            mod, fn = g.fnrefs[env.lookup(f.name)[0]]
+            t, _, held = env.lookup(f.name)
+            mod, fn = g.fnrefs[t]
             g.mark(mod, fn.name)
-            return g.call_fn(mod, fn, e.args, e, env)
+            return g.call_fn(mod, fn, e.args, e, env, ctx=held)
         if f.kind == 'name' and env.cls and f.name in env.cls.methods and not env.lookup(f.name):
             return g.call_fn(env.mod, env.cls.methods[f.name], e.args, e, env, env.cls, 'self')
         parts = dotted(f)
@@ -2034,6 +2112,16 @@ static {name} *{name}_of(int n, ...) {{
                 cls = g.classes[ot]
                 return g.call_fn(cls.mod, cls.methods[f.name], e.args, e, env, cls, oc)
             g.err(e, f'{ot} has no method {f.name}')
+        fc, ft = g.expr(f, env)                      # a function that a call or an index gives
+        if ft.startswith('function '):
+            mod, fn = g.fnrefs[ft]
+            g.mark(mod, fn.name)
+            if getattr(fn, 'ctx', None):
+                held = g.fresh()
+                c, t = g.call_fn(mod, fn, e.args, e, env, ctx=held)
+                return f'({{ {fn.ctx} {held} = {fc}; {c}; }})', t
+            c, t = g.call_fn(mod, fn, e.args, e, env)
+            return f'({{ (void)({fc}); {c}; }})', t
         g.err(e, 'that cannot be called')
 
     def construct(g, cls, e, env):

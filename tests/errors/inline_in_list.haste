@@ -1,0 +1,3 @@
+// functions are not kept in lists, inline ones included
+l = [fn(x) = x]
+// error: inline_in_list.haste:2: the inline function on line 2 is a function: functions can be passed to a function and called, but not kept in a list or dictionary

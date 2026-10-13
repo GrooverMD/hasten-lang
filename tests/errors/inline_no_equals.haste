@@ -1,0 +1,3 @@
+// an inline function is one expression
+f = fn(x)
+// error: inline_no_equals.haste:2: an inline function is fn(parameters) = expression; expected '='

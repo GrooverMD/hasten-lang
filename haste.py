@@ -485,6 +485,12 @@ class Parser:
         if t.kind == 'OP' and t.val == '[':
             items = []
             s.skipnl()
+            if not s.at(']'):
+                first = s.expr(); s.skipnl()
+                if s.at('for'):                           # [value for x in source where condition]
+                    return s.comprehension(first, L)
+                items.append(first)
+                s.sep(']', '[', L); s.skipnl()
             while not s.at(']'):
                 items.append(s.expr()); s.skipnl()
                 s.sep(']', '[', L); s.skipnl()
@@ -500,6 +506,15 @@ class Parser:
             return N('dict', L, pairs=pairs)
         s.p -= 1
         s.fail('expected an expression')
+
+    def comprehension(s, value, L):
+        s.eat('for'); v = s.name(); s.eat('in'); a = s.expr(); b = cond = None
+        if s.at('..'): s.next(); b = s.expr()
+        if s.at('where'): s.next(); cond = s.expr()
+        s.skipnl()
+        if not s.at(']'): s.unclosed_bracket(']', '[', L)
+        s.next()
+        return N('comp', L, value=value, var=v, a=a, b=b, cond=cond)
 
     def string(s, t):
         """"Hello {Name}" -> literal pieces and (expression, decimals) pieces."""
@@ -1685,6 +1700,7 @@ static {name} *{name}_of(int n, ...) {{
                                else items[0][1])
             codes = [g.coerce(c, t, et, x) for (c, t), x in zip(items, e.items)]
             return f'{g.list_type(et)}_of({len(codes)}, {", ".join(codes)})', f'[{et}]'
+        if k == 'comp': return g.comprehension(e, env, want)
         if k == 'dict':
             if not e.pairs:
                 if not (want and want.startswith('{')): return g.new_pending('{')
@@ -1740,6 +1756,44 @@ static {name} *{name}_of(int n, ...) {{
             return f'{g.list_type(ot[1:-1])}_get({oc}, {ic})', ot[1:-1]
         if k == 'call': return g.call(e, env)
         g.err(e, f'unknown expression {k}')
+
+    def comprehension(g, e, env, want):
+        """[value for x in source where condition]: a new list, filled by a loop inside the expression."""
+        inner = env.child()
+        r, src, a_, b_ = g.fresh(), g.fresh(), g.fresh(), g.fresh()
+        var = 'v_' + e.var
+        if e.b is not None:                          # the ends are worked out before x exists, as in for
+            a, at = g.expr(e.a, env); b, bt = g.expr(e.b, env)
+            if at != 'int' or bt != 'int': g.err(e, 'a range needs whole numbers')
+            inner.vars[e.var] = ('int', False, var)
+            head = [f'long long {a_} = {a}, {b_} = {b};',
+                    f'for (long long {var} = {a_}; {var} <= {b_}; {var}++) {{']
+            tail = [f'if ({var} == {b_}) break; }}']     # so b can be the largest whole number
+        else:
+            c, t = g.expr(e.a, env)
+            if t[:1] not in '[{': g.err(e.a, f'cannot loop over {t}')
+            g.known(t, e.a)
+            if t.startswith('{'):                    # a dictionary: its keys
+                k, _ = kv(t); dt = g.dict_type(k, _)
+                inner.vars[e.var] = (k, False, var)
+                head = [f'{dt} *{src} = {c};', f'for (long long {a_} = 0; {a_} < {src}->used; {a_}++) {{',
+                        f'if ({src}->dead[{a_}]) continue;', f'{g.ctype(k)} {var} = {src}->keys[{a_}];']
+            else:
+                et = t[1:-1]
+                inner.vars[e.var] = (et, False, var)
+                head = [f'{g.list_type(et)} *{src} = {c};', f'for (long long {a_} = 0; {a_} < {src}->count; {a_}++) {{',
+                        f'{g.ctype(et)} {var} = {src}->items[{a_}];']
+            tail = ['}']
+        ew = want[1:-1] if want and want.startswith('[') and '?' not in want else None
+        vc, vt = g.expr(e.value, inner, ew)
+        if vt == 'void': g.err(e.value, 'that expression has no value')
+        if vt.startswith('function '): g.err(e.value, f'{vt[9:]} is a function: functions can be passed to a function '
+                                                      'and called, but not kept in a list or dictionary')
+        et = ew if ew and (ew == vt or (vt == 'int' and ew == 'float')) else g.known(vt, e.value)
+        L = g.list_type(et)
+        add = f'{L}_add({r}, {g.coerce(vc, vt, et, e.value)});'
+        if e.cond is not None: add = f'if ({g.cond(e.cond, inner)}) {add}'
+        return f'({{ {L} *{r} = {L}_new(); ' + ' '.join(head + [add] + tail) + f' {r}; }})', f'[{et}]'
 
     # ── checking code nothing calls ──
     # Only reachable code is generated, so a typo in a function nobody calls yet would wait until someone
@@ -1848,6 +1902,12 @@ static {name} *{name}_of(int n, ...) {{
         elif k == 'interp':
             for part in e.parts:
                 if not isinstance(part, str): g.check(part[0], m, c, scopes)
+        elif k == 'comp':
+            g.check(e.a, m, c, scopes)
+            if e.b: g.check(e.b, m, c, scopes)
+            inner = scopes + [{e.var}]
+            g.check(e.value, m, c, inner)
+            if e.cond: g.check(e.cond, m, c, inner)
         else:
             for sub in (getattr(e, 'items', None) or []): g.check(sub, m, c, scopes)
             for a, b in (getattr(e, 'pairs', None) or []): g.check(a, m, c, scopes); g.check(b, m, c, scopes)

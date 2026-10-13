@@ -1,0 +1,3 @@
+// a list is built from a range, a list or a dictionary
+print([x for x in 5])
+// error: comprehension_source.haste:2: cannot loop over int

@@ -1,0 +1,4 @@
+// the loop variable is known only inside the brackets, even in code nothing calls
+fn F() = [x for x in 1..3]
+fn G() = x
+// error: comprehension_unknown.haste:3: unknown name x

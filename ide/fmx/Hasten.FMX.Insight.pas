@@ -7,7 +7,11 @@ unit Hasten.FMX.Insight;
 
   As in Hasten for VCL it watches the mouse with a timer: a name under a still mouse for Delay milliseconds
   gets its tip, and the tip goes as soon as the mouse leaves the name, the caret moves or the text scrolls.
-  The tip is a rectangle drawn on the form above everything, so it never takes the focus. }
+  The tip is a rectangle drawn on the form above everything, so it never takes the focus.
+
+  The form passes on where the mouse is (MouseAt, from its MouseMove), in the form's own coordinates. Asking
+  Windows (Screen.MousePos, ScreenToClient) gives the window's client area, which since HasteSlate draws the
+  title bar includes the title bar too: every point came out a title bar too low, on no name. }
 
 interface
 
@@ -28,6 +32,7 @@ type
     FEnabled: Boolean;
     FDelay: Integer;
     FLastPos: TPointF;
+    FMouse: TPointF;                            // where the form last saw the mouse
     FStill: Integer;                            // timer ticks the mouse has not moved
     FShown: Boolean;
     FShownTab: TEditorTab;
@@ -43,6 +48,7 @@ type
     constructor Create(AForm: TCommonCustomForm; ATabs: TTabControl); reintroduce;
     destructor Destroy; override;
     procedure Hide;
+    procedure MouseAt(const P: TPointF);        // the form's MouseMove, in form coordinates
     property Names: THasteNames read FNames;                 // what haste.py says about each name
     property Enabled: Boolean read FEnabled write SetEnabled;
     property Delay: Integer read FDelay write SetDelay;      // milliseconds of stillness before a tip
@@ -113,7 +119,7 @@ begin
     Hide;
     Exit;
   end;
-  Pos := FForm.ScreenToClient(Screen.MousePos);
+  Pos := FMouse;
   Tab := ActiveEditor;
   if FShown then                                // keep the tip while the mouse stays on the name
   begin
@@ -170,6 +176,11 @@ begin
   FTip.Visible := True;
   FTip.BringToFront;
   FShown := True;
+end;
+
+procedure THasteInsight.MouseAt(const P: TPointF);
+begin
+  FMouse := P;
 end;
 
 procedure THasteInsight.Hide;

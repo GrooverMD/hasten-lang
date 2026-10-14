@@ -268,6 +268,7 @@ type
     procedure LoadStyle;
   public
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
   end;
 
 var
@@ -346,6 +347,13 @@ begin
     NewTab;
   UpdateStatus;
   RefreshWords;
+end;
+
+{ Every mouse move reaches the form first, in the coordinates its controls use: Help Insight's only source. }
+procedure TMainForm.MouseMove(Shift: TShiftState; X, Y: Single);
+begin
+  inherited;
+  if FInsight <> nil then FInsight.MouseAt(PointF(X, Y));
 end;
 
 { The form moves the focus on Tab before the focused control sees the key, and before OnKeyDown, so Tab in an

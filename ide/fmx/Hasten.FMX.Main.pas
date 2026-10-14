@@ -216,6 +216,7 @@ type
     FRecentTiles: TLayout;                     // Home's recent projects, made anew by BuildRecentMenu
     FRibbonPage: TTabItem;                     // the ribbon page on show: File only opens the File panel
     FOptionsButton: TSpeedButton;
+    FInsightMark: TRectangle;                  // lights up the ribbon's Insight button while Help Insight is on
     function OpenProject(const Path: string): Boolean;
     function CloseProject: Boolean;
     function CloseAllTabs: Boolean;
@@ -436,6 +437,7 @@ var
   S: string;
 begin
   WireCaptionButtons;                           // the frame is made again after full screen: its button too
+  if FInsightMark <> nil then FInsightMark.Visible := InsightAction.Checked;
   SaveAction.Enabled := ActiveTab <> nil;
   SaveAsAction.Enabled := ActiveTab <> nil;
   CloseAction.Enabled := ActiveTab <> nil;
@@ -866,7 +868,9 @@ begin
       TCodeSyntaxHaste.ScanAliases(ActiveTab.Memo.Lines);
     for I := 0 to Tabs.TabCount - 1 do
       TEditorTab(Tabs.Tabs[I]).Recolour;
-  end;
+  end
+  else if not Stopped then                      // say so: without it there are no tips and no colours
+    StatusLabel.Text := Format('haste.py words failed (exit code %d): no Help Insight', [ExitCode]);
   FWordsFinished.Free;
   FWordsFinished := FWordsRunner;
   FWordsRunner := nil;
@@ -1039,7 +1043,6 @@ var
         if Items[I].Action.ShortCut <> 0 then
           B.Hint := B.Hint + ' (' + KeysText(Items[I].Action.ShortCut) + ')';
         B.ShowHint := True;
-        B.StaysPressed := Items[I].Action.AutoCheck;  // Help Insight shows whether it is on
         B.Parent := Group;
 {$IFDEF MSWINDOWS}
         Icon := TText.Create(B);
@@ -1054,6 +1057,18 @@ var
         B.TagObject := Icon;
 {$ENDIF}
         if Items[I].Action = OptionsAction then FOptionsButton := B;
+        if Items[I].Action = InsightAction then    // on or off: a lit background, not StaysPressed, whose own
+        begin                                      // toggle fought the action's AutoCheck and turned it off
+          FInsightMark := TRectangle.Create(B);
+          FInsightMark.Parent := B;
+          FInsightMark.Align := TAlignLayout.Contents;
+          FInsightMark.HitTest := False;
+          FInsightMark.XRadius := 3;
+          FInsightMark.YRadius := 3;
+          FInsightMark.Fill.Color := $400F90CA;    // HasteSlate's accent, see-through
+          FInsightMark.Stroke.Color := $FF0F90CA;
+          FInsightMark.SendToBack;
+        end;
         Inc(N);
       end;
     if Group <> nil then Group.Width := N * 65;
@@ -1421,6 +1436,8 @@ end;
 procedure TMainForm.InsightActionExecute(Sender: TObject);
 begin
   FInsight.Enabled := InsightAction.Checked;    // AutoCheck: already toggled when this runs
+  if Sender <> nil then
+    if InsightAction.Checked then StatusLabel.Text := 'Help Insight on' else StatusLabel.Text := 'Help Insight off';
 end;
 
 procedure TMainForm.SettingsActionExecute(Sender: TObject);
